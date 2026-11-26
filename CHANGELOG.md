@@ -2,6 +2,10 @@
 
 ## 2026-11-26
 
+- Closed an MFA exemption that allowed privileged session revocation before confirmed enrollment; a regression test verifies the request is blocked.
+- Made deployment verify the queue worker and scheduler and automatically restore the previous stable release when web or worker health checks fail; recovery is rechecked and deploy still exits nonzero.
+- Initialized customer consent controls from the latest saved record so an opt-out cannot appear selected after reopening the profile; added a reload regression flow.
+- Added webhook and inbox coverage for safely displaying non-text messages without retaining provider media identifiers or downloading files.
 - Added permission-checked approved WhatsApp template replies from the shared inbox, with centralized variable mapping, consent and eligibility rechecks, idempotent request keys, uncertain-send blocking, and stale-dispatch reconciliation. Added backend and mobile browser coverage; live Meta delivery remains unverified.
 - Hardened `make rollback` to restart and verify the queue worker and scheduler as well as web health before reporting success; fake-Docker checks cover worker and startup failures.
 - Added a scheduled-message inbox with status filtering, safe cancellation, permission-checked manual retry for definitive failures, bounded retries, audited CQRS actions, and a responsive page. Uncertain provider delivery cannot be retried.
