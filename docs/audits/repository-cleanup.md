@@ -45,9 +45,9 @@ This repository is not yet a complete CRM or production-ready system. Inactive-c
 
 ## Verification and limits
 
-- `php artisan route:list --except-vendor` lists 71 non-vendor routes; no booking, appointment, availability, payment or subscription endpoints appeared.
+- `php artisan route:list --except-vendor` lists 74 non-vendor routes; no booking, appointment, availability, payment or subscription endpoints appeared.
 - `php artisan test --compact` passed 93 tests (558 assertions), including visit correction, void/restore and business-timezone handling alongside customer privacy, automation, consent, inbox, templates, analytics, security and webhook behavior.
 - `composer analyse` passed at PHPStan level 5.
 - Pint, ESLint, TypeScript, Prettier, and the Vite production build passed.
 - `composer validate --no-check-publish`, `composer audit --locked`, and Docker Compose configuration validation passed. After switching Inertia pages to lazy imports, the app entry is 44.68 kB and the largest shared runtime chunk is 356.81 kB; Vite reports no chunk above its 500 kB warning threshold.
-- Host `php artisan migrate:status` failed because `pdo_pgsql` is missing. A fresh isolated PostgreSQL 17 container later applied all 19 migrations. The configured database and existing data were not accessed. Production deployment, concurrency against the configured DB, live providers, backups and restoration remain unverified. Docker app, queue, scheduler and web images build; isolated PHP-FPM and Nginx checks pass.
+- Host `php artisan migrate:status` failed because `pdo_pgsql` is missing. A fresh isolated PostgreSQL 17 container later applied all 20 migrations. The configured database and existing data were not accessed. Production deployment, concurrency against the configured DB, live providers, backups and restoration remain unverified. Docker app, queue, scheduler and web images build; isolated PHP-FPM and Nginx checks pass.
