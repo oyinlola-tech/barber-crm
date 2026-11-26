@@ -4,6 +4,7 @@ namespace App\Repositories\Conversations;
 
 use App\Interfaces\Repositories\Conversations\ConversationRepositoryInterface;
 use App\Models\Conversation;
+use App\Models\Message;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ConversationRepository implements ConversationRepositoryInterface
@@ -37,5 +38,19 @@ class ConversationRepository implements ConversationRepositoryInterface
             ->where('business_id', $businessId)
             ->with($relations)
             ->findOrFail($conversationId);
+    }
+
+    public function latestInboundMessageIdForCustomer(int $businessId, int $customerId, string $channel): ?int
+    {
+        $messageId = Message::query()
+            ->where('business_id', $businessId)
+            ->where('direction', 'inbound')
+            ->whereHas('conversation', fn ($query) => $query
+                ->where('business_id', $businessId)
+                ->where('customer_id', $customerId)
+                ->where('channel', $channel))
+            ->max('id');
+
+        return $messageId === null ? null : (int) $messageId;
     }
 }
