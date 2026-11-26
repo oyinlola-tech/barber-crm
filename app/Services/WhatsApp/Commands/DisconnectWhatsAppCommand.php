@@ -2,6 +2,7 @@
 
 namespace App\Services\WhatsApp\Commands;
 
+use App\Models\User;
 use App\Models\WhatsAppConnection;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +13,9 @@ class DisconnectWhatsAppCommand
 
     public function execute(int $businessId, int $userId): void
     {
+        $actor = User::query()->findOrFail($userId);
+        abort_unless($actor->hasBusinessPermission($businessId, 'whatsapp.disconnect'), 403);
+
         DB::transaction(function () use ($businessId, $userId): void {
             $connection = WhatsAppConnection::query()->where('business_id', $businessId)->lockForUpdate()->first();
             if ($connection !== null) {

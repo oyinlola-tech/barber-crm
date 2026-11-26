@@ -5,6 +5,7 @@ namespace App\Services\WhatsApp\Commands;
 use App\Apis\WhatsApp\WhatsAppBusinessApi;
 use App\Dtos\WhatsApp\ConnectWhatsAppDto;
 use App\Errors\WhatsApp\ConnectionVerificationFailed;
+use App\Models\User;
 use App\Models\WhatsAppConnection;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use Illuminate\Http\Client\ConnectionException;
@@ -18,6 +19,9 @@ class ConnectWhatsAppCommand
 
     public function execute(int $businessId, int $userId, ConnectWhatsAppDto $credentials): WhatsAppConnection
     {
+        $actor = User::query()->findOrFail($userId);
+        abort_unless($actor->hasBusinessPermission($businessId, 'whatsapp.configure'), 403);
+
         try {
             $providerDetails = $this->api->verifyConnection(
                 $credentials->phoneNumberId,
