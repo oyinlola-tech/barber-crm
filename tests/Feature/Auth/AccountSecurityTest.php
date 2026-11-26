@@ -8,6 +8,7 @@ use App\Services\Auth\Queries\ListAccountSessionsQuery;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -41,6 +42,13 @@ function insertAccountSession(string $id, int $userId, ?int $lastActivity = null
         'last_activity' => $lastActivity ?? now()->timestamp,
     ]);
 }
+
+it('hashes account passwords with the configured Argon2id driver', function (): void {
+    $user = User::factory()->create(['password' => 'an account password']);
+
+    expect(config('hashing.driver'))->toBe('argon2id')
+        ->and(Hash::info($user->password)['algoName'])->toBe('argon2id');
+});
 
 it('requires confirmed two-factor authentication for the owner and lets them reach the setup page', function (): void {
     $business = accountSecurityBusiness();
