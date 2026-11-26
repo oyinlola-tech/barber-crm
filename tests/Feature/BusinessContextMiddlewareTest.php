@@ -138,3 +138,11 @@ it('adds conservative browser security headers and enables HSTS only for secure 
     expect(fn () => app(SecurityConfig::class)->contentSecurityPolicy())
         ->toThrow(InvalidArgumentException::class);
 });
+
+it('rejects wildcard trusted proxy configuration', function (): void {
+    config(['app.trusted_proxies' => ['*']]);
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->get('/up'))
+        ->toThrow(InvalidArgumentException::class, 'wildcard proxy trust is not allowed');
+});
