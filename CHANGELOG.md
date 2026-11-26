@@ -2,6 +2,9 @@
 
 ## 2026-11-27
 
+- Enforce staff authorization inside visit and consent CQRS commands, including direct non-HTTP invocation, and add regression coverage.
+- Keep conversation activity timestamps monotonic when delayed inbound WhatsApp webhooks arrive; messages and unread counts are still recorded.
+- Report WhatsApp integration health as degraded when the saved token cannot be decrypted, required IDs are missing, or the Graph API version is invalid.
 - Centralized privileged MFA permissions in typed authorization config and extended the gate to staff-removal access.
 - Force secure session cookies in production, add a regression test, and remove the insecure cookie override from the environment template.
 - Recycle the database queue worker hourly under Docker's restart policy.
