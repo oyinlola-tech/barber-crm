@@ -12,6 +12,7 @@ use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Laravel\Fortify\Fortify;
 
 $basePath = dirname(__DIR__, 2);
 require $basePath.'/vendor/autoload.php';
@@ -82,6 +83,24 @@ $user = User::query()->create([
 $user->forceFill(['email_verified_at' => now()])->save();
 $business->members()->attach($user, [
     'role' => 'browser_tester',
+    'status' => 'active',
+    'joined_at' => now(),
+]);
+
+$owner = User::query()->create([
+    'name' => 'Browser Test Owner',
+    'email' => 'crm.owner@example.test',
+    'email_verified_at' => now(),
+    'password' => Hash::make('Browser-only owner password 9842!'),
+]);
+$owner->forceFill([
+    'email_verified_at' => now(),
+    'two_factor_secret' => Fortify::currentEncrypter()->encrypt('JBSWY3DPEHPK3PXP'),
+    'two_factor_recovery_codes' => Fortify::currentEncrypter()->encrypt(json_encode(['browser-recovery-code'], JSON_THROW_ON_ERROR)),
+    'two_factor_confirmed_at' => now(),
+])->save();
+$business->members()->attach($owner, [
+    'role' => 'owner',
     'status' => 'active',
     'joined_at' => now(),
 ]);
