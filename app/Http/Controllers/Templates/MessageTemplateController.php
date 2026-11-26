@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Templates;
 use App\Http\Controllers\Controller;
 use App\Services\Templates\Commands\ConfigureMessageTemplateVariablesCommand;
 use App\Services\Templates\Commands\CreateMessageTemplateDraftCommand;
+use App\Services\Templates\Commands\DeleteMessageTemplateDraftCommand;
 use App\Services\Templates\Commands\SetMessageTemplateEnabledCommand;
 use App\Services\Templates\Commands\SubmitMessageTemplateCommand;
 use App\Services\Templates\Commands\SynchronizeMessageTemplatesCommand;
 use App\Services\Templates\Commands\UpdateMessageTemplateDraftCommand;
 use App\Services\Templates\Queries\ListMessageTemplatesQuery;
 use App\Validators\Templates\ConfigureMessageTemplateVariablesRequest;
+use App\Validators\Templates\DeleteMessageTemplateDraftRequest;
 use App\Validators\Templates\MessageTemplateDraftRequest;
 use App\Validators\Templates\SetMessageTemplateEnabledRequest;
 use Illuminate\Http\RedirectResponse;
@@ -32,6 +34,7 @@ class MessageTemplateController extends Controller
                 'create' => $request->user()->hasBusinessPermission($businessId, 'templates.create'),
                 'update' => $request->user()->hasBusinessPermission($businessId, 'templates.update'),
                 'sync' => $request->user()->hasBusinessPermission($businessId, 'templates.sync'),
+                'delete' => $request->user()->hasBusinessPermission($businessId, 'templates.delete'),
             ],
         ]);
     }
@@ -48,6 +51,17 @@ class MessageTemplateController extends Controller
         $command->execute((int) $request->attributes->get('currentBusiness')->getKey(), $template, (int) $request->user()->getKey(), $request->validated());
 
         return back()->with('success', 'Template draft updated.');
+    }
+
+    public function destroy(DeleteMessageTemplateDraftRequest $request, int $template, DeleteMessageTemplateDraftCommand $command): RedirectResponse
+    {
+        $command->execute(
+            (int) $request->attributes->get('currentBusiness')->getKey(),
+            $template,
+            (int) $request->user()->getKey(),
+        );
+
+        return back()->with('success', 'Local template draft deleted.');
     }
 
     public function submit(Request $request, int $template, SubmitMessageTemplateCommand $command): RedirectResponse
