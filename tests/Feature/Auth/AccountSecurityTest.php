@@ -101,6 +101,20 @@ it('requires MFA for a custom security administrator role', function (): void {
     $this->actingAs($administrator)->get('/dashboard')->assertRedirect(route('account.security'));
 });
 
+it('requires MFA for staff with permission to remove staff access', function (): void {
+    $business = accountSecurityBusiness();
+    $administrator = User::factory()->create();
+    Role::query()->create([
+        'business_id' => $business->getKey(),
+        'name' => 'Staff access administrator',
+        'slug' => 'staff-access-administrator',
+        'permissions' => ['staff.delete'],
+    ]);
+    attachSecurityUser($business, $administrator, 'staff-access-administrator');
+
+    $this->actingAs($administrator)->get('/dashboard')->assertRedirect(route('account.security'));
+});
+
 it('supports confirmed TOTP enrollment and one-time recovery-code sign in', function (): void {
     $business = accountSecurityBusiness();
     $owner = User::factory()->create();

@@ -56,7 +56,7 @@ it('documents configurable application runtime controls in the environment templ
         ->toContain('WHATSAPP_WEBHOOK_MAX_BYTES=1048576')
         ->toContain('AUTOMATION_QUEUED_RECOVERY_AFTER_MINUTES=5')
         ->toContain('AUTOMATION_MINIMUM_CUSTOMER_MESSAGE_INTERVAL_HOURS=72')
-        ->toContain('SESSION_SECURE_COOKIE=false')
+        ->not->toContain('SESSION_SECURE_COOKIE=false')
         ->toContain('SESSION_HTTP_ONLY=true')
         ->toContain('SESSION_SAME_SITE=lax')
         ->not->toContain("AUTOMATION_MANUAL_RETRY_LIMIT=2\nAUTOMATION_MANUAL_RETRY_LIMIT=2");
@@ -65,6 +65,32 @@ it('documents configurable application runtime controls in the environment templ
 
     expect($deploymentInstructions)->toBeString()
         ->toContain('SESSION_SECURE_COOKIE=true');
+});
+
+it('enforces secure session cookies in production even when an insecure override is present', function (): void {
+    $previousEnvironment = $_SERVER['APP_ENV'] ?? null;
+    $previousSecureCookie = $_SERVER['SESSION_SECURE_COOKIE'] ?? null;
+
+    $_SERVER['APP_ENV'] = 'production';
+    $_SERVER['SESSION_SECURE_COOKIE'] = 'false';
+
+    try {
+        $sessionConfiguration = require base_path('config/session.php');
+
+        expect($sessionConfiguration['secure'])->toBeTrue();
+    } finally {
+        if ($previousEnvironment === null) {
+            unset($_SERVER['APP_ENV']);
+        } else {
+            $_SERVER['APP_ENV'] = $previousEnvironment;
+        }
+
+        if ($previousSecureCookie === null) {
+            unset($_SERVER['SESSION_SECURE_COOKIE']);
+        } else {
+            $_SERVER['SESSION_SECURE_COOKIE'] = $previousSecureCookie;
+        }
+    }
 });
 
 it('adds conservative browser security headers and enables HSTS only for secure requests', function (): void {
