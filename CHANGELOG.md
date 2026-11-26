@@ -2,6 +2,7 @@
 
 ## 2026-11-26
 
+- Added owner-managed additional WhatsApp opt-out phrases, with standard withdrawal keywords always retained; covered backend authorization, audit, inbound processing, MFA-protected mobile editing, and persistence after reload. Latest local verification: 126 Pest tests / 844 assertions passed, one PostgreSQL-only host test skipped, and 7 Playwright tests passed.
 - Added the missing WhatsApp settings page, extracted reusable connection status and credential form components, and verified Meta phone/WABA access and phone association before saving encrypted credentials.
 - Added a typed WhatsApp configuration accessor and structured customer/WhatsApp command DTOs; made provider failures safe for the UI and audited privileged disconnections.
 - Removed empty placeholder folders and `.gitkeep` files, including obsolete booking and tenant-isolation scaffolds; retained Laravel's active `app/Http/Middleware` pipeline.
