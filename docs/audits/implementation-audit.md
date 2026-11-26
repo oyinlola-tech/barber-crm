@@ -49,7 +49,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 
 ## Verification results
 
-- `vendor/bin/pest`: 153 passed / 1,101 assertions, with 1 PostgreSQL-only integration test skipped by its host environment guard. Coverage includes manual approved-template inbox replies, uncertain/stalled-send recovery, MFA enforcement on session revocation, safe non-text webhook handling, business-scoped review edits/exports, safe audit exports, webhook notification recipient/duplication/privacy behavior, permission enforcement, and CSV formula protection.
+- `vendor/bin/pest`: 153 passed / 1,109 assertions, with 1 PostgreSQL-only integration test skipped by its host environment guard. Coverage includes manual approved-template inbox replies, uncertain/stalled-send recovery, MFA enforcement on session revocation, per-response CSP nonce matching and rotation, safe non-text webhook handling, business-scoped review edits/exports, safe audit exports, webhook notification recipient/duplication/privacy behavior, permission enforcement, and CSV formula protection.
 - `pnpm test:e2e`: 10 Playwright Chromium tests passed, including persistent consent withdrawal, safe non-text message rendering, mobile template selection after the service window, review editing, owner MFA/settings, staff removal, template deletion, service/category workflows, customer and visit flows, inbox controls, and the read-only page sweep.
 - `composer analyse`: PHPStan/Larastan level 5 passed.
 - `vendor/bin/pint --test`, `pnpm types:check`, `pnpm lint`, `pnpm format:check`, `pnpm build`: passed.
