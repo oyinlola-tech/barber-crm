@@ -2,6 +2,7 @@
 
 ## 2026-11-26
 
+- Added a scheduled-message inbox with status filtering, safe cancellation, permission-checked manual retry for definitive failures, bounded retries, audited CQRS actions, and a responsive page. Uncertain provider delivery cannot be retried.
 - Added owner-authorized staff removal with session and password-reset revocation, personal profile redaction, owner/self safeguards, preserved visit/audit attribution, and a responsive browser workflow.
 - Added safe deletion for unused local WhatsApp template drafts, with permission checks, audit records, and protection for provider templates and automation/scheduled-message references.
 - Added owner-managed additional WhatsApp opt-out phrases, with standard withdrawal keywords always retained; covered backend authorization, audit, inbound processing, MFA-protected mobile editing, and persistence after reload. Latest local verification: 130 Pest tests / 877 assertions passed, one PostgreSQL-only host test skipped, and 9 Playwright tests passed.
