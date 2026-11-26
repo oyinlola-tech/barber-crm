@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
 #[Fillable(['business_id', 'conversation_id', 'scheduled_message_id', 'provider_message_id', 'direction', 'type', 'status', 'body', 'payload', 'sent_at'])]
 class Message extends Model
 {
+    /** @return BelongsTo<Conversation, $this> */
     public function conversation(): BelongsTo
     {
         return $this->belongsTo(Conversation::class);

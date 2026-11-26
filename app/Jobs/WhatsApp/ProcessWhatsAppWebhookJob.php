@@ -10,6 +10,7 @@ use App\Models\WebhookEvent;
 use App\Models\WhatsAppConnection;
 use App\Services\Automations\Commands\CancelCustomerFollowUpsCommand;
 use App\Services\Consent\Commands\RecordConsentCommand;
+use App\Services\Notifications\Commands\NotifyStaffOfInboundMessageCommand;
 use App\Services\Settings\Queries\GetWhatsAppMessagingSettingsQuery;
 use App\Utils\PhoneNumberNormalizer;
 use Carbon\CarbonImmutable;
@@ -35,8 +36,10 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
         RecordConsentCommand $recordConsent,
         CancelCustomerFollowUpsCommand $cancelCustomerFollowUps,
         GetWhatsAppMessagingSettingsQuery $messagingSettings,
+        ?NotifyStaffOfInboundMessageCommand $notifyStaff = null,
     ): void {
-        $processed = DB::transaction(function () use ($phoneNumbers, $recordConsent, $cancelCustomerFollowUps, $messagingSettings): bool {
+        $notifyStaff ??= app(NotifyStaffOfInboundMessageCommand::class);
+        $processed = DB::transaction(function () use ($phoneNumbers, $recordConsent, $cancelCustomerFollowUps, $messagingSettings, $notifyStaff): bool {
             $event = WebhookEvent::query()->lockForUpdate()->findOrFail($this->webhookEventId);
             if ($event->status === 'processed' || $event->business_id === null) {
                 return true;
@@ -54,7 +57,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             }
 
             if (($payload['kind'] ?? null) === 'message') {
-                $this->processInboundMessage($event, $payload, $phoneNumbers, $recordConsent, $cancelCustomerFollowUps, $messagingSettings->execute((int) $event->business_id));
+                $this->processInboundMessage($event, $payload, $phoneNumbers, $recordConsent, $cancelCustomerFollowUps, $messagingSettings->execute((int) $event->business_id), $notifyStaff);
             } elseif (($payload['kind'] ?? null) === 'status') {
                 if (! $this->processDeliveryStatus($event, $payload)) {
                     $event->update(['status' => 'awaiting_message']);
@@ -97,6 +100,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
         RecordConsentCommand $recordConsent,
         CancelCustomerFollowUpsCommand $cancelCustomerFollowUps,
         array $optOutKeywords,
+        NotifyStaffOfInboundMessageCommand $notifyStaff,
     ): void {
         $rawNumber = $payload['from'] ?? null;
         $providerMessageId = $payload['provider_message_id'] ?? null;
@@ -166,6 +170,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             ])->save();
 
             $cancelCustomerFollowUps->execute((int) $event->business_id, (int) $customer->getKey());
+            $notifyStaff->execute((int) $event->business_id, (int) $message->getKey());
 
             $body = $payload['body'] ?? null;
             if (is_string($body) && $this->isOptOut($body, $optOutKeywords)) {
