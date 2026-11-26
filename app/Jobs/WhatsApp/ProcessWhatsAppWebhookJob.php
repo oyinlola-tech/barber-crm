@@ -20,6 +20,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class ProcessWhatsAppWebhookJob implements ShouldQueue
 {
@@ -30,6 +31,15 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
     public array $backoff = [15, 60, 300, 900];
 
     public function __construct(public int $webhookEventId) {}
+
+    public function failed(Throwable $exception): void
+    {
+        WebhookEvent::query()->whereKey($this->webhookEventId)->update([
+            'status' => 'failed',
+            'payload' => ['redacted' => true],
+            'processed_at' => now(),
+        ]);
+    }
 
     public function handle(
         PhoneNumberNormalizer $phoneNumbers,

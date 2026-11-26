@@ -34,6 +34,11 @@ final class WhatsAppConfig
         return max(1024, (int) config('whatsapp.webhook_max_bytes', 1048576));
     }
 
+    public function webhookPayloadRetentionDays(): int
+    {
+        return min(3650, max(1, (int) config('whatsapp.webhook_payload_retention_days', 30)));
+    }
+
     /** @return list<string> */
     public function optOutKeywords(): array
     {

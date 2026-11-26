@@ -23,3 +23,7 @@ Schedule::command('automations:schedule-inactive-customers')
 Schedule::command('operations:record-heartbeat')
     ->everyMinute()
     ->withoutOverlapping(2);
+
+Schedule::command('webhooks:redact-expired-payloads')
+    ->dailyAt('02:30')
+    ->withoutOverlapping(60);
