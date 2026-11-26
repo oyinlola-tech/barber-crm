@@ -7,6 +7,7 @@ use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\Message;
 use App\Models\Role;
+use App\Models\StaffProfile;
 use App\Models\User;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
@@ -96,7 +97,7 @@ $owner = User::query()->create([
 $owner->forceFill([
     'email_verified_at' => now(),
     'two_factor_secret' => Fortify::currentEncrypter()->encrypt('JBSWY3DPEHPK3PXP'),
-    'two_factor_recovery_codes' => Fortify::currentEncrypter()->encrypt(json_encode(['browser-recovery-code'], JSON_THROW_ON_ERROR)),
+    'two_factor_recovery_codes' => Fortify::currentEncrypter()->encrypt(json_encode(['browser-recovery-code', 'browser-staff-recovery-code'], JSON_THROW_ON_ERROR)),
     'two_factor_confirmed_at' => now(),
 ])->save();
 $business->members()->attach($owner, [
@@ -110,6 +111,13 @@ $business->members()->attach($barber, [
     'role' => 'barber',
     'status' => 'active',
     'joined_at' => now(),
+]);
+StaffProfile::query()->create([
+    'business_id' => $business->getKey(),
+    'user_id' => $barber->getKey(),
+    'name' => $barber->name,
+    'email' => $barber->email,
+    'status' => 'active',
 ]);
 $inboxCustomer = Customer::query()->create([
     'business_id' => $business->getKey(),
