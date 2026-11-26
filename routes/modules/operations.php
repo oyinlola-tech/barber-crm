@@ -9,4 +9,5 @@ Route::get('/ready', [OperationalHealthController::class, 'ready'])->name('healt
 Route::middleware(['auth', 'business'])->group(function (): void {
     Route::get('/operations/health', [OperationalHealthController::class, 'show'])->name('operations.health');
     Route::get('/operations/audit', [AuditLogController::class, 'index'])->name('operations.audit');
+    Route::get('/operations/audit/export', [AuditLogController::class, 'export'])->name('operations.audit.export');
 });
