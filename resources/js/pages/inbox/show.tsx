@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ArrowLeft, CheckCheck, MessageCircle, Send } from 'lucide-react';
-import { useEffect, type FormEvent } from 'react';
+import { useEffect, useRef, type FormEvent } from 'react';
 
 type MessageItem = {
     id: number;
@@ -44,6 +44,15 @@ type InboxConversationProps = {
     canReplyPermission: boolean;
     consentGranted: boolean;
     serviceWindowOpen: boolean;
+    canSendTemplate: boolean;
+    templates: Array<{
+        id: number;
+        name: string;
+        language: string;
+        purpose: string | null;
+    }>;
+    status?: string;
+    templateSendBlocked: boolean;
 };
 
 export default function InboxConversationPage({
@@ -56,12 +65,18 @@ export default function InboxConversationPage({
     canReplyPermission,
     consentGranted,
     serviceWindowOpen,
+    canSendTemplate,
+    templates,
+    status,
+    templateSendBlocked,
 }: InboxConversationProps) {
     const reply = useForm({ body: '' });
     const note = useForm({ body: '' });
     const assignment = useForm({
         assignee_id: conversation.assigned_to?.toString() ?? '',
     });
+    const templateReply = useForm({ template_id: '', idempotency_key: '' });
+    const templateRequestKey = useRef<string | null>(null);
 
     useEffect(() => {
         const interval = window.setInterval(() => {
@@ -76,6 +91,9 @@ export default function InboxConversationPage({
                         'canReplyPermission',
                         'consentGranted',
                         'serviceWindowOpen',
+                        'canSendTemplate',
+                        'templates',
+                        'templateSendBlocked',
                     ],
                 });
             }
@@ -88,6 +106,22 @@ export default function InboxConversationPage({
         event.preventDefault();
         reply.post(`/inbox/${conversation.id}/reply`, {
             onSuccess: () => reply.reset(),
+        });
+    }
+
+    function sendTemplateReply(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        templateRequestKey.current ??= crypto.randomUUID();
+        templateReply.setData('idempotency_key', templateRequestKey.current);
+        templateReply.transform((data) => ({
+            ...data,
+            idempotency_key: templateRequestKey.current ?? data.idempotency_key,
+        }));
+        templateReply.post(`/inbox/${conversation.id}/template-reply`, {
+            onSuccess: () => {
+                templateReply.reset();
+                templateRequestKey.current = null;
+            },
         });
     }
 
@@ -115,6 +149,14 @@ export default function InboxConversationPage({
                 title={`${conversation.customer.first_name} ${conversation.customer.last_name ?? ''} conversation`}
             />
             <div className="mx-auto max-w-6xl">
+                {status && (
+                    <p
+                        className="mb-4 rounded-lg border bg-card px-4 py-3 text-sm"
+                        role="status"
+                    >
+                        {status}
+                    </p>
+                )}
                 <Link
                     className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
                     href="/inbox"
@@ -261,7 +303,12 @@ export default function InboxConversationPage({
                                         </button>
                                     </div>
                                 </form>
-                            ) : (
+                            ) : !canReply &&
+                              (!canReplyPermission ||
+                                  !consentGranted ||
+                                  conversation.customer.status !== 'active' ||
+                                  conversation.customer.archived_at !==
+                                      null) ? (
                                 <div className="flex items-start gap-3 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
                                     <MessageCircle
                                         aria-hidden="true"
@@ -273,12 +320,113 @@ export default function InboxConversationPage({
                                             ? 'Your staff role does not permit sending WhatsApp replies.'
                                             : !consentGranted
                                               ? 'Messaging is paused because this customer has not granted WhatsApp consent.'
-                                              : !serviceWindowOpen
-                                                ? 'The 24-hour customer service window is closed. An approved WhatsApp template is required to contact this customer.'
-                                                : 'This customer is inactive or archived, so sending is disabled.'}
+                                              : 'This customer is inactive or archived, so sending is disabled.'}
                                     </p>
                                 </div>
+                            ) : null}
+                            {canSendTemplate && templateSendBlocked && (
+                                <p
+                                    className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+                                    role="alert"
+                                >
+                                    A previous template send has uncertain
+                                    delivery. Do not resend until it is
+                                    reconciled or the customer sends a new
+                                    message.
+                                </p>
                             )}
+                            {canSendTemplate && !templateSendBlocked && (
+                                <form
+                                    className="mt-4 space-y-2 border-t pt-4"
+                                    onSubmit={sendTemplateReply}
+                                >
+                                    <label
+                                        className="text-sm font-medium"
+                                        htmlFor="template-reply"
+                                    >
+                                        Send an approved template
+                                    </label>
+                                    <select
+                                        className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                                        id="template-reply"
+                                        onChange={(event) =>
+                                            templateReply.setData(
+                                                'template_id',
+                                                event.target.value,
+                                            )
+                                        }
+                                        value={templateReply.data.template_id}
+                                    >
+                                        <option value="">
+                                            Choose a template
+                                        </option>
+                                        {templates.map((template) => (
+                                            <option
+                                                key={template.id}
+                                                value={template.id}
+                                            >
+                                                {template.name} (
+                                                {template.language})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {templateReply.errors.template_id && (
+                                        <p className="text-xs text-destructive">
+                                            {templateReply.errors.template_id}
+                                        </p>
+                                    )}
+                                    {templateReply.errors.idempotency_key && (
+                                        <p className="text-xs text-destructive">
+                                            {
+                                                templateReply.errors
+                                                    .idempotency_key
+                                            }
+                                        </p>
+                                    )}
+                                    {templates.length === 0 ? (
+                                        <p className="text-xs text-muted-foreground">
+                                            No enabled, WhatsApp-approved
+                                            templates are available.
+                                        </p>
+                                    ) : (
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-xs text-muted-foreground">
+                                                {serviceWindowOpen
+                                                    ? 'Templates may also be used during the customer service window.'
+                                                    : 'An approved template can be used after the customer service window closes.'}
+                                            </p>
+                                            <button
+                                                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md border px-4 text-sm font-medium disabled:opacity-50"
+                                                disabled={
+                                                    templateReply.processing ||
+                                                    templateReply.data
+                                                        .template_id === ''
+                                                }
+                                                type="submit"
+                                            >
+                                                <Send
+                                                    aria-hidden="true"
+                                                    size={15}
+                                                />
+                                                Send template
+                                            </button>
+                                        </div>
+                                    )}
+                                </form>
+                            )}
+                            {!canReply &&
+                                canReplyPermission &&
+                                consentGranted &&
+                                conversation.customer.status === 'active' &&
+                                conversation.customer.archived_at === null &&
+                                !serviceWindowOpen &&
+                                !canSendTemplate && (
+                                    <p className="mt-3 text-sm text-muted-foreground">
+                                        An approved WhatsApp template is
+                                        required, but the WhatsApp connection is
+                                        not ready.
+                                    </p>
+                                )}
                         </footer>
                     </section>
 

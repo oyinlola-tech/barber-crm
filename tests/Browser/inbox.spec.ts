@@ -24,6 +24,30 @@ test('staff can triage an inbox conversation on a mobile browser', async ({
         0,
     );
 
+    await page.goto('/inbox');
+    await page.getByRole('link', { name: /Template Customer/ }).click();
+    await expect(
+        page.getByRole('heading', { name: 'Template Customer', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByLabel('Send an approved template')).toHaveValue('');
+    await page
+        .getByLabel('Send an approved template')
+        .selectOption({ label: 'browser_return_follow_up (en)' });
+    await expect(page.getByLabel('Send an approved template')).toHaveValue('1');
+
+    await page.goto('/inbox');
+    await page.getByRole('link', { name: /Uncertain Customer/ }).click();
+    await expect(page.getByRole('heading', { name: 'Uncertain Customer', exact: true })).toBeVisible();
+    await expect(
+        page.getByText(/A previous template send has uncertain delivery/),
+    ).toBeVisible();
+    await expect(
+        page.getByLabel('Send an approved template'),
+    ).toHaveCount(0);
+
+    await page.goto('/inbox');
+    await page.getByRole('link', { name: /Inbox Customer/ }).click();
+
     await page.getByLabel('Add an internal note').fill('Call back after 4pm.');
     await page.getByRole('button', { name: 'Add internal note' }).click();
     await expect(page.getByText('Call back after 4pm.')).toBeVisible();

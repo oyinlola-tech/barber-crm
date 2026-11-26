@@ -5,11 +5,14 @@ declare(strict_types=1);
 use App\Models\Business;
 use App\Models\Conversation;
 use App\Models\Customer;
+use App\Models\CustomerConsent;
 use App\Models\Message;
+use App\Models\MessageTemplate;
 use App\Models\Review;
 use App\Models\Role;
 use App\Models\StaffProfile;
 use App\Models\User;
+use App\Models\WhatsAppConnection;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
@@ -160,4 +163,101 @@ Message::query()->create([
     'status' => 'received',
     'body' => 'I had a great haircut.',
     'sent_at' => now(),
+]);
+
+$templateCustomer = Customer::query()->create([
+    'business_id' => $business->getKey(),
+    'created_by' => $user->getKey(),
+    'first_name' => 'Template',
+    'last_name' => 'Customer',
+    'phone' => '+2348011122233',
+]);
+CustomerConsent::query()->create([
+    'business_id' => $business->getKey(),
+    'customer_id' => $templateCustomer->getKey(),
+    'channel' => 'whatsapp',
+    'granted' => true,
+    'source' => 'in_person',
+    'recorded_at' => now()->subDay(),
+]);
+$templateConversation = Conversation::query()->create([
+    'business_id' => $business->getKey(),
+    'customer_id' => $templateCustomer->getKey(),
+    'channel' => 'whatsapp',
+    'status' => 'open',
+    'last_message_at' => now()->subHours(25),
+]);
+$templateConversation->forceFill([
+    'last_customer_message_at' => now()->subHours(25),
+])->save();
+Message::query()->create([
+    'business_id' => $business->getKey(),
+    'conversation_id' => $templateConversation->getKey(),
+    'provider_message_id' => 'wamid.browser-template-inbox',
+    'direction' => 'inbound',
+    'type' => 'text',
+    'status' => 'received',
+    'body' => 'Can you remind me to return?',
+    'sent_at' => now()->subHours(25),
+]);
+WhatsAppConnection::query()->create([
+    'business_id' => $business->getKey(),
+    'phone_number_id' => 'browser-phone-number',
+    'access_token' => 'browser-only-token',
+    'status' => 'connected',
+]);
+MessageTemplate::query()->create([
+    'business_id' => $business->getKey(),
+    'provider_template_id' => 'browser-meta-template',
+    'name' => 'browser_return_follow_up',
+    'language' => 'en',
+    'category' => 'UTILITY',
+    'purpose' => 'return_visit',
+    'status' => 'approved',
+    'provider_status' => 'APPROVED',
+    'is_enabled' => true,
+    'components' => [['type' => 'BODY', 'text' => 'Hello {{1}}, when might you return?']],
+    'variable_map' => ['customer_name'],
+]);
+
+$uncertainCustomer = Customer::query()->create([
+    'business_id' => $business->getKey(),
+    'created_by' => $user->getKey(),
+    'first_name' => 'Uncertain',
+    'last_name' => 'Customer',
+    'phone' => '+2348012233445',
+]);
+CustomerConsent::query()->create([
+    'business_id' => $business->getKey(),
+    'customer_id' => $uncertainCustomer->getKey(),
+    'channel' => 'whatsapp',
+    'granted' => true,
+    'source' => 'in_person',
+    'recorded_at' => now()->subDay(),
+]);
+$uncertainConversation = Conversation::query()->create([
+    'business_id' => $business->getKey(),
+    'customer_id' => $uncertainCustomer->getKey(),
+    'channel' => 'whatsapp',
+    'status' => 'open',
+    'last_message_at' => now(),
+]);
+$uncertainConversation->forceFill(['last_customer_message_at' => now()->subHours(25)])->save();
+Message::query()->create([
+    'business_id' => $business->getKey(),
+    'conversation_id' => $uncertainConversation->getKey(),
+    'provider_message_id' => 'wamid.browser-uncertain-inbound',
+    'direction' => 'inbound',
+    'type' => 'text',
+    'status' => 'received',
+    'body' => 'I will get back to you later.',
+    'sent_at' => now()->subHours(25),
+]);
+Message::query()->create([
+    'business_id' => $business->getKey(),
+    'conversation_id' => $uncertainConversation->getKey(),
+    'direction' => 'outbound',
+    'type' => 'template',
+    'status' => 'delivery_uncertain',
+    'body' => 'A previously submitted template has uncertain delivery.',
 ]);

@@ -38,6 +38,7 @@ export default defineConfig({
             CACHE_STORE: 'file',
             QUEUE_CONNECTION: 'sync',
             MAIL_MAILER: 'array',
+            WHATSAPP_API_VERSION: 'v99.0',
         },
     },
 });

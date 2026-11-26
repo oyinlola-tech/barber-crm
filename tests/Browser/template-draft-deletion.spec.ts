@@ -33,8 +33,11 @@ test('owner can delete an unused local template draft on mobile', async ({
     page.once('dialog', (dialog) => dialog.accept());
     await draft.getByRole('button', { name: 'Delete draft' }).click();
     await expect(
-        page.getByText('No templates have been added or synchronized.'),
+        page.locator('article').filter({
+            hasText: 'browser_return_follow_up',
+        }),
     ).toBeVisible();
+    await expect(draft).toHaveCount(0);
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(390);
