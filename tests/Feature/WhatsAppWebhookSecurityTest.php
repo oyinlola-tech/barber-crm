@@ -7,7 +7,9 @@ use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\CustomerConsent;
 use App\Models\Message;
+use App\Models\Role;
 use App\Models\ScheduledMessage;
+use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Models\WhatsAppConnection;
 use App\Services\Automations\Commands\CancelCustomerFollowUpsCommand;
@@ -244,6 +246,64 @@ it('uses the configured exact opt-out keywords while processing inbound messages
 
     expect(app(CustomerCanReceiveMessageQuery::class)
         ->execute((int) $business->getKey(), (int) $customer->getKey(), 'whatsapp'))->toBeFalse();
+});
+
+it('notifies only active inbox staff once for a new inbound customer message without storing the message body', function (): void {
+    $business = Business::factory()->create();
+    $customer = Customer::factory()->create(['business_id' => $business->getKey(), 'phone' => '+2348012345678']);
+    $owner = User::factory()->create();
+    $business->members()->attach($owner, ['role' => 'owner', 'status' => 'active', 'joined_at' => now()]);
+    $role = Role::query()->create([
+        'business_id' => $business->getKey(),
+        'name' => 'Inbox staff',
+        'slug' => 'inbox-staff-'.str()->random(6),
+        'permissions' => ['conversations.view'],
+    ]);
+    $inboxStaff = User::factory()->create();
+    $business->members()->attach($inboxStaff, ['role' => $role->slug, 'status' => 'active', 'joined_at' => now()]);
+    $viewerRole = Role::query()->create([
+        'business_id' => $business->getKey(),
+        'name' => 'No inbox access',
+        'slug' => 'no-inbox-'.str()->random(6),
+        'permissions' => ['dashboard.view'],
+    ]);
+    $viewer = User::factory()->create();
+    $business->members()->attach($viewer, ['role' => $viewerRole->slug, 'status' => 'active', 'joined_at' => now()]);
+    $suspended = User::factory()->create();
+    $business->members()->attach($suspended, ['role' => 'owner', 'status' => 'suspended', 'joined_at' => now()]);
+    $event = WebhookEvent::query()->create([
+        'business_id' => $business->getKey(),
+        'provider' => 'whatsapp',
+        'event_id' => 'message:wamid.staff-notification',
+        'event_type' => 'message',
+        'payload' => [
+            'kind' => 'message', 'phone_number_id' => 'phone-number-1', 'provider_message_id' => 'wamid.staff-notification',
+            'from' => '2348012345678', 'type' => 'text', 'body' => 'I need help with my last haircut', 'timestamp' => now()->timestamp,
+        ],
+        'status' => 'received',
+    ]);
+    WhatsAppConnection::query()->create([
+        'business_id' => $business->getKey(), 'phone_number_id' => 'phone-number-1', 'access_token' => 'secret-token', 'status' => 'connected',
+    ]);
+    $job = new ProcessWhatsAppWebhookJob((int) $event->getKey());
+
+    $handle = fn () => $job->handle(
+        app(PhoneNumberNormalizer::class),
+        app(RecordConsentCommand::class),
+        app(CancelCustomerFollowUpsCommand::class),
+        app(GetWhatsAppMessagingSettingsQuery::class),
+    );
+    $handle();
+    $handle();
+
+    $this->assertDatabaseCount('notifications', 2);
+    expect($owner->notifications()->first()?->data)
+        ->toMatchArray(['title' => 'New WhatsApp message', 'conversation_id' => Conversation::query()->where('customer_id', $customer->getKey())->value('id')])
+        ->not->toHaveKey('message_body')
+        ->not->toHaveKey('customer_phone');
+    expect($inboxStaff->notifications()->count())->toBe(1);
+    $this->assertDatabaseMissing('notifications', ['notifiable_id' => $viewer->getKey()]);
+    $this->assertDatabaseMissing('notifications', ['notifiable_id' => $suspended->getKey()]);
 });
 
 it('stops only cancellable follow-ups when a customer sends a new inbound message', function (): void {
