@@ -2,6 +2,8 @@
 
 ## 2026-11-26
 
+- Added permission-checked approved WhatsApp template replies from the shared inbox, with centralized variable mapping, consent and eligibility rechecks, idempotent request keys, uncertain-send blocking, and stale-dispatch reconciliation. Added backend and mobile browser coverage; live Meta delivery remains unverified.
+- Hardened `make rollback` to restart and verify the queue worker and scheduler as well as web health before reporting success; fake-Docker checks cover worker and startup failures.
 - Added a scheduled-message inbox with status filtering, safe cancellation, permission-checked manual retry for definitive failures, bounded retries, audited CQRS actions, and a responsive page. Uncertain provider delivery cannot be retried.
 - Added permission-checked review editing and review/audit CSV exports. Exports stream only business-scoped fields, neutralize spreadsheet formulas, use private no-store headers, and record export audit events; review edits avoid copying customer feedback into audit metadata.
 - Added owner-authorized staff removal with session and password-reset revocation, personal profile redaction, owner/self safeguards, preserved visit/audit attribution, and a responsive browser workflow.
