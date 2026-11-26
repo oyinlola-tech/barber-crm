@@ -1,0 +1,85 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../js/**/*.tsx';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-ring: var(--ring);
+    --radius-lg: var(--radius);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-sm: calc(var(--radius) - 4px);
+}
+
+:root {
+    color-scheme: light;
+    --background: #f4f3ef;
+    --foreground: #222820;
+    --card: #fffefa;
+    --card-foreground: #222820;
+    --muted: #eeede7;
+    --muted-foreground: #73786f;
+    --border: #e4e3dc;
+    --input: #deded5;
+    --primary: #344c3b;
+    --primary-foreground: #f8f8f2;
+    --accent: #d8e2d6;
+    --accent-foreground: #344c3b;
+    --ring: #66866d;
+    --radius: 0.75rem;
+}
+
+.dark {
+    color-scheme: dark;
+    --background: #171a17;
+    --foreground: #f0f0e9;
+    --card: #202520;
+    --card-foreground: #f0f0e9;
+    --muted: #292f29;
+    --muted-foreground: #a2aa9f;
+    --border: #363e36;
+    --input: #3d473d;
+    --primary: #b8d0b8;
+    --primary-foreground: #1b251c;
+    --accent: #2e3d30;
+    --accent-foreground: #d4e4d3;
+    --ring: #94b395;
+}
+
+* {
+    border-color: var(--border);
+}
+
+body {
+    min-width: 320px;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01' on;
+}
+
+button,
+a,
+input {
+    -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+    background: var(--accent);
+    color: var(--accent-foreground);
+}
