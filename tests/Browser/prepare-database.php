@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Models\Business;
+use App\Models\Conversation;
+use App\Models\Customer;
+use App\Models\Message;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Contracts\Console\Kernel;
@@ -64,6 +67,7 @@ Role::query()->create([
         'visits.view', 'visits.create', 'visits.update', 'visits.delete', 'visits.restore',
         'roles.view', 'staff.view', 'settings.view', 'conversations.view', 'automations.view',
         'templates.view', 'reviews.view', 'analytics.view', 'audit.view', 'system.health.view', 'whatsapp.view',
+        'conversations.reply', 'conversations.assign', 'conversations.close',
     ],
 ]);
 
@@ -78,4 +82,39 @@ $business->members()->attach($user, [
     'role' => 'browser_tester',
     'status' => 'active',
     'joined_at' => now(),
+]);
+
+$barber = User::factory()->create(['name' => 'Browser Test Barber']);
+$business->members()->attach($barber, [
+    'role' => 'barber',
+    'status' => 'active',
+    'joined_at' => now(),
+]);
+$inboxCustomer = Customer::query()->create([
+    'business_id' => $business->getKey(),
+    'created_by' => $user->getKey(),
+    'first_name' => 'Inbox',
+    'last_name' => 'Customer',
+    'phone' => '+2348098765432',
+]);
+$conversation = Conversation::query()->create([
+    'business_id' => $business->getKey(),
+    'customer_id' => $inboxCustomer->getKey(),
+    'channel' => 'whatsapp',
+    'status' => 'open',
+    'last_message_at' => now(),
+]);
+$conversation->forceFill([
+    'unread_count' => 1,
+    'last_customer_message_at' => now(),
+])->save();
+Message::query()->create([
+    'business_id' => $business->getKey(),
+    'conversation_id' => $conversation->getKey(),
+    'provider_message_id' => 'wamid.browser-inbox',
+    'direction' => 'inbound',
+    'type' => 'text',
+    'status' => 'received',
+    'body' => 'I had a great haircut.',
+    'sent_at' => now(),
 ]);
