@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\StaffProfile;
 use App\Services\Staff\Commands\AssignStaffRoleCommand;
+use App\Services\Staff\Commands\DeleteStaffMemberCommand;
 use App\Services\Staff\Commands\InviteStaffMemberCommand;
 use App\Services\Staff\Commands\RevokeStaffInvitationCommand;
 use App\Services\Staff\Commands\SetStaffStatusCommand;
 use App\Services\Staff\Commands\UpdateStaffProfileCommand;
 use App\Services\Staff\Queries\ListStaffQuery;
 use App\Validators\Staff\AssignStaffRoleRequest;
+use App\Validators\Staff\DeleteStaffMemberRequest;
 use App\Validators\Staff\InviteStaffRequest;
 use App\Validators\Staff\RevokeStaffInvitationRequest;
 use App\Validators\Staff\SetStaffStatusRequest;
@@ -44,6 +46,7 @@ class StaffController extends Controller
             'suspend' => $request->user()->hasBusinessPermission((int) $business->getKey(), 'staff.suspend'),
             'activate' => $request->user()->hasBusinessPermission((int) $business->getKey(), 'staff.activate'),
             'update' => $request->user()->hasBusinessPermission((int) $business->getKey(), 'staff.update'),
+            'delete' => $request->user()->hasBusinessPermission((int) $business->getKey(), 'staff.delete'),
             'revokeInvitation' => $request->user()->hasBusinessPermission((int) $business->getKey(), 'staff.invite'),
             'viewRoles' => $request->user()->hasBusinessPermission((int) $business->getKey(), 'roles.view'),
         ];
@@ -113,5 +116,16 @@ class StaffController extends Controller
         );
 
         return to_route('staff.index')->with('success', 'Staff role updated.');
+    }
+
+    public function destroy(DeleteStaffMemberRequest $request, int $staff, DeleteStaffMemberCommand $command): RedirectResponse
+    {
+        $profile = StaffProfile::query()
+            ->where('business_id', $request->attributes->get('currentBusiness')->getKey())
+            ->findOrFail($staff);
+        $this->authorize('delete', $profile);
+        $command->execute($request->user(), $request->attributes->get('currentBusiness'), $staff);
+
+        return to_route('staff.index')->with('success', 'Staff access revoked and personal profile details redacted.');
     }
 }

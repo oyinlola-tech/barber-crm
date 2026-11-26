@@ -29,6 +29,7 @@ enum BusinessRole: string
             'services.categories.delete' => 'Delete unused service categories',
             'staff.view' => 'View staff', 'staff.invite' => 'Invite staff', 'staff.update' => 'Update staff',
             'staff.suspend' => 'Suspend staff', 'staff.activate' => 'Activate staff',
+            'staff.delete' => 'Remove staff access and redact profile',
             'roles.view' => 'View roles', 'roles.create' => 'Create roles',
             'roles.update' => 'Update roles', 'roles.delete' => 'Delete roles', 'roles.assign' => 'Assign roles',
             'permissions.view' => 'View permissions', 'conversations.view' => 'View conversations',

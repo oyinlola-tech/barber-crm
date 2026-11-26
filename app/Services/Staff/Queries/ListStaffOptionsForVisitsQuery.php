@@ -13,6 +13,7 @@ class ListStaffOptionsForVisitsQuery
     public function execute(int $businessId): array
     {
         return $this->staff->listForBusiness($businessId)
+            ->filter(fn (StaffProfile $profile): bool => $profile->status === 'active' && $profile->user_id !== null)
             ->map(fn (StaffProfile $profile): array => [
                 'id' => (int) $profile->getKey(),
                 'name' => $profile->name,

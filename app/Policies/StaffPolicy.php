@@ -47,6 +47,15 @@ class StaffPolicy
             && $this->isNotOwner((int) $staffProfile->business_id, (int) $staffProfile->user_id);
     }
 
+    public function delete(User $user, StaffProfile $staffProfile): bool
+    {
+        return $user->hasBusinessPermission((int) $staffProfile->business_id, 'staff.delete')
+            && $staffProfile->user_id !== null
+            && $staffProfile->status !== 'deleted'
+            && (int) $staffProfile->user_id !== (int) $user->getKey()
+            && $this->isNotOwner((int) $staffProfile->business_id, (int) $staffProfile->user_id);
+    }
+
     private function isNotOwner(int $businessId, int $userId): bool
     {
         return ! BusinessMember::query()->where('business_id', $businessId)
