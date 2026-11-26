@@ -23,9 +23,17 @@ class GetAnalyticsReportQuery
             ->where('business_id', $businessId)
             ->whereBetween('visited_at', [$start, $end]);
         $returningCustomers = (clone $visitsInPeriod)
-            ->select('customer_id')
-            ->groupBy('customer_id')
-            ->havingRaw('COUNT(*) > 1');
+            ->whereExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('visits as earlier_visits')
+                    ->whereColumn('earlier_visits.customer_id', 'visits.customer_id')
+                    ->whereColumn('earlier_visits.business_id', 'visits.business_id')
+                    ->whereColumn('earlier_visits.visited_at', '<', 'visits.visited_at')
+                    ->whereNull('earlier_visits.deleted_at');
+            })
+            ->whereNull('visits.deleted_at')
+            ->select('visits.customer_id')
+            ->distinct();
         $messages = Message::query()->where('business_id', $businessId)->where('direction', 'outbound');
         $ratings = Review::query()->where('business_id', $businessId)->whereNotNull('rating')
             ->whereBetween('reviewed_at', [$start, $end]);

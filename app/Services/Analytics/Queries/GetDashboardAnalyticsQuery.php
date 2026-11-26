@@ -30,6 +30,19 @@ class GetDashboardAnalyticsQuery
             ->select('customer_id');
 
         $ratings = Review::query()->where('business_id', $businessId)->whereNotNull('rating');
+        $returningCustomers = Visit::query()
+            ->where('visits.business_id', $businessId)
+            ->whereNull('visits.deleted_at')
+            ->whereExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('visits as earlier_visits')
+                    ->whereColumn('earlier_visits.customer_id', 'visits.customer_id')
+                    ->whereColumn('earlier_visits.business_id', 'visits.business_id')
+                    ->whereColumn('earlier_visits.visited_at', '<', 'visits.visited_at')
+                    ->whereNull('earlier_visits.deleted_at');
+            })
+            ->select('visits.customer_id')
+            ->distinct();
 
         return [
             'customer_count' => (clone $customerQuery)->count(),
@@ -39,11 +52,7 @@ class GetDashboardAnalyticsQuery
                 ->distinct('customer_id')
                 ->count('customer_id'),
             'visit_count' => Visit::query()->where('business_id', $businessId)->count(),
-            'returning_customer_count' => DB::query()->fromSub(
-                Visit::query()->where('business_id', $businessId)
-                    ->select('customer_id')->groupBy('customer_id')->havingRaw('COUNT(*) > 1'),
-                'returning_customers',
-            )->count(),
+            'returning_customer_count' => DB::query()->fromSub($returningCustomers, 'returning_customers')->count(),
             'pending_follow_up_count' => ScheduledMessage::query()->where('business_id', $businessId)->whereIn('status', ['pending', 'queued'])->count(),
             'sent_message_count' => Message::query()->where('business_id', $businessId)->whereIn('status', ['sent', 'delivered', 'read'])->count(),
             'delivered_message_count' => Message::query()->where('business_id', $businessId)->whereIn('status', ['delivered', 'read'])->count(),
