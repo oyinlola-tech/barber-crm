@@ -7,6 +7,7 @@ Route::middleware(['auth', 'business'])->group(function (): void {
     Route::get('/templates', [MessageTemplateController::class, 'index'])->name('templates.index');
     Route::post('/templates', [MessageTemplateController::class, 'store'])->name('templates.store');
     Route::put('/templates/{template}', [MessageTemplateController::class, 'update'])->name('templates.update');
+    Route::delete('/templates/{template}', [MessageTemplateController::class, 'destroy'])->whereNumber('template')->name('templates.destroy');
     Route::post('/templates/{template}/submit', [MessageTemplateController::class, 'submit'])->name('templates.submit');
     Route::post('/templates/synchronize', [MessageTemplateController::class, 'synchronize'])->name('templates.synchronize');
     Route::patch('/templates/{template}/enabled', [MessageTemplateController::class, 'enabled'])->name('templates.enabled');
