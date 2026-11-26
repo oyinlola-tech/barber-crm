@@ -84,7 +84,7 @@ export default function AuditLogPage({
                         {canExport && (
                             <a
                                 className="inline-flex h-10 items-center rounded-lg border px-3 text-sm font-medium"
-                                href={`/operations/audit/export${action ? `?action=${encodeURIComponent(action)}` : ''}`}
+                                href={`/operations/audit/export${filters.action ? `?action=${encodeURIComponent(filters.action)}` : ''}`}
                             >
                                 Export CSV
                             </a>
