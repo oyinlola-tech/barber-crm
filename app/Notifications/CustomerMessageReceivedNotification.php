@@ -29,7 +29,7 @@ class CustomerMessageReceivedNotification extends Notification
         return [
             'title' => 'New WhatsApp message',
             'message' => 'A customer sent a message. Open the inbox to respond.',
-            'url' => '/inbox?conversation='.$this->conversationId,
+            'url' => '/inbox/'.$this->conversationId,
             'conversation_id' => $this->conversationId,
         ];
     }
