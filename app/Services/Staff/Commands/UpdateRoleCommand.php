@@ -26,6 +26,9 @@ class UpdateRoleCommand
             $oldName = $role->name;
             $oldPermissions = $role->permissions;
             $newSlug = Str::slug($name);
+            if ($newSlug === BusinessRole::Owner->value) {
+                throw ValidationException::withMessages(['name' => 'The ownership role is reserved.']);
+            }
             if ($newSlug === '' || Role::query()->where('business_id', $businessId)->where('slug', $newSlug)->whereKeyNot($roleId)->exists()) {
                 throw ValidationException::withMessages(['name' => 'Choose a unique role name.']);
             }

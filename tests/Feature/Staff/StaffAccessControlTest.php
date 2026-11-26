@@ -2,11 +2,13 @@
 
 use App\Models\Business;
 use App\Models\BusinessMember;
+use App\Models\Role;
 use App\Models\StaffProfile;
 use App\Models\User;
 use App\Services\Staff\Commands\AssignStaffRoleCommand;
 use App\Services\Staff\Commands\CreateRoleCommand;
 use App\Services\Staff\Commands\SetStaffStatusCommand;
+use App\Services\Staff\Commands\UpdateRoleCommand;
 use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -93,6 +95,32 @@ it('allows delegation only within the acting user permissions and never assigns 
 
     app(AssignStaffRoleCommand::class)->execute($manager, $business, (int) $profile->getKey(), 'viewer');
     expect(BusinessMember::query()->where('business_id', $business->getKey())->where('user_id', $employee->getKey())->value('role'))->toBe('viewer');
+});
+
+it('reserves the owner role slug from custom role creation and renaming', function (): void {
+    [$business, $owner] = staffAccessFixture();
+    $employee = User::factory()->create();
+    $business->members()->attach($employee, ['role' => 'custom_barber', 'status' => 'active', 'joined_at' => now()]);
+    $customRole = Role::query()->create([
+        'business_id' => $business->getKey(),
+        'slug' => 'custom_barber',
+        'name' => 'Custom barber',
+        'permissions' => ['customers.view'],
+    ]);
+
+    expect(fn () => app(CreateRoleCommand::class)->execute($owner, $business, 'Owner', ['customers.view']))
+        ->toThrow(ValidationException::class);
+    expect(fn () => app(UpdateRoleCommand::class)->execute(
+        $owner,
+        $business,
+        (int) $customRole->getKey(),
+        'Owner',
+        ['customers.view'],
+    ))->toThrow(ValidationException::class);
+
+    expect($employee->fresh()->hasBusinessPermission((int) $business->getKey(), 'customers.view'))->toBeTrue()
+        ->and($employee->fresh()->hasBusinessPermission((int) $business->getKey(), 'staff.delete'))->toBeFalse()
+        ->and($customRole->fresh()->slug)->toBe('custom_barber');
 });
 
 it('serves staff and role pages only to authorized staff', function (): void {
