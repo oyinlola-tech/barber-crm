@@ -92,6 +92,33 @@ $business->members()->attach($user, [
     'joined_at' => now(),
 ]);
 
+$profileEditorRole = Role::query()->create([
+    'business_id' => $business->getKey(),
+    'name' => 'Profile editor without note access',
+    'slug' => 'profile_editor_without_note_access',
+    'permissions' => ['dashboard.view', 'customers.view', 'customers.update'],
+]);
+$profileEditor = User::query()->create([
+    'name' => 'Profile Editor',
+    'email' => 'crm.profile-editor@example.test',
+    'email_verified_at' => now(),
+    'password' => Hash::make('Browser-only editor password 9842!'),
+]);
+$profileEditor->forceFill(['email_verified_at' => now()])->save();
+$business->members()->attach($profileEditor, [
+    'role' => $profileEditorRole->slug,
+    'status' => 'active',
+    'joined_at' => now(),
+]);
+Customer::query()->create([
+    'business_id' => $business->getKey(),
+    'created_by' => $user->getKey(),
+    'first_name' => 'Limited',
+    'last_name' => 'Editor',
+    'phone' => '+2348012345679',
+    'status' => 'active',
+]);
+
 $owner = User::query()->create([
     'name' => 'Browser Test Owner',
     'email' => 'crm.owner@example.test',

@@ -1,5 +1,29 @@
 import { expect, test } from '@playwright/test';
 
+test('staff without note access can update customer details', async ({
+    page,
+}) => {
+    await page.goto('/login');
+    await page
+        .getByLabel('Email address')
+        .fill('crm.profile-editor@example.test');
+    await page
+        .getByLabel('Password')
+        .fill('Browser-only editor password 9842!');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).toHaveURL(/dashboard/);
+
+    await page.goto('/customers/1');
+    await expect(page.getByLabel('Staff notes')).toBeDisabled();
+    await page.getByLabel('First name').fill('Updated');
+    await page.getByRole('button', { name: 'Save changes' }).click();
+
+    await expect(
+        page.getByRole('heading', { name: 'Updated Editor' }),
+    ).toBeVisible();
+    await expect(page.getByLabel('First name')).toHaveValue('Updated');
+});
+
 test('an authenticated staff member opens the dashboard and customer list', async ({
     page,
 }) => {
