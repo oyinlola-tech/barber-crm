@@ -4,6 +4,7 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RequirePrivilegedMfa;
 use App\Http\Middleware\RequireVerifiedEmail;
 use App\Http\Middleware\ResolveBarbershop;
+use App\Http\Middleware\SetSecurityHeaders;
 use App\Http\Middleware\TrustConfiguredProxies;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->replace(TrustProxies::class, TrustConfiguredProxies::class);
+        $middleware->append(SetSecurityHeaders::class);
 
         $middleware->web(append: [
             HandleInertiaRequests::class,
