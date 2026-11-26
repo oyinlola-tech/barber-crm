@@ -243,7 +243,7 @@ it('uses the configured exact opt-out keywords while processing inbound messages
     );
 
     expect(app(CustomerCanReceiveMessageQuery::class)
-        ->execute((int) $business->getKey(), (int) $customer->getKey(), 'whatsapp'))->toBeTrue();
+        ->execute((int) $business->getKey(), (int) $customer->getKey(), 'whatsapp'))->toBeFalse();
 });
 
 it('stops only cancellable follow-ups when a customer sends a new inbound message', function (): void {

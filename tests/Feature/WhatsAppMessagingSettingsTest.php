@@ -44,7 +44,9 @@ it('allows the owner to save normalized messaging keywords and audits the change
         ->assertRedirect();
 
     expect(app(GetWhatsAppMessagingSettingsQuery::class)->execute((int) $business->getKey()))
-        ->toBe(['NO MORE', 'STOP']);
+        ->toContain('NO MORE')
+        ->toContain('STOP')
+        ->toContain('UNSUBSCRIBE');
     $this->assertDatabaseHas('business_settings', [
         'business_id' => $business->getKey(),
         'key' => 'whatsapp.opt_out_keywords',

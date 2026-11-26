@@ -20,13 +20,13 @@ test('owner can update WhatsApp opt-out phrases on a mobile browser', async ({
     await expect(
         page.getByRole('heading', { name: 'WhatsApp messaging rules' }),
     ).toBeVisible();
-    const phrases = page.getByLabel('Customer opt-out keywords');
-    await phrases.fill('STOP\nNO MORE\nREMOVE ME');
+    const phrases = page.getByLabel('Additional customer opt-out phrases');
+    await phrases.fill('NO MORE\nREMOVE ME');
     await page.getByRole('button', { name: 'Save messaging rules' }).click();
-    await expect(phrases).toHaveValue('STOP\nNO MORE\nREMOVE ME');
+    await expect(phrases).toHaveValue('NO MORE\nREMOVE ME');
 
     await page.reload();
-    await expect(phrases).toHaveValue('STOP\nNO MORE\nREMOVE ME');
+    await expect(phrases).toHaveValue('NO MORE\nREMOVE ME');
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(390);
