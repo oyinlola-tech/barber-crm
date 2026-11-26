@@ -71,6 +71,7 @@ rg -q 'compose up --build --detach app web queue scheduler' "$FAKE_DOCKER_LOG"
 rg -q 'tag barber-crm-app:previous-stable barber-crm-app:current' "$FAKE_DOCKER_LOG"
 rg -q 'tag barber-crm-web:previous-stable barber-crm-web:current' "$FAKE_DOCKER_LOG"
 rg -q 'compose up --no-build --pull never --detach --force-recreate app web queue scheduler' "$FAKE_DOCKER_LOG"
+rg -q 'compose stop queue scheduler' "$FAKE_DOCKER_LOG"
 if rg -q 'compose (exec|run).*postgres|migrate:rollback|down --volumes|volume rm' "$FAKE_DOCKER_LOG"; then
     printf 'Rollback unexpectedly touched PostgreSQL, migrations, or volumes.\n' >&2
     exit 1
@@ -85,5 +86,27 @@ if "$PROJECT_ROOT/scripts/deploy.sh"; then
 fi
 rg -q 'tag barber-crm-app:previous-stable barber-crm-app:current' "$FAKE_DOCKER_LOG"
 rg -q 'tag barber-crm-web:previous-stable barber-crm-web:current' "$FAKE_DOCKER_LOG"
+
+# Without a saved previous release, rollback should stop before changing any
+# containers or image tags.
+cp "$TEMP_DIR/bin/docker" "$TEMP_DIR/bin/docker-with-stable-release"
+cat > "$TEMP_DIR/bin/docker" <<'NO_STABLE_DOCKER_STUB'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+printf '%s\n' "$*" >> "$FAKE_DOCKER_LOG"
+if [[ "$1" == image && "$2" == inspect ]]; then exit 1; fi
+printf 'Unexpected fake docker invocation: %s\n' "$*" >&2
+exit 1
+NO_STABLE_DOCKER_STUB
+chmod 700 "$TEMP_DIR/bin/docker"
+: > "$FAKE_DOCKER_LOG"
+if "$PROJECT_ROOT/scripts/rollback.sh"; then
+    printf 'Rollback without a previous stable release should fail.\n' >&2
+    exit 1
+fi
+if rg -q 'compose stop|compose up|tag ' "$FAKE_DOCKER_LOG"; then
+    printf 'Rollback changed deployment state without a previous stable release.\n' >&2
+    exit 1
+fi
 
 printf 'Deployment and rollback script checks passed.\n'

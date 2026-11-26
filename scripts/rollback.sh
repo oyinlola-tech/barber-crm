@@ -13,10 +13,12 @@ fi
 
 if ! docker image inspect barber-crm-app:previous-stable >/dev/null 2>&1 \
     || ! docker image inspect barber-crm-web:previous-stable >/dev/null 2>&1; then
-    printf 'No previous stable release is recorded. Deploy successfully with scripts/deploy.sh first.\n' >&2
+    printf 'Cannot roll back: no previous stable release is available. A successful deployment must be recorded first.\n' >&2
     exit 1
 fi
 
+# Stop the workers before switching the app image so they do not keep running
+# code from the failed release during the rollback.
 docker compose stop queue scheduler
 restore_previous_release_tags
 start_current_release
