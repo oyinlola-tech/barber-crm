@@ -1,0 +1,118 @@
+name: CI
+
+on:
+    push:
+    pull_request:
+
+jobs:
+    postgres_concurrency:
+        runs-on: ubuntu-latest
+        services:
+            postgres:
+                image: postgres:17-alpine
+                env:
+                    POSTGRES_DB: barber_crm_test_dispatch
+                    POSTGRES_USER: barber_crm_test
+                    POSTGRES_PASSWORD: disposable-integration-only
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U barber_crm_test -d barber_crm_test_dispatch"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 10
+        env:
+            APP_ENV: testing
+            APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+            DB_CONNECTION: pgsql
+            DB_HOST: 127.0.0.1
+            DB_PORT: 5432
+            DB_DATABASE: barber_crm_test_dispatch
+            DB_USERNAME: barber_crm_test
+            DB_PASSWORD: disposable-integration-only
+            DB_URL: ''
+            CACHE_STORE: array
+            SESSION_DRIVER: array
+            QUEUE_CONNECTION: database
+            AUTOMATIONS_ENABLED: 'true'
+            CRM_POSTGRES_INTEGRATION: '1'
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: intl, mbstring, pdo_pgsql
+                  coverage: none
+
+            - name: Install Composer dependencies
+              run: composer install --no-interaction --prefer-dist
+
+            - name: Prepare an empty test environment file
+              run: touch .env
+
+            - name: Verify concurrent PostgreSQL dispatch and recovery
+              run: php artisan test tests/Integration/Queue/PostgresMessageDispatchTest.php --display-warnings
+
+    verify:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: intl, mbstring, pdo_sqlite, pdo_pgsql
+                  coverage: none
+
+            - name: Install Composer dependencies
+              run: composer install --no-interaction --prefer-dist
+
+            - name: Set up pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 11.24.0
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: pnpm
+
+            - name: Install frontend dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Validate Composer dependencies
+              run: composer validate --no-check-publish
+
+            - name: Audit Composer dependencies
+              run: composer audit --locked
+
+            - name: Run PHP tests
+              run: php artisan test --compact
+
+            - name: Run PHP static analysis
+              run: composer analyse
+
+            - name: Lint frontend
+              run: pnpm lint
+
+            - name: Check TypeScript
+              run: pnpm types:check
+
+            - name: Check formatting
+              run: pnpm format:check
+
+            - name: Build frontend
+              run: pnpm build
+
+            - name: Check deployment and rollback control flow
+              run: bash tests/Operations/deployment-scripts.sh
+
+            - name: Install Playwright Chromium
+              run: pnpm exec playwright install --with-deps chromium
+
+            - name: Run browser smoke tests
+              run: pnpm test:e2e
