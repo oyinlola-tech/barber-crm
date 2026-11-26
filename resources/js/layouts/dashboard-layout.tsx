@@ -32,6 +32,7 @@ type SharedProps = {
 const navigationIcons: Record<string, LucideIcon> = {
     Dashboard: BarChart3,
     Customers: Users,
+    Services: Scissors,
     Inbox: MessageCircle,
     'Follow-ups': CalendarClock,
     Templates: MessageCircle,
