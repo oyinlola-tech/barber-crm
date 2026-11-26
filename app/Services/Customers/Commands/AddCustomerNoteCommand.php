@@ -4,6 +4,7 @@ namespace App\Services\Customers\Commands;
 
 use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Models\CustomerNote;
+use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use Illuminate\Support\Facades\DB;
 
@@ -16,6 +17,9 @@ class AddCustomerNoteCommand
 
     public function execute(int $businessId, int $customerId, int $userId, string $body): CustomerNote
     {
+        $actor = User::query()->findOrFail($userId);
+        abort_unless($actor->hasBusinessPermission($businessId, 'customers.note'), 403);
+
         return DB::transaction(function () use ($businessId, $customerId, $userId, $body): CustomerNote {
             $note = $this->customers->addNoteForBusiness($businessId, $customerId, $userId, $body);
             $this->audit->execute($businessId, $userId, 'customer.note_added', CustomerNote::class, $note->getKey());

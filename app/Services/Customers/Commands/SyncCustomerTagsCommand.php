@@ -4,6 +4,7 @@ namespace App\Services\Customers\Commands;
 
 use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Models\Customer;
+use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use Illuminate\Support\Facades\DB;
 
@@ -17,6 +18,9 @@ class SyncCustomerTagsCommand
     /** @param array<int, string> $names */
     public function execute(int $businessId, int $customerId, int $userId, array $names): Customer
     {
+        $actor = User::query()->findOrFail($userId);
+        abort_unless($actor->hasBusinessPermission($businessId, 'customers.tags.manage'), 403);
+
         return DB::transaction(function () use ($businessId, $customerId, $userId, $names): Customer {
             $customer = $this->customers->syncTagsForBusiness($businessId, $customerId, $names);
             $this->audit->execute($businessId, $userId, 'customer.tags_updated', Customer::class, $customerId, null, [
