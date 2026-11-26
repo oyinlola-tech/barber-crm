@@ -61,6 +61,15 @@ export default function BusinessSettings({
                         className="mt-5 grid gap-4 sm:grid-cols-2"
                         onSubmit={submit}
                     >
+                        {form.recentlySuccessful && (
+                            <p
+                                aria-live="polite"
+                                className="text-sm text-emerald-700 sm:col-span-2 dark:text-emerald-300"
+                                role="status"
+                            >
+                                Business details saved.
+                            </p>
+                        )}
                         <Field
                             label="Business name"
                             value={form.data.name}

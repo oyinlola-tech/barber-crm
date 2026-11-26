@@ -36,7 +36,7 @@ const metrics: {
         key: 'returning_customers',
         label: 'Returning customers',
         description:
-            'Customers with more than one recorded visit in this period.',
+            'Customers with a visit in this period and an earlier recorded visit.',
     },
     {
         key: 'messages_sent',

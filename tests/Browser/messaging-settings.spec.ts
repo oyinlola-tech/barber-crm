@@ -24,6 +24,11 @@ test('owner can update WhatsApp opt-out phrases on a mobile browser', async ({
     await phrases.fill('NO MORE\nREMOVE ME');
     await page.getByRole('button', { name: 'Save messaging rules' }).click();
     await expect(phrases).toHaveValue('NO MORE\nREMOVE ME');
+    await expect(
+        page.getByRole('status').filter({
+            hasText: 'WhatsApp messaging rules saved.',
+        }),
+    ).toBeVisible();
 
     await page.reload();
     await expect(phrases).toHaveValue('NO MORE\nREMOVE ME');

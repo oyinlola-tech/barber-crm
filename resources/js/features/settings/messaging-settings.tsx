@@ -23,7 +23,9 @@ export function MessagingSettingsForm({
                 .map((keyword) => keyword.trim())
                 .filter((keyword) => keyword.length > 0),
         }));
-        form.put('/settings/messaging', { preserveScroll: true });
+        form.put('/settings/messaging', {
+            preserveScroll: true,
+        });
     }
 
     return (
@@ -74,6 +76,15 @@ export function MessagingSettingsForm({
                         <Button disabled={form.processing} type="submit">
                             Save messaging rules
                         </Button>
+                        {form.recentlySuccessful && (
+                            <p
+                                aria-live="polite"
+                                className="mt-2 text-sm text-emerald-700 dark:text-emerald-300"
+                                role="status"
+                            >
+                                WhatsApp messaging rules saved.
+                            </p>
+                        )}
                     </div>
                 ) : (
                     <p className="text-sm text-muted-foreground">
