@@ -1,7 +1,10 @@
 <?php
 
+use App\Models\AutomationRule;
 use App\Models\Business;
+use App\Models\Customer;
 use App\Models\MessageTemplate;
+use App\Models\ScheduledMessage;
 use App\Models\User;
 use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -54,7 +57,81 @@ it('renders only real template records and the configured supported variables', 
             ->where('templates.0.provider_status', null)
             ->where('templates.0.variable_map.0', 'customer_name')
             ->where('allowedVariables', config('automation.allowed_template_variables'))
-            ->where('permissions.update', true));
+            ->where('permissions.update', true)
+            ->where('permissions.delete', true));
+});
+
+it('allows an owner to delete an unused local draft and records the deletion', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $owner = templateManagementOwner();
+    $business = templateManagementBusiness($owner);
+    $template = MessageTemplate::query()->create([
+        'business_id' => $business->getKey(), 'name' => 'unfinished', 'language' => 'en',
+        'category' => 'UTILITY', 'purpose' => 'thank_you', 'status' => 'draft',
+        'provider_template_id' => null, 'provider_status' => null, 'is_enabled' => false,
+        'components' => [['type' => 'BODY', 'text' => 'Thanks for visiting.']], 'variable_map' => [],
+    ]);
+
+    $this->actingAs($owner)->delete(route('templates.destroy', $template))->assertRedirect();
+
+    expect($template->fresh())->toBeNull();
+    $this->assertDatabaseHas('audit_logs', [
+        'business_id' => $business->getKey(),
+        'user_id' => $owner->getKey(),
+        'action' => 'message_template.draft_deleted',
+        'auditable_id' => $template->getKey(),
+    ]);
+});
+
+it('refuses provider templates, referenced drafts, and users without delete permission', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $owner = templateManagementOwner();
+    $business = templateManagementBusiness($owner);
+    $draft = MessageTemplate::query()->create([
+        'business_id' => $business->getKey(), 'name' => 'referenced_draft', 'language' => 'en',
+        'category' => 'UTILITY', 'purpose' => 'thank_you', 'status' => 'draft',
+        'provider_template_id' => null, 'provider_status' => null, 'is_enabled' => false,
+        'components' => [['type' => 'BODY', 'text' => 'Thanks for visiting.']], 'variable_map' => [],
+    ]);
+    $providerTemplate = MessageTemplate::query()->create([
+        'business_id' => $business->getKey(), 'name' => 'provider_template', 'language' => 'en',
+        'category' => 'UTILITY', 'purpose' => 'thank_you', 'status' => 'synchronized',
+        'provider_template_id' => 'meta-template-locked', 'provider_status' => 'APPROVED',
+        'is_enabled' => false, 'components' => [['type' => 'BODY', 'text' => 'Thanks.']], 'variable_map' => [],
+    ]);
+    $scheduledDraft = MessageTemplate::query()->create([
+        'business_id' => $business->getKey(), 'name' => 'scheduled_draft', 'language' => 'en',
+        'category' => 'UTILITY', 'purpose' => 'thank_you', 'status' => 'draft',
+        'provider_template_id' => null, 'provider_status' => null, 'is_enabled' => false,
+        'components' => [['type' => 'BODY', 'text' => 'Thanks for visiting.']], 'variable_map' => [],
+    ]);
+    AutomationRule::query()->create([
+        'business_id' => $business->getKey(), 'name' => 'Draft reference', 'trigger' => 'visit_recorded',
+        'action' => 'send_template', 'delay_minutes' => 0, 'is_enabled' => false,
+        'settings' => ['template_id' => $draft->getKey()],
+    ]);
+    $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
+    ScheduledMessage::query()->create([
+        'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(),
+        'channel' => 'whatsapp', 'idempotency_key' => 'template-delete-guard',
+        'body' => 'Thanks for visiting.', 'payload' => ['template_id' => $scheduledDraft->getKey()],
+        'status' => 'pending', 'scheduled_at' => now()->addDay(),
+    ]);
+
+    $this->actingAs($owner)->delete(route('templates.destroy', $draft))
+        ->assertSessionHasErrors('template');
+    $this->actingAs($owner)->delete(route('templates.destroy', $providerTemplate))
+        ->assertSessionHasErrors('template');
+    $this->actingAs($owner)->delete(route('templates.destroy', $scheduledDraft))
+        ->assertSessionHasErrors('template');
+
+    $viewer = User::factory()->create(['email_verified_at' => now()]);
+    $business->members()->attach($viewer, ['role' => 'viewer', 'status' => 'active', 'joined_at' => now()]);
+    $this->actingAs($viewer)->delete(route('templates.destroy', $draft))->assertForbidden();
+
+    expect($draft->fresh())->not->toBeNull()
+        ->and($providerTemplate->fresh())->not->toBeNull()
+        ->and($scheduledDraft->fresh())->not->toBeNull();
 });
 
 it('allows an authorized user to edit a local draft through the existing update route', function (): void {
