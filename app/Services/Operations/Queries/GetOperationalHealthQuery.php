@@ -14,6 +14,24 @@ class GetOperationalHealthQuery
     public function execute(int $businessId): array
     {
         $databaseStatus = $this->databaseStatus();
+        if ($databaseStatus === 'unhealthy') {
+            return [
+                'overall' => 'unhealthy',
+                'checked_at' => now()->toIso8601String(),
+                'database' => ['status' => 'unhealthy'],
+                'queue' => [
+                    'driver' => (string) config('queue.default'),
+                    'status' => 'unknown',
+                    'pending' => 0,
+                    'failed' => 0,
+                    'worker_heartbeat' => null,
+                ],
+                'scheduler' => ['status' => 'unknown', 'last_heartbeat' => null],
+                'whatsapp' => ['status' => 'unknown'],
+                'webhooks' => ['status' => 'unknown', 'unprocessed' => 0, 'failed_recent' => 0, 'last_received_at' => null],
+            ];
+        }
+
         $queue = $this->queueStatus();
         $scheduler = $this->heartbeatStatus('scheduler');
         $worker = $this->heartbeatStatus('queue_worker');

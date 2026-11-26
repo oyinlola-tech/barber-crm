@@ -7,6 +7,7 @@ use App\Services\Operations\Queries\GetOperationalHealthQuery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 uses(RefreshDatabase::class);
 
@@ -119,6 +120,22 @@ it('returns a minimal readiness response without internal health details', funct
         ->assertOk()
         ->assertExactJson(['status' => 'ready'])
         ->assertHeader('Cache-Control', 'no-store, private');
+});
+
+it('reports database failure without querying unavailable operational tables', function (): void {
+    DB::shouldReceive('select')
+        ->once()
+        ->with('select 1')
+        ->andThrow(new RuntimeException('database unavailable'));
+
+    $health = app(GetOperationalHealthQuery::class)->execute(1);
+
+    expect($health['overall'])->toBe('unhealthy')
+        ->and($health['database']['status'])->toBe('unhealthy')
+        ->and($health['queue']['status'])->toBe('unknown')
+        ->and($health['scheduler']['status'])->toBe('unknown')
+        ->and($health['whatsapp']['status'])->toBe('unknown')
+        ->and($health['webhooks']['status'])->toBe('unknown');
 });
 
 it('records scheduler and actual queue worker heartbeats when the heartbeat command runs', function (): void {
