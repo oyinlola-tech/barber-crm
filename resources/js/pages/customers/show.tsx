@@ -111,6 +111,16 @@ export default function CustomerDetailsPage({
 
     function saveCustomer(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
+        update.transform((data) => {
+            if (permissions.edit_notes) {
+                return data;
+            }
+
+            const { notes, ...customerDetails } = data;
+            void notes;
+
+            return customerDetails;
+        });
         update.patch(`/customers/${customer.id}`);
     }
 
