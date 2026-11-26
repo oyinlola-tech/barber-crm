@@ -1,8 +1,8 @@
 <?php
 
-use App\Configs\WhatsAppConfig;
 use App\Jobs\WhatsApp\ProcessWhatsAppWebhookJob;
 use App\Models\Business;
+use App\Models\BusinessSetting;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\CustomerConsent;
@@ -13,6 +13,7 @@ use App\Models\WhatsAppConnection;
 use App\Services\Automations\Commands\CancelCustomerFollowUpsCommand;
 use App\Services\Consent\Commands\RecordConsentCommand;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
+use App\Services\Settings\Queries\GetWhatsAppMessagingSettingsQuery;
 use App\Utils\PhoneNumberNormalizer;
 use App\Validators\WhatsApp\ConnectWhatsAppRequest;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -178,9 +179,14 @@ it('stores explicit button replies as message text for deterministic opt-out han
         ->toMatchArray(['type' => 'button', 'body' => 'STOP']);
 });
 
-it('stores inbound messages once, updates unread state and processes exact opt-out keywords', function (): void {
+it('uses the configured exact opt-out keywords while processing inbound messages once', function (): void {
     $business = Business::factory()->create();
     $customer = Customer::factory()->create(['business_id' => $business->getKey(), 'phone' => '+2348012345678']);
+    BusinessSetting::query()->create([
+        'business_id' => $business->getKey(),
+        'key' => 'whatsapp.opt_out_keywords',
+        'value' => ['NO MORE'],
+    ]);
     CustomerConsent::query()->create([
         'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp',
         'granted' => true, 'recorded_at' => now()->subDay(), 'source' => 'in_person',
@@ -193,7 +199,7 @@ it('stores inbound messages once, updates unread state and processes exact opt-o
         'business_id' => $business->getKey(), 'provider' => 'whatsapp', 'event_id' => 'message:wamid.stop',
         'event_type' => 'message', 'payload' => [
             'kind' => 'message', 'phone_number_id' => 'phone-number-1', 'provider_message_id' => 'wamid.stop',
-            'from' => '2348012345678', 'type' => 'text', 'body' => 'STOP!!!', 'timestamp' => now()->timestamp,
+            'from' => '2348012345678', 'type' => 'text', 'body' => 'NO MORE!!!', 'timestamp' => now()->timestamp,
         ], 'status' => 'received',
     ]);
     WhatsAppConnection::query()->create([
@@ -201,16 +207,43 @@ it('stores inbound messages once, updates unread state and processes exact opt-o
     ]);
     $job = new ProcessWhatsAppWebhookJob((int) $event->getKey());
 
-    $job->handle(app(PhoneNumberNormalizer::class), app(RecordConsentCommand::class), app(CancelCustomerFollowUpsCommand::class), app(WhatsAppConfig::class));
-    $job->handle(app(PhoneNumberNormalizer::class), app(RecordConsentCommand::class), app(CancelCustomerFollowUpsCommand::class), app(WhatsAppConfig::class));
+    $job->handle(app(PhoneNumberNormalizer::class), app(RecordConsentCommand::class), app(CancelCustomerFollowUpsCommand::class), app(GetWhatsAppMessagingSettingsQuery::class));
+    $job->handle(app(PhoneNumberNormalizer::class), app(RecordConsentCommand::class), app(CancelCustomerFollowUpsCommand::class), app(GetWhatsAppMessagingSettingsQuery::class));
 
     $conversation = Conversation::query()->where('customer_id', $customer->getKey())->firstOrFail();
     expect($conversation->unread_count)->toBe(1)
         ->and($scheduled->fresh()->status)->toBe('cancelled')
         ->and(app(CustomerCanReceiveMessageQuery::class)->execute($business->getKey(), $customer->getKey(), 'whatsapp'))->toBeFalse();
     $this->assertDatabaseCount('messages', 1);
-    $this->assertDatabaseHas('messages', ['provider_message_id' => 'wamid.stop', 'direction' => 'inbound', 'body' => 'STOP!!!']);
+    $this->assertDatabaseHas('messages', ['provider_message_id' => 'wamid.stop', 'direction' => 'inbound', 'body' => 'NO MORE!!!']);
     $this->assertDatabaseHas('webhook_events', ['id' => $event->getKey(), 'status' => 'processed']);
+
+    app(RecordConsentCommand::class)->execute((int) $business->getKey(), (int) $customer->getKey(), 'whatsapp', true, 'in_person');
+    $defaultKeywordEvent = WebhookEvent::query()->create([
+        'business_id' => $business->getKey(),
+        'provider' => 'whatsapp',
+        'event_id' => 'message:wamid.default-keyword',
+        'event_type' => 'message',
+        'payload' => [
+            'kind' => 'message',
+            'phone_number_id' => 'phone-number-1',
+            'provider_message_id' => 'wamid.default-keyword',
+            'from' => '2348012345678',
+            'type' => 'text',
+            'body' => 'STOP',
+            'timestamp' => now()->timestamp,
+        ],
+        'status' => 'received',
+    ]);
+    (new ProcessWhatsAppWebhookJob((int) $defaultKeywordEvent->getKey()))->handle(
+        app(PhoneNumberNormalizer::class),
+        app(RecordConsentCommand::class),
+        app(CancelCustomerFollowUpsCommand::class),
+        app(GetWhatsAppMessagingSettingsQuery::class),
+    );
+
+    expect(app(CustomerCanReceiveMessageQuery::class)
+        ->execute((int) $business->getKey(), (int) $customer->getKey(), 'whatsapp'))->toBeTrue();
 });
 
 it('stops only cancellable follow-ups when a customer sends a new inbound message', function (): void {
@@ -255,7 +288,7 @@ it('stops only cancellable follow-ups when a customer sends a new inbound messag
         app(PhoneNumberNormalizer::class),
         app(RecordConsentCommand::class),
         app(CancelCustomerFollowUpsCommand::class),
-        app(WhatsAppConfig::class),
+        app(GetWhatsAppMessagingSettingsQuery::class),
     );
 
     expect($scheduledMessages['pending']->fresh()->status)->toBe('cancelled')
@@ -292,8 +325,8 @@ it('applies delivery progress without allowing stale webhook statuses to regress
         ], 'status' => 'received',
     ]);
 
-    (new ProcessWhatsAppWebhookJob((int) $delivered->getKey()))->handle(app(PhoneNumberNormalizer::class), app(RecordConsentCommand::class), app(CancelCustomerFollowUpsCommand::class), app(WhatsAppConfig::class));
-    (new ProcessWhatsAppWebhookJob((int) $sent->getKey()))->handle(app(PhoneNumberNormalizer::class), app(RecordConsentCommand::class), app(CancelCustomerFollowUpsCommand::class), app(WhatsAppConfig::class));
+    (new ProcessWhatsAppWebhookJob((int) $delivered->getKey()))->handle(app(PhoneNumberNormalizer::class), app(RecordConsentCommand::class), app(CancelCustomerFollowUpsCommand::class), app(GetWhatsAppMessagingSettingsQuery::class));
+    (new ProcessWhatsAppWebhookJob((int) $sent->getKey()))->handle(app(PhoneNumberNormalizer::class), app(RecordConsentCommand::class), app(CancelCustomerFollowUpsCommand::class), app(GetWhatsAppMessagingSettingsQuery::class));
 
     expect($message->fresh()->status)->toBe('delivered')->and($message->fresh()->delivered_at)->not->toBeNull();
 });
@@ -350,7 +383,7 @@ it('records provider failure after sent but never regresses delivered or failed 
             app(PhoneNumberNormalizer::class),
             app(RecordConsentCommand::class),
             app(CancelCustomerFollowUpsCommand::class),
-            app(WhatsAppConfig::class),
+            app(GetWhatsAppMessagingSettingsQuery::class),
         );
     }
 
@@ -377,7 +410,7 @@ it('holds early delivery callbacks until the accepted outbound message record ar
         ], 'status' => 'received',
     ]);
     $job = new ProcessWhatsAppWebhookJob((int) $event->getKey());
-    $job->handle(app(PhoneNumberNormalizer::class), app(RecordConsentCommand::class), app(CancelCustomerFollowUpsCommand::class), app(WhatsAppConfig::class));
+    $job->handle(app(PhoneNumberNormalizer::class), app(RecordConsentCommand::class), app(CancelCustomerFollowUpsCommand::class), app(GetWhatsAppMessagingSettingsQuery::class));
 
     expect($event->fresh()->status)->toBe('awaiting_message');
     $message = Message::query()->create([
@@ -385,7 +418,7 @@ it('holds early delivery callbacks until the accepted outbound message record ar
         'provider_message_id' => 'wamid.outbound-late', 'direction' => 'outbound', 'type' => 'text',
         'status' => 'sent', 'body' => 'Thanks', 'sent_at' => now()->subMinute(),
     ]);
-    (new ProcessWhatsAppWebhookJob((int) $event->getKey()))->handle(app(PhoneNumberNormalizer::class), app(RecordConsentCommand::class), app(CancelCustomerFollowUpsCommand::class), app(WhatsAppConfig::class));
+    (new ProcessWhatsAppWebhookJob((int) $event->getKey()))->handle(app(PhoneNumberNormalizer::class), app(RecordConsentCommand::class), app(CancelCustomerFollowUpsCommand::class), app(GetWhatsAppMessagingSettingsQuery::class));
 
     expect($message->fresh()->status)->toBe('delivered')
         ->and($event->fresh()->status)->toBe('processed');
