@@ -11,7 +11,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 - The checkout is Git repository `oyinlola-tech/barber-crm` on `main`, with `origin/main` updated through the ten folder-grouped implementation commits. `.env`, generated caches, local session files, test databases and browser results are ignored. The pushed implementation commits are authored by the project owner and contain no co-author trailers.
 - Laravel 13, PHP 8.4, React, Inertia, TypeScript and the locked Composer/pnpm dependencies are present. No new dependencies were added in the recent implementation slices.
 - `pdo_pgsql` is not installed. `php artisan migrate:status` fails with “could not find driver”; the intended PostgreSQL migration state and business data were not accessed or changed.
-- The active application exposes 81 non-vendor routes. Booking, appointment and availability behavior is absent from the route/controller/service layer. Historical appointment/availability migration definitions remain untouched pending a safe database review.
+- The active application exposes 84 non-vendor routes. Booking, appointment and availability behavior is absent from the route/controller/service layer. Historical appointment/availability migration definitions remain untouched pending a safe database review.
 - No production credentials, live WhatsApp delivery, provider approval, email delivery, production deployment or production backup restoration are claimed.
 
 ## Implemented and locally tested
@@ -40,14 +40,16 @@ The repository is past scaffolding and has locally working core slices for a pri
 - Docker Compose/Nginx/PHP-FPM deployment configuration, loopback default web bind, readiness route, trusted proxy configuration and deployment notes.
 - Deployment scripts retain the currently running PHP and Nginx images as `previous-stable`; `make rollback` switches app, web, queue and scheduler containers back without changing database state. The automatic recovery path passed a fake-Docker test that simulates a failed deployment and verifies restoration. It has not been exercised against a production deployment.
 - Staff can review business-scoped scheduled-message history, filter by state, cancel pending/queued messages, and retry definitely failed messages up to the configured manual retry limit. Both actions enforce permissions in Form Requests and CQRS commands, are audited, and uncertain delivery cannot be retried.
+- Staff with the relevant permissions can update recorded customer feedback and export business-scoped review records or safe audit columns as private CSV. Exports neutralize spreadsheet formulas and create audit entries; review edit audit metadata does not copy feedback text.
 - Authenticated streaming encryption for PostgreSQL custom dumps, protected local artifact permissions, and a restore-to-new-database utility that refuses existing targets and leaves the active database unchanged.
 
 ## Verification results
 
-- `vendor/bin/pest`: 136 passed / 931 assertions, with 1 PostgreSQL-only integration test skipped by its host environment guard. The new scheduled-message-management suite contributes 6 tests / 53 assertions covering business scoping, transition guards, permissions, audit, bounded safe retry, and queue dispatch.
-- `pnpm test:e2e`: 9 Playwright Chromium tests passed, including owner MFA and opt-out keyword update/reload, owner-authorized staff removal, local template draft create/delete, and the mobile service/category workflow; customer create/archive/restore; inbox assignment/note/read/close actions; consent-gated reply visibility; and a read-only authenticated page sweep across staff, roles, automations, templates, reviews, analytics, notifications, audit, health, business settings and WhatsApp settings.
+- `vendor/bin/pest`: 141 passed / 975 assertions, with 1 PostgreSQL-only integration test skipped by its host environment guard. Coverage includes business-scoped review edits/exports, safe audit exports, permission enforcement, and CSV formula protection.
+- `pnpm test:e2e`: 10 Playwright Chromium tests passed, including mobile review editing alongside owner MFA and settings, staff removal, template deletion, service/category workflows, customer and visit flows, inbox controls, and the read-only page sweep.
 - `composer analyse`: PHPStan/Larastan level 5 passed.
 - `vendor/bin/pint --test`, `pnpm types:check`, `pnpm lint`, `pnpm format:check`, `pnpm build`: passed.
+- `bash tests/Operations/deployment-scripts.sh`: deployment and simple `make rollback` behavior passed against a fake Docker runtime; rollback automatically restores the retained previous stable app/web images and leaves the database unchanged.
 - Vite page imports are lazy-loaded. Latest output includes a 45.14 kB app entry and a 356.81 kB shared React runtime chunk; no chunk exceeds the 500 kB warning threshold.
 - `composer validate --no-check-publish`, `composer audit --locked`, and `docker compose config -q`: passed.
 - Docker app, queue, scheduler and web images built; `php artisan --version`, PHP-FPM config test, and Nginx config test passed in disposable containers.
