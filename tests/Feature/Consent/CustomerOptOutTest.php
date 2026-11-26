@@ -3,11 +3,37 @@
 use App\Models\Business;
 use App\Models\Customer;
 use App\Models\ScheduledMessage;
+use App\Models\User;
 use App\Services\Consent\Commands\RecordConsentCommand;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
+use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(LazilyRefreshDatabase::class);
+
+it('enforces consent permissions inside the CQRS command when invoked directly', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $viewer = User::factory()->create();
+    $business->members()->attach($viewer, [
+        'role' => 'viewer',
+        'status' => 'active',
+        'joined_at' => now(),
+    ]);
+    $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
+
+    expect(fn () => app(RecordConsentCommand::class)->execute(
+        (int) $business->getKey(),
+        (int) $customer->getKey(),
+        'whatsapp',
+        true,
+        'in_person',
+        (int) $viewer->getKey(),
+    ))->toThrow(HttpException::class);
+
+    expect($customer->consents()->count())->toBe(0);
+});
 
 it('revokes active consent and cancels pending messages after opt-out', function (): void {
     $business = Business::factory()->create();

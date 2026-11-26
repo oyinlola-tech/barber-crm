@@ -4,6 +4,7 @@ namespace App\Services\Consent\Commands;
 
 use App\Models\Customer;
 use App\Models\CustomerConsent;
+use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use App\Services\Automations\Commands\CancelCustomerFollowUpsCommand;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,12 @@ class RecordConsentCommand
 
     public function execute(int $businessId, int $customerId, string $channel, bool $granted, ?string $source = null, ?int $userId = null): CustomerConsent
     {
+        if ($userId !== null) {
+            $actor = User::query()->findOrFail($userId);
+            $permission = $granted ? 'consent.record' : 'consent.revoke';
+            abort_unless($actor->hasBusinessPermission($businessId, $permission), 403);
+        }
+
         return DB::transaction(function () use ($businessId, $customerId, $channel, $granted, $source, $userId): CustomerConsent {
             $customer = Customer::query()->where('business_id', $businessId)->findOrFail($customerId);
             if ($customer->status !== 'active') {
