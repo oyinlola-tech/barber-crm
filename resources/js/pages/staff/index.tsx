@@ -29,6 +29,7 @@ type StaffPageProps = {
         suspend: boolean;
         activate: boolean;
         update: boolean;
+        delete: boolean;
         revokeInvitation: boolean;
         viewRoles: boolean;
     };
@@ -93,6 +94,18 @@ export default function StaffPage({
                     })),
             },
         );
+    }
+
+    function deleteStaff(member: StaffMember) {
+        if (
+            !window.confirm(
+                `Remove access for ${member.name} and redact their personal profile details? Visit and audit history will be retained.`,
+            )
+        ) {
+            return;
+        }
+
+        router.delete(`/staff/${member.id}`, { preserveScroll: true });
     }
 
     function beginProfileEdit(member: StaffMember) {
@@ -262,6 +275,8 @@ export default function StaffPage({
                         </h2>
                         <p className="mt-1 text-sm text-muted-foreground">
                             Suspension revokes active CRM sessions immediately.
+                            Removing an account redacts personal details while
+                            retaining visit and audit history.
                         </p>
                     </div>
                     {staff.length === 0 ? (
@@ -341,6 +356,10 @@ export default function StaffPage({
                                         <span className="text-xs text-muted-foreground">
                                             Protected account
                                         </span>
+                                    ) : member.status === 'deleted' ? (
+                                        <span className="text-xs text-muted-foreground">
+                                            Personal details redacted
+                                        </span>
                                     ) : (
                                         <div className="flex flex-wrap gap-2">
                                             {capabilities.update && (
@@ -370,6 +389,18 @@ export default function StaffPage({
                                                         : 'Activate'}
                                                 </Button>
                                             ) : null}
+                                            {capabilities.delete && (
+                                                <Button
+                                                    onClick={() =>
+                                                        deleteStaff(member)
+                                                    }
+                                                    className="border-destructive text-destructive hover:bg-destructive/10"
+                                                    type="button"
+                                                    variant="outline"
+                                                >
+                                                    Remove access
+                                                </Button>
+                                            )}
                                         </div>
                                     )}
                                     {statusErrors[member.id] && (
