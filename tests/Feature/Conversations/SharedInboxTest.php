@@ -33,8 +33,11 @@ function makeInboxConversation(bool $withConsent = true, bool $withinServiceWind
         'customer_id' => $customer->getKey(),
         'channel' => 'whatsapp',
         'status' => 'open',
-        'unread_count' => 1,
     ]);
+    $conversation->forceFill([
+        'unread_count' => 1,
+        'last_customer_message_at' => now(),
+    ])->save();
 
     if ($withConsent) {
         CustomerConsent::query()->create([
