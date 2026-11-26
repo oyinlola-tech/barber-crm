@@ -261,3 +261,29 @@ Message::query()->create([
     'status' => 'delivery_uncertain',
     'body' => 'A previously submitted template has uncertain delivery.',
 ]);
+
+$mediaCustomer = Customer::query()->create([
+    'business_id' => $business->getKey(),
+    'created_by' => $user->getKey(),
+    'first_name' => 'Media',
+    'last_name' => 'Customer',
+    'phone' => '+2348012233446',
+]);
+$mediaConversation = Conversation::query()->create([
+    'business_id' => $business->getKey(),
+    'customer_id' => $mediaCustomer->getKey(),
+    'channel' => 'whatsapp',
+    'status' => 'open',
+    'last_message_at' => now(),
+]);
+Message::query()->create([
+    'business_id' => $business->getKey(),
+    'conversation_id' => $mediaConversation->getKey(),
+    'provider_message_id' => 'wamid.browser-image',
+    'direction' => 'inbound',
+    'type' => 'image',
+    'status' => 'received',
+    'body' => null,
+    'payload' => null,
+    'sent_at' => now(),
+]);

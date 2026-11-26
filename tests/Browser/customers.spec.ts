@@ -40,9 +40,42 @@ test('an authenticated staff member opens the dashboard and customer list', asyn
     ).toBeVisible();
 
     await expect(page.getByText('No consent recorded')).toBeVisible();
+    await expect(
+        page.getByLabel(
+            'Customer explicitly agreed to receive WhatsApp messages. Uncheck to record an opt-out.',
+        ),
+    ).not.toBeChecked();
     await page.getByLabel('Consent source').selectOption('written');
+    await page
+        .getByLabel(
+            'Customer explicitly agreed to receive WhatsApp messages. Uncheck to record an opt-out.',
+        )
+        .check();
     await page.getByRole('button', { name: 'Record consent' }).click();
     await expect(page.getByText('Opted in')).toBeVisible();
+    await expect(
+        page.getByLabel(
+            'Customer explicitly agreed to receive WhatsApp messages. Uncheck to record an opt-out.',
+        ),
+    ).toBeChecked();
+    await page
+        .getByLabel(
+            'Customer explicitly agreed to receive WhatsApp messages. Uncheck to record an opt-out.',
+        )
+        .uncheck();
+    await page.getByRole('button', { name: 'Record opt-out' }).click();
+    await expect(page.getByText('Opted out')).toBeVisible();
+    await expect(
+        page.getByLabel(
+            'Customer explicitly agreed to receive WhatsApp messages. Uncheck to record an opt-out.',
+        ),
+    ).not.toBeChecked();
+    await page.reload();
+    await expect(
+        page.getByLabel(
+            'Customer explicitly agreed to receive WhatsApp messages. Uncheck to record an opt-out.',
+        ),
+    ).not.toBeChecked();
 
     await page.getByLabel('Add a private note').fill('Prefers a low fade.');
     await page.getByRole('button', { name: 'Add note' }).click();

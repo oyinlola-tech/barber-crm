@@ -86,9 +86,14 @@ export default function CustomerDetailsPage({
         intended_return_date: customer.intended_return_date ?? '',
         notes: customer.notes ?? '',
     });
+    const latestWhatsAppConsent = customer.consents
+        .filter((item) => item.channel === 'whatsapp')
+        .sort((left, right) => right.id - left.id)[0];
     const consent = useForm({
         channel: 'whatsapp',
-        granted: true,
+        granted:
+            latestWhatsAppConsent?.granted === true &&
+            latestWhatsAppConsent.revoked_at === null,
         source: 'verbal',
     });
     const visit = useForm({
@@ -136,10 +141,6 @@ export default function CustomerDetailsPage({
         }));
         tags.put(`/customers/${customer.id}/tags`);
     }
-
-    const latestWhatsAppConsent = [...customer.consents]
-        .reverse()
-        .find((item) => item.channel === 'whatsapp');
 
     return (
         <main className="min-h-screen bg-muted/30 px-4 py-6 sm:px-8 sm:py-9">

@@ -37,13 +37,20 @@ test('staff can triage an inbox conversation on a mobile browser', async ({
 
     await page.goto('/inbox');
     await page.getByRole('link', { name: /Uncertain Customer/ }).click();
-    await expect(page.getByRole('heading', { name: 'Uncertain Customer', exact: true })).toBeVisible();
+    await expect(
+        page.getByRole('heading', { name: 'Uncertain Customer', exact: true }),
+    ).toBeVisible();
     await expect(
         page.getByText(/A previous template send has uncertain delivery/),
     ).toBeVisible();
+    await expect(page.getByLabel('Send an approved template')).toHaveCount(0);
+
+    await page.goto('/inbox');
+    await page.getByRole('link', { name: /Media Customer/ }).click();
     await expect(
-        page.getByLabel('Send an approved template'),
-    ).toHaveCount(0);
+        page.getByRole('heading', { name: 'Media Customer', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText('(image message received)')).toBeVisible();
 
     await page.goto('/inbox');
     await page.getByRole('link', { name: /Inbox Customer/ }).click();
