@@ -10,6 +10,14 @@ test('authorized staff can manage catalog services from a mobile browser', async
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(/dashboard/);
 
+    await page.keyboard.press('Tab');
+    const skipLink = page.getByRole('link', {
+        name: 'Skip to main content',
+    });
+    await expect(skipLink).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#main-content')).toBeFocused();
+
     await page.goto('/services');
     await expect(
         page.getByRole('heading', { level: 1, name: 'Service catalog' }),

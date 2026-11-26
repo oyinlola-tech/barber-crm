@@ -77,6 +77,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
     return (
         <div className="min-h-screen bg-muted/30">
+            <a
+                className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-background focus:px-4 focus:py-3 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-lg focus:ring-2 focus:ring-ring"
+                href="#main-content"
+            >
+                Skip to main content
+            </a>
             <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r bg-card lg:flex">
                 <Link
                     className="flex h-16 items-center gap-3 border-b px-5"
@@ -227,7 +233,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                         </nav>
                     </details>
                 </header>
-                {children}
+                <div id="main-content" className="scroll-mt-20" tabIndex={-1}>
+                    {children}
+                </div>
             </div>
         </div>
     );
