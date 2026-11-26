@@ -14,6 +14,7 @@ Route::middleware(['auth', 'business'])->group(function (): void {
     Route::delete('/staff/invitations/{invitation}', [StaffController::class, 'revokeInvitation'])->whereNumber('invitation')->name('staff.invitations.revoke');
     Route::patch('/staff/{staff}/status', [StaffController::class, 'setStatus'])->whereNumber('staff')->name('staff.status');
     Route::patch('/staff/{staff}/profile', [StaffController::class, 'updateProfile'])->whereNumber('staff')->name('staff.profile');
+    Route::delete('/staff/{staff}', [StaffController::class, 'destroy'])->whereNumber('staff')->name('staff.destroy');
     Route::patch('/staff/{staff}/role', [StaffController::class, 'assignRole'])->whereNumber('staff')->name('staff.role');
     Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
     Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
