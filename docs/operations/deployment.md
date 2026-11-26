@@ -49,8 +49,10 @@ Restart long-lived workers after deploying new code with
 procedure and preserve persistent volumes. Do not publish the PostgreSQL port.
 
 Run `make rollback` to restore the previous stable app and web images. It takes
-no version argument and leaves PostgreSQL, migrations, customer data, and
-volumes untouched. Rollback only changes application containers. Database
+no version argument, restarts the queue worker and scheduler with those images,
+and verifies both are running before reporting success. A service startup or
+worker/scheduler check failure is reported with service logs. Rollback leaves
+PostgreSQL, migrations, customer data, and volumes untouched. Database
 migrations must remain backward-compatible with the previous release; do not
 run `migrate:rollback` as part of application rollback. If a schema change is
 not compatible, restore from a verified backup through a separately reviewed

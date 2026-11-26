@@ -17,8 +17,16 @@ printf '%s\n' "$*" >> "$FAKE_DOCKER_LOG"
 
 if [[ "$1" == compose ]]; then
     shift
+    if [[ "$1" == up && "${FAKE_COMPOSE_UP_FAIL:-0}" == 1 ]]; then
+        exit 1
+    fi
     if [[ "$1" == ps ]]; then
-        printf '%s\n' "${*: -1}-container"
+        service="${*: -1}"
+        if [[ " ${*} " == *" --status running "* \
+            && " ${FAKE_STOPPED_SERVICES:-} " == *" ${service} "* ]]; then
+            exit 0
+        fi
+        printf '%s\n' "${service}-container"
         exit 0
     fi
     exit 0
@@ -72,10 +80,34 @@ rg -q 'tag barber-crm-app:previous-stable barber-crm-app:current' "$FAKE_DOCKER_
 rg -q 'tag barber-crm-web:previous-stable barber-crm-web:current' "$FAKE_DOCKER_LOG"
 rg -q 'compose up --no-build --pull never --detach --force-recreate app web queue scheduler' "$FAKE_DOCKER_LOG"
 rg -q 'compose stop queue scheduler' "$FAKE_DOCKER_LOG"
+rg -q 'compose ps --status running -q queue' "$FAKE_DOCKER_LOG"
+rg -q 'compose ps --status running -q scheduler' "$FAKE_DOCKER_LOG"
 if rg -q 'compose (exec|run).*postgres|migrate:rollback|down --volumes|volume rm' "$FAKE_DOCKER_LOG"; then
     printf 'Rollback unexpectedly touched PostgreSQL, migrations, or volumes.\n' >&2
     exit 1
 fi
+
+# A rollback must fail clearly if web is healthy but a background service did
+# not remain running after Compose recreated the release.
+: > "$FAKE_DOCKER_LOG"
+export FAKE_STOPPED_SERVICES=queue
+if "$PROJECT_ROOT/scripts/rollback.sh" >"$TEMP_DIR/rollback-output" 2>&1; then
+    printf 'Rollback test expected a stopped queue worker to be reported.\n' >&2
+    exit 1
+fi
+rg -q 'Rollback failed: the queue service is not running' "$TEMP_DIR/rollback-output"
+rg -q 'compose logs --tail=100 app web queue scheduler' "$FAKE_DOCKER_LOG"
+unset FAKE_STOPPED_SERVICES
+
+: > "$FAKE_DOCKER_LOG"
+export FAKE_COMPOSE_UP_FAIL=1
+if "$PROJECT_ROOT/scripts/rollback.sh" >"$TEMP_DIR/rollback-output" 2>&1; then
+    printf 'Rollback test expected Compose startup failure to be reported.\n' >&2
+    exit 1
+fi
+rg -q 'Rollback failed: the application, web, queue, or scheduler service could not be started' "$TEMP_DIR/rollback-output"
+rg -q 'compose logs --tail=100 app web queue scheduler' "$FAKE_DOCKER_LOG"
+unset FAKE_COMPOSE_UP_FAIL
 
 : > "$FAKE_DOCKER_LOG"
 : > "$FAKE_HEALTH_COUNT"
