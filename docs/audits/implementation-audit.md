@@ -27,7 +27,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 - Deterministic visit follow-up scheduling, database queue/scheduler, idempotency, sending-hours, bounded retries, stalled-message recovery, consent revalidation and delivery uncertainty handling.
 - Follow-ups stop for new inbound responses and after reviews according to template purpose. Opt-out, response and review cancellation leave sending/reconciliation records intact.
 - Inactive-customer re-engagement rules use configured inactivity thresholds, approved retention/re-engagement templates, cycle and follow-up limits, customer consent, recent-response/frequency checks, and suppress messages while a customer-reported return date is today or later. Eligibility is checked again before delivery.
-- Staff can revoke pending invitations and update staff display names/phone numbers. The roles view includes a grouped canonical permission catalogue. Staff deletion remains unavailable to preserve visit and audit attribution; suspension is the supported access-removal path.
+- Staff can revoke pending invitations and update staff display names/phone numbers. The roles view includes a grouped canonical permission catalogue; an authenticated HTTP feature test now exercises custom-role creation, permission edits, invitation role updates, guarded deletion, and audit records. Staff deletion remains unavailable to preserve visit and audit attribution; suspension is the supported access-removal path.
 - Local draft editing/preview and variable mapping, provider status display, review capture/list, visit notifications, date-filtered aggregate analytics, audit log and operational health views.
 - Docker Compose/Nginx/PHP-FPM deployment configuration, loopback default web bind, readiness route, trusted proxy configuration and deployment notes.
 - Deployment scripts retain the currently running PHP and Nginx images as `previous-stable`; `make rollback` switches app, web, queue and scheduler containers back without changing database state. The automatic recovery path passed a fake-Docker test that simulates a failed deployment and verifies restoration. It has not been exercised against a production deployment.
@@ -35,7 +35,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 
 ## Verification results
 
-- `vendor/bin/pest`: 103 passed, 672 assertions, 1 PostgreSQL-only integration test skipped by its environment guard (SQLite in-memory; includes Meta credential validation, secret omission, permissions and audited disconnect).
+- `vendor/bin/pest`: 104 passed, 687 assertions, 1 PostgreSQL-only integration test skipped by its environment guard (SQLite in-memory; includes Meta credential validation, secret omission, permissions, audited disconnect, and custom-role HTTP lifecycle).
 - `pnpm test:e2e`: 4 Playwright Chromium tests passed, including customer create/archive/restore and a read-only authenticated page sweep across staff, roles, inbox, automations, templates, reviews, analytics, notifications, audit, health, business settings and WhatsApp settings at a 390px viewport.
 - `composer analyse`: PHPStan/Larastan level 5 passed.
 - `vendor/bin/pint --test`, `pnpm types:check`, `pnpm lint`, `pnpm format:check`, `pnpm build`: passed.
