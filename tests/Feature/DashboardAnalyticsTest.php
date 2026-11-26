@@ -3,6 +3,7 @@
 use App\Models\Business;
 use App\Models\Customer;
 use App\Models\User;
+use App\Models\Visit;
 use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -15,12 +16,24 @@ it('shows real single-shop customer metrics to an active staff member', function
     $business = Business::factory()->create();
     $business->members()->attach($user, ['role' => 'viewer', 'status' => 'active', 'joined_at' => now()]);
     Customer::factory()->create(['business_id' => $business->getKey()]);
+    $returningCustomer = Customer::factory()->create(['business_id' => $business->getKey()]);
+    Visit::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $returningCustomer->getKey(),
+        'visited_at' => now()->subDay(),
+    ]);
+    Visit::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $returningCustomer->getKey(),
+        'visited_at' => now(),
+    ]);
 
     $this->actingAs($user)->get('/dashboard')->assertInertia(fn (Assert $page) => $page
         ->component('dashboard/index')
         ->where('business.name', $business->name)
-        ->where('analytics.customer_count', 1)
-        ->where('analytics.visit_count', 0)
+        ->where('analytics.customer_count', 2)
+        ->where('analytics.visit_count', 2)
+        ->where('analytics.returning_customer_count', 1)
         ->where('analytics.whatsapp_connected', false));
 });
 

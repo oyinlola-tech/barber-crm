@@ -50,6 +50,17 @@ it('returns real date-filtered metrics scoped to the configured shop', function 
         'customer_id' => $secondCustomer->getKey(),
         'visited_at' => '2026-10-31 22:59:00',
     ]);
+    $thirdCustomer = Customer::factory()->create(['business_id' => $business->getKey()]);
+    Visit::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $thirdCustomer->getKey(),
+        'visited_at' => '2026-10-30 10:00:00',
+    ]);
+    Visit::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $thirdCustomer->getKey(),
+        'visited_at' => '2026-11-03 13:00:00',
+    ]);
 
     $conversation = Conversation::query()->create([
         'business_id' => $business->getKey(),
@@ -95,8 +106,8 @@ it('returns real date-filtered metrics scoped to the configured shop', function 
         ->assertInertia(fn (Assert $page) => $page
             ->component('analytics/index')
             ->where('report.customers_registered', 1)
-            ->where('report.visits_recorded', 3)
-            ->where('report.returning_customers', 1)
+            ->where('report.visits_recorded', 4)
+            ->where('report.returning_customers', 3)
             ->where('report.messages_sent', 2)
             ->where('report.messages_delivered', 1)
             ->where('report.messages_failed', 1)
