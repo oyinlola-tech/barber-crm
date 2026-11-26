@@ -5,6 +5,8 @@ namespace App\Http\Middleware;
 use App\Configs\SecurityConfig;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Vite;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class SetSecurityHeaders
@@ -13,6 +15,8 @@ class SetSecurityHeaders
 
     public function handle(Request $request, Closure $next): Response
     {
+        $nonce = Str::random(40);
+        Vite::useCspNonce($nonce);
         /** @var Response $response */
         $response = $next($request);
         $response->headers->set('X-Content-Type-Options', 'nosniff');
@@ -22,6 +26,10 @@ class SetSecurityHeaders
         $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin');
         $policy = [];
         foreach ($this->security->contentSecurityPolicy() as $directive => $sources) {
+            if ($directive === 'script-src') {
+                $sources = $this->security->contentSecurityPolicySources($directive, $nonce);
+            }
+
             $policy[] = $directive.' '.implode(' ', $sources);
         }
         $response->headers->set('Content-Security-Policy', implode('; ', $policy));

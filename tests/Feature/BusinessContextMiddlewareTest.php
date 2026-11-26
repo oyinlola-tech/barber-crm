@@ -4,6 +4,7 @@ use App\Configs\SecurityConfig;
 use App\Models\Business;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Vite;
 
 uses(RefreshDatabase::class);
 
@@ -82,7 +83,21 @@ it('adds conservative browser security headers and enables HSTS only for secure 
         ->assertHeaderMissing('Strict-Transport-Security');
 
     $policy = $response->headers->get('Content-Security-Policy');
-    expect($policy)->toContain("default-src 'self'")->toContain("frame-ancestors 'none'");
+    expect($policy)
+        ->toContain("default-src 'self'")
+        ->toContain("frame-ancestors 'none'")
+        ->toContain("script-src 'self' 'nonce-")
+        ->not->toContain("script-src 'self' 'unsafe-inline'");
+    $nonce = Vite::cspNonce();
+    expect($nonce)->toBeString()->not->toBeEmpty()
+        ->and($policy)->toContain("'nonce-{$nonce}'");
+
+    $secondResponse = $this->actingAs($user)->get('/dashboard')->assertOk();
+    $secondPolicy = $secondResponse->headers->get('Content-Security-Policy');
+    $secondNonce = Vite::cspNonce();
+    expect($secondNonce)->not->toBe($nonce)
+        ->and($secondPolicy)->toContain("'nonce-{$secondNonce}'");
+    $secondResponse->assertSee('nonce="'.$secondNonce.'"', false);
 
     $this->actingAs($user)->get('https://localhost/dashboard')
         ->assertOk()

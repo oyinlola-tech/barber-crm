@@ -42,6 +42,18 @@ final class SecurityConfig
         return $policy;
     }
 
+    /** @return list<string> */
+    public function contentSecurityPolicySources(string $directive, ?string $nonce = null): array
+    {
+        $sources = $this->contentSecurityPolicy()[$directive] ?? [];
+
+        if ($directive === 'script-src' && $nonce !== null && preg_match('/^[A-Za-z0-9+\/_=-]+$/', $nonce) === 1) {
+            $sources[] = "'nonce-{$nonce}'";
+        }
+
+        return array_values(array_unique($sources));
+    }
+
     public function hstsHeader(): ?string
     {
         $maxAge = max(0, min((int) config('security.hsts_max_age', 31536000), 63072000));

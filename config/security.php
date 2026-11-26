@@ -12,7 +12,7 @@ return [
         'img-src' => ["'self'", 'data:', 'blob:'],
         'font-src' => ["'self'", 'data:'],
         'connect-src' => ["'self'"],
-        'script-src' => ["'self'", "'unsafe-inline'"],
+        'script-src' => ["'self'"],
         'style-src' => ["'self'", "'unsafe-inline'"],
     ],
     'permissions_policy' => 'camera=(), microphone=(), geolocation=()',
