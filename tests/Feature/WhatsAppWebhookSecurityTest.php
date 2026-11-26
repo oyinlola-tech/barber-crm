@@ -297,8 +297,13 @@ it('notifies only active inbox staff once for a new inbound customer message wit
     $handle();
 
     $this->assertDatabaseCount('notifications', 2);
+    $conversationId = (int) Conversation::query()->where('customer_id', $customer->getKey())->value('id');
     expect($owner->notifications()->first()?->data)
-        ->toMatchArray(['title' => 'New WhatsApp message', 'conversation_id' => Conversation::query()->where('customer_id', $customer->getKey())->value('id')])
+        ->toMatchArray([
+            'title' => 'New WhatsApp message',
+            'conversation_id' => $conversationId,
+            'url' => '/inbox/'.$conversationId,
+        ])
         ->not->toHaveKey('message_body')
         ->not->toHaveKey('customer_phone');
     expect($inboxStaff->notifications()->count())->toBe(1);
