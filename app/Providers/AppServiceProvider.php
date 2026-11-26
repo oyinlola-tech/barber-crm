@@ -8,17 +8,21 @@ use App\Interfaces\Repositories\BusinessRepositoryInterface;
 use App\Interfaces\Repositories\Conversations\ConversationRepositoryInterface;
 use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Interfaces\Repositories\Reviews\ReviewRepositoryInterface;
+use App\Interfaces\Repositories\Services\ServiceCategoryRepositoryInterface;
 use App\Interfaces\Repositories\Services\ServiceRepositoryInterface;
 use App\Interfaces\Repositories\Staff\StaffRepositoryInterface;
 use App\Interfaces\Repositories\Visits\VisitRepositoryInterface;
 use App\Models\Service;
+use App\Models\ServiceCategory;
 use App\Models\StaffProfile;
+use App\Policies\ServiceCategoryPolicy;
 use App\Policies\ServicePolicy;
 use App\Policies\StaffPolicy;
 use App\Repositories\Businesses\BusinessRepository;
 use App\Repositories\Conversations\ConversationRepository;
 use App\Repositories\Customers\CustomerRepository;
 use App\Repositories\Reviews\ReviewRepository;
+use App\Repositories\Services\ServiceCategoryRepository;
 use App\Repositories\Services\ServiceRepository;
 use App\Repositories\Staff\StaffRepository;
 use App\Repositories\Visits\VisitRepository;
@@ -36,6 +40,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ConversationRepositoryInterface::class, ConversationRepository::class);
         $this->app->bind(CustomerRepositoryInterface::class, CustomerRepository::class);
         $this->app->bind(ServiceRepositoryInterface::class, ServiceRepository::class);
+        $this->app->bind(ServiceCategoryRepositoryInterface::class, ServiceCategoryRepository::class);
         $this->app->bind(StaffRepositoryInterface::class, StaffRepository::class);
         $this->app->bind(VisitRepositoryInterface::class, VisitRepository::class);
         $this->app->bind(ReviewRepositoryInterface::class, ReviewRepository::class);
@@ -46,5 +51,6 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(StaffProfile::class, StaffPolicy::class);
         Gate::policy(Service::class, ServicePolicy::class);
+        Gate::policy(ServiceCategory::class, ServiceCategoryPolicy::class);
     }
 }

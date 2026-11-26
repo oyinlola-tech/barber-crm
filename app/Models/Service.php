@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['business_id', 'service_category_id', 'name', 'description', 'duration_minutes', 'price', 'is_active'])]
 class Service extends Model
 {
+    /** @return BelongsTo<ServiceCategory, $this> */
     public function category(): BelongsTo
     {
         return $this->belongsTo(ServiceCategory::class, 'service_category_id');

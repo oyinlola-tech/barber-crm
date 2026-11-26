@@ -16,7 +16,9 @@ class ServiceRepository implements ServiceRepositoryInterface
 
     public function allForBusiness(int $businessId): Collection
     {
-        return Service::query()->where('business_id', $businessId)->orderByDesc('is_active')->orderBy('name')->get();
+        return Service::query()->where('business_id', $businessId)
+            ->with(['category' => static fn ($query) => $query->where('business_id', $businessId)->select('id', 'business_id', 'name')])
+            ->orderByDesc('is_active')->orderBy('name')->get();
     }
 
     public function findForBusiness(int $businessId, int $serviceId): Service
@@ -26,7 +28,7 @@ class ServiceRepository implements ServiceRepositoryInterface
 
     public function assertCategoryForBusiness(int $businessId, int $categoryId): void
     {
-        ServiceCategory::query()->where('business_id', $businessId)->findOrFail($categoryId);
+        ServiceCategory::query()->where('business_id', $businessId)->lockForUpdate()->findOrFail($categoryId);
     }
 
     public function findActiveManyForBusiness(int $businessId, array $serviceIds): Collection
