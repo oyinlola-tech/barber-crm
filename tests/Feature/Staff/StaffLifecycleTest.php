@@ -2,6 +2,7 @@
 
 use App\Enums\BusinessRole;
 use App\Models\Business;
+use App\Models\Role;
 use App\Models\StaffInvitation;
 use App\Models\StaffProfile;
 use App\Models\User;
@@ -114,4 +115,48 @@ it('renders the complete permission catalogue on the authorized roles page', fun
         ->assertInertia(fn (Assert $page) => $page
             ->component('roles/index')
             ->where('permissions', BusinessRole::permissions()));
+});
+
+it('creates, updates, and deletes a custom role through the authorized HTTP workflow', function (): void {
+    [$business, $owner] = lifecycleBusiness();
+
+    $this->actingAs($owner)->post(route('roles.store'), [
+        'name' => 'Senior Barber',
+        'permissions' => ['customers.view'],
+    ])->assertRedirect(route('roles.index'));
+
+    $role = Role::query()->where('business_id', $business->getKey())->where('slug', 'senior-barber')->firstOrFail();
+    expect($role->permissions)->toBe(['customers.view']);
+
+    $invitation = StaffInvitation::query()->create([
+        'business_id' => $business->getKey(),
+        'invited_by' => $owner->getKey(),
+        'name' => 'New Barber',
+        'email' => 'new-barber@barber.test',
+        'role_slug' => 'senior-barber',
+        'token_hash' => hash('sha256', 'role-lifecycle-token'),
+        'expires_at' => now()->addDay(),
+    ]);
+
+    $this->actingAs($owner)->put(route('roles.update', $role), [
+        'name' => 'Lead Barber',
+        'permissions' => ['customers.view', 'visits.view'],
+    ])->assertRedirect(route('roles.index'));
+
+    expect($role->fresh()->slug)->toBe('lead-barber')
+        ->and($role->fresh()->permissions)->toBe(['customers.view', 'visits.view'])
+        ->and($invitation->fresh()->role_slug)->toBe('lead-barber');
+
+    $this->actingAs($owner)->delete(route('roles.destroy', $role))
+        ->assertSessionHasErrors('role');
+    expect($role->fresh())->not->toBeNull();
+
+    $invitation->forceFill(['revoked_at' => now()])->save();
+    $this->actingAs($owner)->delete(route('roles.destroy', $role))
+        ->assertRedirect(route('roles.index'));
+
+    expect($role->fresh())->toBeNull()
+        ->and(DB::table('audit_logs')->where('business_id', $business->getKey())->whereIn('action', [
+            'roles.created', 'roles.updated', 'roles.deleted',
+        ])->count())->toBe(3);
 });
