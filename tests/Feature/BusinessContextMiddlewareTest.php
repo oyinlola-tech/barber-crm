@@ -1,5 +1,6 @@
 <?php
 
+use App\Configs\SecurityConfig;
 use App\Models\Business;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -86,4 +87,13 @@ it('adds conservative browser security headers and enables HSTS only for secure 
     $this->actingAs($user)->get('https://localhost/dashboard')
         ->assertOk()
         ->assertHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+
+    config(['security.hsts_max_age' => 0]);
+    $this->actingAs($user)->get('https://localhost/dashboard')
+        ->assertOk()
+        ->assertHeaderMissing('Strict-Transport-Security');
+
+    config(['security.content_security_policy' => ['default-src' => ["'self'; injected-header: evil"]]]);
+    expect(fn () => app(SecurityConfig::class)->contentSecurityPolicy())
+        ->toThrow(InvalidArgumentException::class);
 });
