@@ -35,12 +35,13 @@ export function MessagingSettingsForm({
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                 A customer message that matches one of these phrases will
                 withdraw WhatsApp consent and cancel eligible pending
-                follow-ups. Matching ignores letter case and surrounding
-                punctuation.
+                follow-ups. Standard opt-out words remain enabled; add other
+                phrases the barbershop recognizes. Matching ignores letter case
+                and surrounding punctuation.
             </p>
             <form className="mt-5 grid gap-4" onSubmit={submit}>
                 <label className="grid gap-1.5 text-sm font-medium">
-                    Customer opt-out keywords
+                    Additional customer opt-out phrases
                     <textarea
                         aria-describedby="opt-out-keywords-help"
                         className="min-h-32 rounded-lg border bg-background px-3 py-2 font-normal disabled:opacity-60"
@@ -54,7 +55,8 @@ export function MessagingSettingsForm({
                         className="text-xs font-normal text-muted-foreground"
                         id="opt-out-keywords-help"
                     >
-                        Enter one phrase per line, with up to 20 phrases.
+                        Enter one phrase per line, with up to 20 additional
+                        phrases.
                     </span>
                     {form.errors.opt_out_keywords && (
                         <span className="text-xs font-normal text-destructive">
