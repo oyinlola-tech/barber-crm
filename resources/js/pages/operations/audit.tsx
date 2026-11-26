@@ -23,9 +23,11 @@ type AuditPaginator = {
 export default function AuditLogPage({
     logs,
     filters,
+    canExport,
 }: {
     logs: AuditPaginator;
     filters: { action: string };
+    canExport: boolean;
 }) {
     const [action, setAction] = useState(filters.action);
     function search(event: FormEvent<HTMLFormElement>) {
@@ -60,7 +62,7 @@ export default function AuditLogPage({
                             Sensitive before and after values are hidden.
                         </p>
                     </div>
-                    <form className="flex gap-2" onSubmit={search}>
+                    <form className="flex flex-wrap gap-2" onSubmit={search}>
                         <label className="sr-only" htmlFor="audit-action">
                             Filter by exact action
                         </label>
@@ -79,6 +81,14 @@ export default function AuditLogPage({
                             <Search size={16} />
                             Filter
                         </button>
+                        {canExport && (
+                            <a
+                                className="inline-flex h-10 items-center rounded-lg border px-3 text-sm font-medium"
+                                href={`/operations/audit/export${action ? `?action=${encodeURIComponent(action)}` : ''}`}
+                            >
+                                Export CSV
+                            </a>
+                        )}
                     </form>
                 </header>
                 <section
