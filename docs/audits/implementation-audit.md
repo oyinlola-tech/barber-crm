@@ -28,6 +28,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 - Follow-ups stop for new inbound responses and after reviews according to template purpose. Opt-out, response and review cancellation leave sending/reconciliation records intact.
 - Customer-note and tag CQRS commands independently check the actor's permission instead of depending only on the web Form Request. WhatsApp delivery callbacks now record `failed` after `sent`, while stale `sent`/`delivered` events cannot undo failure and stale failure events cannot regress delivered/read states.
 - Marking a conversation as read uses an explicit internal write to the protected unread counter; a mobile browser flow now verifies assignment, internal notes, read state, close status, and consent-gated reply visibility.
+- Follow-up schedules snapshot the latest inbound customer message ID. The worker rechecks that snapshot immediately before provider dispatch and cancels if a customer reply arrived during the claim window.
 - Inactive-customer re-engagement rules use configured inactivity thresholds, approved retention/re-engagement templates, cycle and follow-up limits, customer consent, recent-response/frequency checks, and suppress messages while a customer-reported return date is today or later. Eligibility is checked again before delivery.
 - Staff can revoke pending invitations and update staff display names/phone numbers. The roles view includes a grouped canonical permission catalogue; an authenticated HTTP feature test now exercises custom-role creation, permission edits, invitation role updates, guarded deletion, and audit records. Staff deletion remains unavailable to preserve visit and audit attribution; suspension is the supported access-removal path.
 - Local draft editing/preview and variable mapping, provider status display, review capture/list, visit notifications, date-filtered aggregate analytics, audit log and operational health views.
@@ -37,7 +38,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 
 ## Verification results
 
-- `vendor/bin/pest`: 106 passed, 696 assertions, 1 PostgreSQL-only integration test skipped by its environment guard (SQLite in-memory; includes Meta credential validation, secret omission, permissions, audited disconnect, custom-role HTTP lifecycle, direct CQRS permission checks, and delivery-status ordering).
+- `vendor/bin/pest`: 107 passed, 701 assertions, 1 PostgreSQL-only integration test skipped by its environment guard (SQLite in-memory; includes Meta credential validation, secret omission, permissions, audited disconnect, custom-role HTTP lifecycle, direct CQRS permission checks, delivery-status ordering, and follow-up response-race cancellation).
 - `pnpm test:e2e`: 5 Playwright Chromium tests passed, including customer create/archive/restore, inbox assignment/note/read/close actions, consent-gated reply visibility, and a read-only authenticated page sweep across staff, roles, automations, templates, reviews, analytics, notifications, audit, health, business settings and WhatsApp settings at a 390px viewport.
 - `composer analyse`: PHPStan/Larastan level 5 passed.
 - `vendor/bin/pint --test`, `pnpm types:check`, `pnpm lint`, `pnpm format:check`, `pnpm build`: passed.
