@@ -46,13 +46,20 @@ class RecordScheduledMessageJobFailureCommand
                 return;
             }
 
-            $backoff = config('automation.retry_backoff_seconds', [60, 300, 900, 3600]);
+            $backoff = array_values(array_filter(
+                (array) config('automation.retry_backoff_seconds', [60, 300, 900, 3600]),
+                static fn (mixed $seconds): bool => is_numeric($seconds) && (int) $seconds > 0,
+            ));
+            if ($backoff === []) {
+                $backoff = [60];
+            }
             $index = min($queueAttempts - 1, count($backoff) - 1);
             $message->update([
                 'status' => ScheduledMessageStatus::Pending->value,
                 'payload' => $payload,
                 'scheduled_at' => now()->addSeconds((int) $backoff[$index]),
                 'claimed_at' => null,
+                'failed_at' => null,
                 'last_error' => 'queue_processing_failed; safe to retry before provider dispatch',
             ]);
         });
