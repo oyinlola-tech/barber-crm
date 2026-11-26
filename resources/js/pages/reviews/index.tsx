@@ -34,7 +34,7 @@ export default function ReviewsIndex({
     permissions,
 }: {
     reviews: Paginated<Review>;
-    customers: Paginated<CustomerOption>;
+    customers: CustomerOption[];
     permissions: { create: boolean; update: boolean; export: boolean };
 }) {
     const form = useForm({
@@ -97,7 +97,7 @@ export default function ReviewsIndex({
                                     value={form.data.customer_id}
                                 >
                                     <option value="">Choose a customer</option>
-                                    {customers.data.map((customer) => (
+                                    {customers.map((customer) => (
                                         <option
                                             key={customer.id}
                                             value={customer.id}
@@ -152,7 +152,7 @@ export default function ReviewsIndex({
                                 <Button
                                     disabled={
                                         form.processing ||
-                                        customers.data.length === 0
+                                        customers.length === 0
                                     }
                                     type="submit"
                                 >
@@ -160,7 +160,7 @@ export default function ReviewsIndex({
                                 </Button>
                             </div>
                         </form>
-                        {customers.data.length === 0 && (
+                        {customers.length === 0 && (
                             <p className="mt-3 text-sm text-muted-foreground">
                                 Add a customer before recording feedback.
                             </p>
