@@ -6,6 +6,7 @@ use App\Enums\ScheduledMessageStatus;
 use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Models\Customer;
 use App\Models\ScheduledMessage;
+use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -19,6 +20,9 @@ class AnonymizeCustomerCommand
 
     public function execute(int $businessId, int $customerId, int $userId): Customer
     {
+        $actor = User::query()->findOrFail($userId);
+        abort_unless($actor->hasBusinessPermission($businessId, 'customers.anonymize'), 403);
+
         return DB::transaction(function () use ($businessId, $customerId, $userId): Customer {
             $scheduled = ScheduledMessage::query()
                 ->where('business_id', $businessId)

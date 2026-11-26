@@ -5,6 +5,7 @@ namespace App\Services\Customers\Commands;
 use App\Dtos\Customers\CreateCustomerDto;
 use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Models\Customer;
+use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use Illuminate\Support\Facades\DB;
 
@@ -14,6 +15,12 @@ class CreateCustomerCommand
 
     public function execute(int $businessId, int $userId, CreateCustomerDto $customerData): Customer
     {
+        $actor = User::query()->findOrFail($userId);
+        abort_unless($actor->hasBusinessPermission($businessId, 'customers.create'), 403);
+        if ($customerData->notes !== null) {
+            abort_unless($actor->hasBusinessPermission($businessId, 'customers.note'), 403);
+        }
+
         return DB::transaction(function () use ($businessId, $userId, $customerData): Customer {
             $customer = $this->customers->createForBusiness($businessId, $userId, [
                 'first_name' => $customerData->firstName,

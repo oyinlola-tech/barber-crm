@@ -4,6 +4,7 @@ namespace App\Services\Customers\Commands;
 
 use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Models\Customer;
+use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use App\Utils\PhoneNumberNormalizer;
 use App\Validators\Customers\ValidPhoneNumber;
@@ -20,8 +21,12 @@ class ImportCustomersCommand
     ) {}
 
     /** @param list<array<string, string|null>> $rows @return array{created:int, skipped:int, issues:list<array{row:int, reason:string}>} */
-    public function execute(int $businessId, int $userId, array $rows, bool $canImportNotes = false): array
+    public function execute(int $businessId, int $userId, array $rows): array
     {
+        $actor = User::query()->findOrFail($userId);
+        abort_unless($actor->hasBusinessPermission($businessId, 'customers.import'), 403);
+        $canImportNotes = $actor->hasBusinessPermission($businessId, 'customers.note');
+
         $created = 0;
         $issues = [];
         $seenPhones = [];

@@ -1,5 +1,6 @@
 <?php
 
+use App\Dtos\Customers\CreateCustomerDto;
 use App\Models\AuditLog;
 use App\Models\Business;
 use App\Models\Conversation;
@@ -7,14 +8,24 @@ use App\Models\Customer;
 use App\Models\CustomerConsent;
 use App\Models\CustomerTag;
 use App\Models\Message;
+use App\Models\Role;
 use App\Models\ScheduledMessage;
 use App\Models\User;
 use App\Models\Visit;
 use App\Services\Customers\Commands\AddCustomerNoteCommand;
+use App\Services\Customers\Commands\AnonymizeCustomerCommand;
+use App\Services\Customers\Commands\ArchiveCustomerCommand;
+use App\Services\Customers\Commands\CreateCustomerCommand;
+use App\Services\Customers\Commands\DeleteCustomerCommand;
+use App\Services\Customers\Commands\ImportCustomersCommand;
+use App\Services\Customers\Commands\RecordCustomerExportCommand;
+use App\Services\Customers\Commands\RestoreCustomerCommand;
 use App\Services\Customers\Commands\SyncCustomerTagsCommand;
+use App\Services\Customers\Commands\UpdateCustomerCommand;
 use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -128,6 +139,83 @@ it('enforces note and tag permissions when CQRS commands are called outside HTTP
         ->and(AuditLog::query()->where('business_id', $business->getKey())->whereIn('action', [
             'customer.note_added', 'customer.tags_updated',
         ])->count())->toBe(0);
+});
+
+it('enforces customer permissions when mutation and export commands are invoked directly', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $viewer = User::factory()->create();
+    $business->members()->attach($viewer, ['role' => 'viewer', 'status' => 'active', 'joined_at' => now()]);
+    $activeCustomer = Customer::factory()->create(['business_id' => $business->getKey(), 'first_name' => 'Before']);
+    $archivedCustomer = Customer::factory()->create(['business_id' => $business->getKey(), 'status' => 'archived', 'archived_at' => now()]);
+    $createDto = new CreateCustomerDto('New', null, '+2348031234567', null, null, null, null);
+
+    $deniedCommands = [
+        fn () => app(CreateCustomerCommand::class)->execute((int) $business->getKey(), (int) $viewer->getKey(), $createDto),
+        fn () => app(UpdateCustomerCommand::class)->execute((int) $business->getKey(), (int) $activeCustomer->getKey(), (int) $viewer->getKey(), ['first_name' => 'After']),
+        fn () => app(ArchiveCustomerCommand::class)->execute((int) $business->getKey(), (int) $activeCustomer->getKey(), (int) $viewer->getKey()),
+        fn () => app(RestoreCustomerCommand::class)->execute((int) $business->getKey(), (int) $archivedCustomer->getKey(), (int) $viewer->getKey()),
+        fn () => app(AnonymizeCustomerCommand::class)->execute((int) $business->getKey(), (int) $activeCustomer->getKey(), (int) $viewer->getKey()),
+        fn () => app(DeleteCustomerCommand::class)->execute((int) $business->getKey(), (int) $activeCustomer->getKey(), (int) $viewer->getKey()),
+        fn () => app(ImportCustomersCommand::class)->execute((int) $business->getKey(), (int) $viewer->getKey(), []),
+        fn () => app(RecordCustomerExportCommand::class)->execute((int) $business->getKey(), (int) $viewer->getKey()),
+    ];
+
+    foreach ($deniedCommands as $command) {
+        expect($command)->toThrow(HttpException::class);
+    }
+
+    expect(Customer::query()->where('business_id', $business->getKey())->count())->toBe(2)
+        ->and($activeCustomer->refresh()->first_name)->toBe('Before')
+        ->and($activeCustomer->status)->toBe('active')
+        ->and($archivedCustomer->refresh()->status)->toBe('archived')
+        ->and(AuditLog::query()->where('business_id', $business->getKey())->count())->toBe(0);
+});
+
+it('does not allow import callers to grant themselves customer-note access', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $staff = User::factory()->create();
+    Role::query()->create([
+        'business_id' => $business->getKey(),
+        'slug' => 'import-only',
+        'name' => 'Import only',
+        'permissions' => ['customers.import'],
+    ]);
+    $business->members()->attach($staff, ['role' => 'import-only', 'status' => 'active', 'joined_at' => now()]);
+
+    $result = app(ImportCustomersCommand::class)->execute((int) $business->getKey(), (int) $staff->getKey(), [[
+        'first_name' => 'Sensitive',
+        'last_name' => null,
+        'phone' => '+2348031234567',
+        'notes' => 'Must not be imported',
+    ]]);
+
+    expect($result['created'])->toBe(0)
+        ->and($result['skipped'])->toBe(1)
+        ->and(Customer::query()->where('business_id', $business->getKey())->exists())->toBeFalse();
+});
+
+it('prevents customer commands from changing protected fields or notes without note permission', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $otherBusiness = Business::factory()->create();
+    $receptionist = User::factory()->create();
+    $business->members()->attach($receptionist, ['role' => 'receptionist', 'status' => 'active', 'joined_at' => now()]);
+    $customer = Customer::factory()->create(['business_id' => $business->getKey(), 'notes' => null]);
+    $createWithNotes = new CreateCustomerDto('New', null, '+2348031234567', null, null, null, 'Not permitted');
+
+    expect(fn () => app(CreateCustomerCommand::class)->execute((int) $business->getKey(), (int) $receptionist->getKey(), $createWithNotes))
+        ->toThrow(HttpException::class);
+    expect(fn () => app(UpdateCustomerCommand::class)->execute((int) $business->getKey(), (int) $customer->getKey(), (int) $receptionist->getKey(), ['notes' => 'Not permitted']))
+        ->toThrow(HttpException::class);
+    expect(fn () => app(UpdateCustomerCommand::class)->execute((int) $business->getKey(), (int) $customer->getKey(), (int) $receptionist->getKey(), ['business_id' => $otherBusiness->getKey()]))
+        ->toThrow(ValidationException::class);
+
+    expect(Customer::query()->where('business_id', $business->getKey())->count())->toBe(1)
+        ->and(Customer::query()->where('business_id', $otherBusiness->getKey())->count())->toBe(0)
+        ->and($customer->refresh()->notes)->toBeNull()
+        ->and(AuditLog::query()->where('business_id', $business->getKey())->count())->toBe(0);
 });
 
 it('lists archived customers and restores them through the authorized profile workflow', function (): void {

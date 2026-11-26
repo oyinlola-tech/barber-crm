@@ -4,6 +4,7 @@ namespace App\Services\Customers\Commands;
 
 use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Models\Customer;
+use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -12,8 +13,11 @@ class RestoreCustomerCommand
 {
     public function __construct(public CustomerRepositoryInterface $customers, public RecordAuditLogCommand $audit) {}
 
-    public function execute(int $businessId, int $customerId, ?int $userId = null): Customer
+    public function execute(int $businessId, int $customerId, int $userId): Customer
     {
+        $actor = User::query()->findOrFail($userId);
+        abort_unless($actor->hasBusinessPermission($businessId, 'customers.restore'), 403);
+
         return DB::transaction(function () use ($businessId, $customerId, $userId): Customer {
             $customer = $this->customers->findForBusiness($businessId, $customerId);
             if ($customer->status !== 'archived') {

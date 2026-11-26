@@ -84,7 +84,6 @@ class CustomerController extends Controller
             $businessId,
             (int) $request->user()->getKey(),
             $rows,
-            $request->user()->hasBusinessPermission($businessId, 'customers.note'),
         );
 
         return to_route('customers.index')->with('importResult', $result);

@@ -4,6 +4,7 @@ namespace App\Services\Customers\Commands;
 
 use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Models\Customer;
+use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -17,6 +18,9 @@ class DeleteCustomerCommand
 
     public function execute(int $businessId, int $customerId, int $userId): void
     {
+        $actor = User::query()->findOrFail($userId);
+        abort_unless($actor->hasBusinessPermission($businessId, 'customers.delete'), 403);
+
         DB::transaction(function () use ($businessId, $customerId, $userId): void {
             $customer = $this->customers->findForBusiness($businessId, $customerId);
             $customer->newQuery()->whereKey($customer->getKey())->lockForUpdate()->firstOrFail();
