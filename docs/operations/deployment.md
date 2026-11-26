@@ -22,10 +22,15 @@ TLS/edge controls are intentionally configured.
    subdomain is HTTPS-ready. HSTS is not a replacement for TLS configuration.
 2. Deploy with `make deploy`. The script snapshots the currently running app
    and web images as `previous-stable`, builds the new `current` images, starts
-   the app, web, queue and scheduler, and waits for the web health check. If
-   health fails, it automatically restores the saved images. On a fresh host
-   with no existing images, the first deployment has no earlier release to
-   roll back to; later deployments create the snapshot.
+   the app, web, queue and scheduler, waits for the web health check, then
+   verifies the queue worker and scheduler containers are running. If web
+   health fails or a background service is stopped, deployment automatically
+   restores the saved images and rechecks the web service, queue worker, and
+   scheduler. It returns a failure code so the attempted release is not
+   mistaken for a successful deploy. If recovery cannot be verified, inspect
+   the emitted service logs and run `make rollback` after resolving the cause.
+   On a fresh host with no existing images, the first deployment has no earlier
+   release to roll back to; later deployments create the snapshot.
 3. After verifying the target database and backup state, apply forward
    migrations with `docker compose exec app php artisan migrate --force`.
    Never use migration reset, fresh, or rollback commands against production.

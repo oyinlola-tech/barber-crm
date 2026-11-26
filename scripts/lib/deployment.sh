@@ -31,6 +31,40 @@ wait_for_web() {
     return 1
 }
 
+verify_background_services() {
+    local service
+
+    for service in queue scheduler; do
+        if [[ -z "$(docker compose ps --status running -q "$service")" ]]; then
+            printf 'The %s service is not running.\n' "$service" >&2
+            docker compose logs --tail=100 app web queue scheduler >&2 || true
+            return 1
+        fi
+    done
+}
+
+recover_previous_release() {
+    local previous_available="$1"
+
+    if (( previous_available == 0 )); then
+        printf 'No previous stable release is available for automatic recovery.\n' >&2
+
+        return 1
+    fi
+
+    printf 'Restoring the previous stable release after deployment checks failed.\n' >&2
+    if ! restore_previous_release_tags || ! start_current_release || ! wait_for_web || ! verify_background_services; then
+        docker compose logs --tail=100 app web queue scheduler >&2 || true
+        printf 'Automatic recovery could not verify the previous stable release.\n' >&2
+
+        return 1
+    fi
+
+    printf 'The previous stable release is running again.\n' >&2
+
+    return 0
+}
+
 tag_running_release_as_previous() {
     local app_container web_container app_image web_image
 

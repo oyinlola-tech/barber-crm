@@ -9,6 +9,7 @@ mkdir -p "$TEMP_DIR/bin"
 export FAKE_DOCKER_LOG="$TEMP_DIR/docker.log"
 export FAKE_HEALTH_SEQUENCE="$TEMP_DIR/health-sequence"
 export FAKE_HEALTH_COUNT="$TEMP_DIR/health-count"
+export FAKE_RECOVERY_STARTED="$TEMP_DIR/recovery-started"
 
 cat > "$TEMP_DIR/bin/docker" <<'DOCKER_STUB'
 #!/usr/bin/env bash
@@ -20,10 +21,17 @@ if [[ "$1" == compose ]]; then
     if [[ "$1" == up && "${FAKE_COMPOSE_UP_FAIL:-0}" == 1 ]]; then
         exit 1
     fi
+    if [[ "$1" == up && " ${*} " == *" --no-build "* && "${FAKE_ENABLE_RECOVERY_STUB:-0}" == 1 ]]; then
+        touch "$FAKE_RECOVERY_STARTED"
+    fi
     if [[ "$1" == ps ]]; then
         service="${*: -1}"
+        stopped_services="${FAKE_STOPPED_SERVICES:-}"
+        if [[ -f "$FAKE_RECOVERY_STARTED" ]]; then
+            stopped_services="${FAKE_RECOVERY_STOPPED_SERVICES:-}"
+        fi
         if [[ " ${*} " == *" --status running "* \
-            && " ${FAKE_STOPPED_SERVICES:-} " == *" ${service} "* ]]; then
+            && " $stopped_services " == *" ${service} "* ]]; then
             exit 0
         fi
         printf '%s\n' "${service}-container"
@@ -73,6 +81,41 @@ export PATH="$TEMP_DIR/bin:$PATH"
 rg -q 'tag sha256:old-app barber-crm-app:previous-stable' "$FAKE_DOCKER_LOG"
 rg -q 'tag sha256:old-web barber-crm-web:previous-stable' "$FAKE_DOCKER_LOG"
 rg -q 'compose up --build --detach app web queue scheduler' "$FAKE_DOCKER_LOG"
+
+# A healthy web probe alone must not make deploy report success while a
+# background service is stopped.
+: > "$FAKE_DOCKER_LOG"
+export FAKE_STOPPED_SERVICES=queue
+if "$PROJECT_ROOT/scripts/deploy.sh" >"$TEMP_DIR/deploy-output" 2>&1; then
+    printf 'Deployment test expected a stopped queue worker to fail verification.\n' >&2
+    exit 1
+fi
+rg -q 'Deployment failed: the web service is healthy, but one or more background services are unavailable' "$TEMP_DIR/deploy-output"
+rg -q 'compose logs --tail=100 app web queue scheduler' "$FAKE_DOCKER_LOG"
+if rg -q '^Deployment is healthy\.' "$TEMP_DIR/deploy-output"; then
+    printf 'Deployment reported success despite a stopped background service.\n' >&2
+    exit 1
+fi
+unset FAKE_STOPPED_SERVICES
+
+# A failed background-service check should automatically restore the previous
+# stable release and recheck its web, queue, and scheduler health.
+: > "$FAKE_DOCKER_LOG"
+: > "$FAKE_HEALTH_COUNT"
+rm -f -- "$FAKE_RECOVERY_STARTED"
+export FAKE_STOPPED_SERVICES=queue
+export FAKE_ENABLE_RECOVERY_STUB=1
+if "$PROJECT_ROOT/scripts/deploy.sh" >"$TEMP_DIR/deploy-output" 2>&1; then
+    printf 'Deployment test expected the failed release to return nonzero after recovery.\n' >&2
+    exit 1
+fi
+rg -q 'Deployment failed: the web service is healthy, but one or more background services are unavailable' "$TEMP_DIR/deploy-output"
+rg -q 'The previous stable release is running again' "$TEMP_DIR/deploy-output"
+rg -q 'compose up --no-build --pull never --detach --force-recreate app web queue scheduler' "$FAKE_DOCKER_LOG"
+rg -q 'compose ps --status running -q queue' "$FAKE_DOCKER_LOG"
+rg -q 'compose ps --status running -q scheduler' "$FAKE_DOCKER_LOG"
+unset FAKE_STOPPED_SERVICES FAKE_ENABLE_RECOVERY_STUB
+rm -f -- "$FAKE_RECOVERY_STARTED"
 
 : > "$FAKE_DOCKER_LOG"
 "$PROJECT_ROOT/scripts/rollback.sh"

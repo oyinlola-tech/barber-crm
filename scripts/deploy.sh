@@ -17,23 +17,21 @@ if tag_running_release_as_previous; then
 fi
 
 if ! docker compose up --build --detach app web queue scheduler; then
-    if (( previous_available )); then
-        restore_previous_release_tags
-        start_current_release
-        wait_for_web || true
-    fi
+    recover_previous_release "$previous_available" || true
+
     exit 1
 fi
 
 if ! wait_for_web; then
-    if (( previous_available )); then
-        printf 'Restoring the previous stable application images.\n' >&2
-        restore_previous_release_tags
-        start_current_release
-        wait_for_web || true
-    else
-        printf 'No prior stable release was available for automatic recovery.\n' >&2
-    fi
+    recover_previous_release "$previous_available" || true
+
+    exit 1
+fi
+
+if ! verify_background_services; then
+    printf 'Deployment failed: the web service is healthy, but one or more background services are unavailable.\n' >&2
+    recover_previous_release "$previous_available" || true
+
     exit 1
 fi
 
