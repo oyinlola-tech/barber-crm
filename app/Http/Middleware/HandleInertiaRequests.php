@@ -16,6 +16,7 @@ class HandleInertiaRequests extends Middleware
             ['label' => 'Services', 'href' => '/services', 'permission' => 'services.view'],
             ['label' => 'Inbox', 'href' => '/inbox', 'permission' => 'conversations.view'],
             ['label' => 'Follow-ups', 'href' => '/automations', 'permission' => 'automations.view'],
+            ['label' => 'Scheduled messages', 'href' => '/messages/scheduled', 'permission' => 'messages.view'],
             ['label' => 'Templates', 'href' => '/templates', 'permission' => 'templates.view'],
             ['label' => 'Notifications', 'href' => '/notifications', 'permission' => 'notifications.view'],
             ['label' => 'Reviews', 'href' => '/reviews', 'permission' => 'reviews.view'],

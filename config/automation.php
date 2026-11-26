@@ -3,6 +3,7 @@
 return [
     'enabled' => (bool) env('AUTOMATIONS_ENABLED', false),
     'max_attempts' => (int) env('AUTOMATION_MAX_ATTEMPTS', 5),
+    'manual_retry_limit' => (int) env('AUTOMATION_MANUAL_RETRY_LIMIT', 2),
     'stalled_after_minutes' => (int) env('AUTOMATION_STALLED_AFTER_MINUTES', 10),
     'queued_recovery_after_minutes' => (int) env('AUTOMATION_QUEUED_RECOVERY_AFTER_MINUTES', 5),
     'minimum_customer_message_interval_hours' => (int) env('AUTOMATION_MINIMUM_CUSTOMER_MESSAGE_INTERVAL_HOURS', 72),
