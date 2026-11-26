@@ -1,0 +1,4 @@
+overrides:
+  '@types/estree': 1.0.10
+  caniuse-lite: 1.0.30001827
+  electron-to-chromium: 1.5.493
