@@ -5,7 +5,9 @@ use App\Models\Business;
 use App\Models\Role;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\ServiceCatalog\Commands\UpdateServiceCommand;
 use Database\Seeders\BusinessRoleSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -55,8 +57,9 @@ it('renders the active service catalog for staff with the view permission', func
         ->assertInertia(fn (Assert $page) => $page
             ->component('services/index')
             ->where('currency', 'NGN')
-            ->has('services', 1)
+            ->has('services', 2)
             ->where('services.0.id', $active->getKey())
+            ->where('services.1.is_active', false)
             ->where('permissions.create', false));
 });
 
@@ -135,6 +138,80 @@ it('lists only services belonging to the configured barbershop', function (): vo
             ->has('services', 0));
 });
 
+it('updates and deactivates a service with a dedicated permission and audit record', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $manager = serviceCatalogMember($business, BusinessRole::Manager->value);
+    confirmServiceCatalogMfa($manager);
+    $service = Service::query()->create([
+        'business_id' => $business->getKey(),
+        'name' => 'Classic haircut',
+        'duration_minutes' => 30,
+        'price' => '5000.00',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($manager)->put('/services/'.$service->getKey(), [
+        'name' => 'Haircut and beard trim',
+        'description' => 'Updated combined service.',
+        'duration_minutes' => 45,
+        'price' => '7500.25',
+        'is_active' => false,
+    ])->assertRedirect(route('services.index'));
+
+    expect($service->refresh()->name)->toBe('Haircut and beard trim')
+        ->and($service->duration_minutes)->toBe(45)
+        ->and((string) $service->price)->toBe('7500.25')
+        ->and($service->is_active)->toBeFalse();
+    $this->assertDatabaseHas('audit_logs', [
+        'business_id' => $business->getKey(),
+        'user_id' => $manager->getKey(),
+        'action' => 'service.updated',
+        'auditable_id' => $service->getKey(),
+    ]);
+});
+
+it('enforces service update permissions inside the command and scopes writes to the business', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $otherBusiness = Business::factory()->create(['is_active' => false]);
+    $barber = serviceCatalogMember($business, BusinessRole::Barber->value);
+    $service = Service::query()->create([
+        'business_id' => $business->getKey(),
+        'name' => 'Protected service',
+        'duration_minutes' => 30,
+        'price' => '5000.00',
+        'is_active' => true,
+    ]);
+
+    expect(fn () => app(UpdateServiceCommand::class)->execute(
+        (int) $business->getKey(),
+        (int) $service->getKey(),
+        ['name' => 'Changed by unauthorized staff'],
+        (int) $barber->getKey(),
+    ))->toThrow(AuthorizationException::class);
+
+    $foreignService = Service::query()->create([
+        'business_id' => $otherBusiness->getKey(),
+        'name' => 'Foreign service',
+        'duration_minutes' => 30,
+        'price' => '5000.00',
+        'is_active' => true,
+    ]);
+    $manager = serviceCatalogMember($business, BusinessRole::Manager->value);
+    confirmServiceCatalogMfa($manager);
+
+    $this->actingAs($manager)->put('/services/'.$foreignService->getKey(), [
+        'name' => 'Changed across businesses',
+        'duration_minutes' => 30,
+        'price' => '5000.00',
+        'is_active' => true,
+    ])->assertNotFound();
+
+    expect($service->refresh()->name)->toBe('Protected service')
+        ->and($foreignService->refresh()->name)->toBe('Foreign service');
+});
+
 it('adds catalog permissions to installed built-in roles without replacing existing grants', function (): void {
     $manager = Role::query()->create([
         'business_id' => null,
@@ -160,4 +237,20 @@ it('adds catalog permissions to installed built-in roles without replacing exist
 
     expect($manager->fresh()->permissions)->toBe(['dashboard.view', 'customers.view'])
         ->and($barber->fresh()->permissions)->toBe(['visits.create']);
+});
+
+it('adds service update permission to the installed manager role without replacing grants', function (): void {
+    $manager = Role::query()->create([
+        'business_id' => null,
+        'name' => 'Manager',
+        'slug' => 'manager',
+        'permissions' => ['dashboard.view', 'services.view', 'services.create'],
+    ]);
+    $migration = require database_path('migrations/2026_11_26_161000_add_service_update_permission.php');
+
+    $migration->up();
+    expect($manager->fresh()->permissions)->toBe(['dashboard.view', 'services.view', 'services.create', 'services.update']);
+
+    $migration->down();
+    expect($manager->fresh()->permissions)->toBe(['dashboard.view', 'services.view', 'services.create']);
 });
