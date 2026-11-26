@@ -7,6 +7,7 @@ use App\Interfaces\Repositories\Services\ServiceRepositoryInterface;
 use App\Interfaces\Repositories\Staff\StaffRepositoryInterface;
 use App\Interfaces\Repositories\Visits\VisitRepositoryInterface;
 use App\Models\Business;
+use App\Models\User;
 use App\Models\Visit;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use App\Services\Automations\Commands\CancelVisitFollowUpsCommand;
@@ -25,9 +26,11 @@ class UpdateVisitCommand
     ) {}
 
     /** @param array{staff_profile_id?:int|null,visited_at:string,notes?:string|null,service_ids?:list<int>} $attributes */
-    public function execute(int $businessId, int $visitId, int $userId, array $attributes): Visit
+    public function execute(int $businessId, int $visitId, User $actor, array $attributes): Visit
     {
-        return DB::transaction(function () use ($businessId, $visitId, $userId, $attributes): Visit {
+        abort_unless($actor->hasBusinessPermission($businessId, 'visits.update'), 403);
+
+        return DB::transaction(function () use ($businessId, $visitId, $actor, $attributes): Visit {
             $visit = $this->visits->lockForBusiness($businessId, $visitId);
             if ($visit->customer->status !== 'active' || $visit->customer->archived_at !== null) {
                 throw ValidationException::withMessages(['visit' => 'Visits for archived or anonymized customers cannot be edited.']);
@@ -55,7 +58,7 @@ class UpdateVisitCommand
             ], $services);
             $this->audit->execute(
                 $businessId,
-                $userId,
+                (int) $actor->getKey(),
                 'visit.updated',
                 Visit::class,
                 $visitId,

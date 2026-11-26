@@ -3,6 +3,7 @@
 namespace App\Services\Visits\Commands;
 
 use App\Interfaces\Repositories\Visits\VisitRepositoryInterface;
+use App\Models\User;
 use App\Models\Visit;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use Illuminate\Support\Facades\DB;
@@ -14,11 +15,13 @@ class RestoreVisitCommand
         public RecordAuditLogCommand $audit,
     ) {}
 
-    public function execute(int $businessId, int $visitId, int $userId): Visit
+    public function execute(int $businessId, int $visitId, User $actor): Visit
     {
-        return DB::transaction(function () use ($businessId, $visitId, $userId): Visit {
+        abort_unless($actor->hasBusinessPermission($businessId, 'visits.restore'), 403);
+
+        return DB::transaction(function () use ($businessId, $visitId, $actor): Visit {
             $visit = $this->visits->restoreForBusiness($businessId, $visitId);
-            $this->audit->execute($businessId, $userId, 'visit.restored', Visit::class, $visitId, ['voided' => true], ['voided' => false]);
+            $this->audit->execute($businessId, (int) $actor->getKey(), 'visit.restored', Visit::class, $visitId, ['voided' => true], ['voided' => false]);
 
             return $visit;
         });

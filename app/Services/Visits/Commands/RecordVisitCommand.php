@@ -8,6 +8,7 @@ use App\Interfaces\Repositories\Services\ServiceRepositoryInterface;
 use App\Interfaces\Repositories\Staff\StaffRepositoryInterface;
 use App\Interfaces\Repositories\Visits\VisitRepositoryInterface;
 use App\Models\Business;
+use App\Models\User;
 use App\Models\Visit;
 use App\Utils\BusinessDateTime;
 use Illuminate\Support\Facades\DB;
@@ -23,9 +24,11 @@ class RecordVisitCommand
     ) {}
 
     /** @param array{customer_id:int,staff_profile_id?:int|null,visited_at:string,notes?:string|null,service_ids?:list<int>} $attributes */
-    public function execute(int $businessId, int $userId, array $attributes): Visit
+    public function execute(int $businessId, User $actor, array $attributes): Visit
     {
-        return DB::transaction(function () use ($businessId, $userId, $attributes): Visit {
+        abort_unless($actor->hasBusinessPermission($businessId, 'visits.create'), 403);
+
+        return DB::transaction(function () use ($businessId, $actor, $attributes): Visit {
             $customer = $this->customers->findForBusiness($businessId, $attributes['customer_id']);
             if ($customer->status !== 'active') {
                 throw ValidationException::withMessages(['customer_id' => 'A visit cannot be recorded for an archived or anonymized customer.']);
@@ -39,7 +42,7 @@ class RecordVisitCommand
                 throw ValidationException::withMessages(['service_ids' => 'One or more services are unavailable.']);
             }
 
-            $visit = $this->visits->createForBusiness($businessId, $userId, [
+            $visit = $this->visits->createForBusiness($businessId, (int) $actor->getKey(), [
                 'customer_id' => $attributes['customer_id'],
                 'staff_profile_id' => $attributes['staff_profile_id'] ?? null,
                 'visited_at' => BusinessDateTime::toUtc($attributes['visited_at'], Business::query()->findOrFail($businessId)->timezone),

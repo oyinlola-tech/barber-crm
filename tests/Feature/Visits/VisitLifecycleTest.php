@@ -9,8 +9,14 @@ use App\Models\MessageTemplate;
 use App\Models\ScheduledMessage;
 use App\Models\User;
 use App\Models\Visit;
+use App\Services\Visits\Commands\RecordVisitCommand;
+use App\Services\Visits\Commands\RestoreVisitCommand;
+use App\Services\Visits\Commands\UpdateVisitCommand;
+use App\Services\Visits\Commands\VoidVisitCommand;
 use Carbon\CarbonImmutable;
+use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(RefreshDatabase::class);
 
@@ -34,6 +40,29 @@ function visitLifecycleSetup(string $role = 'owner'): array
 
     return [$business, $user, $customer];
 }
+
+it('enforces visit permissions inside CQRS commands when invoked directly', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    [$business, $viewer, $customer] = visitLifecycleSetup('viewer');
+
+    expect(fn () => app(RecordVisitCommand::class)->execute((int) $business->getKey(), $viewer, [
+        'customer_id' => (int) $customer->getKey(),
+        'visited_at' => now()->subDay()->toDateTimeString(),
+        'service_ids' => [],
+    ]))->toThrow(HttpException::class);
+
+    expect(fn () => app(UpdateVisitCommand::class)->execute(
+        (int) $business->getKey(), 999, $viewer, ['visited_at' => now()->subDay()->toDateTimeString()],
+    ))->toThrow(HttpException::class);
+
+    expect(fn () => app(VoidVisitCommand::class)->execute((int) $business->getKey(), 999, $viewer))
+        ->toThrow(HttpException::class);
+
+    expect(fn () => app(RestoreVisitCommand::class)->execute((int) $business->getKey(), 999, $viewer))
+        ->toThrow(HttpException::class);
+
+    expect(Visit::query()->where('customer_id', $customer->getKey())->count())->toBe(0);
+});
 
 it('corrects a completed visit and audits the revision without exposing notes', function (): void {
     [$business, $user, $customer] = visitLifecycleSetup();

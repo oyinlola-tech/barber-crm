@@ -19,7 +19,7 @@ class VisitController extends Controller
     {
         $visit = $command->execute(
             $request->attributes->get('currentBusiness')->getKey(),
-            $request->user()->getKey(),
+            $request->user(),
             $request->validated(),
         );
 
@@ -30,7 +30,7 @@ class VisitController extends Controller
     {
         $businessId = (int) $request->attributes->get('currentBusiness')->getKey();
         abort_unless((int) $visit->business_id === $businessId, 404);
-        $updatedVisit = $command->execute($businessId, $visit->getKey(), $request->user()->getKey(), $request->validated());
+        $updatedVisit = $command->execute($businessId, $visit->getKey(), $request->user(), $request->validated());
 
         return to_route('customers.show', $updatedVisit->customer_id)->with('success', 'Visit corrected.');
     }
@@ -41,7 +41,7 @@ class VisitController extends Controller
         abort_unless((int) $visit->business_id === $businessId, 404);
         $this->authorize('delete', $visit);
         $customerId = $visit->customer_id;
-        $command->execute($businessId, $visit->getKey(), $request->user()->getKey());
+        $command->execute($businessId, $visit->getKey(), $request->user());
 
         return to_route('customers.show', $customerId)->with('success', 'Visit voided.');
     }
@@ -51,7 +51,7 @@ class VisitController extends Controller
         $businessId = (int) $request->attributes->get('currentBusiness')->getKey();
         abort_unless((int) $visit->business_id === $businessId, 404);
         $this->authorize('restore', $visit);
-        $restoredVisit = $command->execute($businessId, $visit->getKey(), $request->user()->getKey());
+        $restoredVisit = $command->execute($businessId, $visit->getKey(), $request->user());
 
         return to_route('customers.show', $restoredVisit->customer_id)->with('success', 'Visit restored.');
     }
