@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Clock3, Plus, Scissors } from 'lucide-react';
+import { Clock3, Pencil, Plus, Scissors } from 'lucide-react';
+import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 
@@ -9,6 +10,7 @@ type Service = {
     description: string | null;
     duration_minutes: number;
     price: string;
+    is_active: boolean;
 };
 
 type ServiceForm = {
@@ -30,6 +32,193 @@ function money(amount: string, currency: string): string {
     }
 }
 
+function ServiceCatalogRow({
+    service,
+    currency,
+    canUpdate,
+}: {
+    service: Service;
+    currency: string;
+    canUpdate: boolean;
+}) {
+    const [editing, setEditing] = useState(false);
+    const form = useForm<ServiceForm>({
+        name: service.name,
+        description: service.description ?? '',
+        duration_minutes: String(service.duration_minutes),
+        price: service.price,
+        is_active: service.is_active,
+    });
+
+    function edit(): void {
+        form.setData({
+            name: service.name,
+            description: service.description ?? '',
+            duration_minutes: String(service.duration_minutes),
+            price: service.price,
+            is_active: service.is_active,
+        });
+        form.clearErrors();
+        setEditing(true);
+    }
+
+    function submit(event: FormEvent<HTMLFormElement>): void {
+        event.preventDefault();
+        form.transform((data) => ({
+            ...data,
+            duration_minutes: Number(data.duration_minutes),
+        }));
+        form.put(`/services/${service.id}`, {
+            preserveScroll: true,
+            onSuccess: () => setEditing(false),
+        });
+    }
+
+    return (
+        <li className="p-5">
+            {editing ? (
+                <form className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
+                    <label className="grid gap-1.5 text-sm font-medium">
+                        Service name
+                        <input
+                            className="h-10 rounded-lg border bg-background px-3 font-normal"
+                            maxLength={160}
+                            onChange={(event) =>
+                                form.setData('name', event.target.value)
+                            }
+                            required
+                            value={form.data.name}
+                        />
+                        {form.errors.name && (
+                            <span className="text-xs font-normal text-destructive">
+                                {form.errors.name}
+                            </span>
+                        )}
+                    </label>
+                    <label className="grid gap-1.5 text-sm font-medium">
+                        Duration in minutes
+                        <input
+                            className="h-10 rounded-lg border bg-background px-3 font-normal"
+                            max={480}
+                            min={5}
+                            onChange={(event) =>
+                                form.setData(
+                                    'duration_minutes',
+                                    event.target.value,
+                                )
+                            }
+                            required
+                            type="number"
+                            value={form.data.duration_minutes}
+                        />
+                        {form.errors.duration_minutes && (
+                            <span className="text-xs font-normal text-destructive">
+                                {form.errors.duration_minutes}
+                            </span>
+                        )}
+                    </label>
+                    <label className="grid gap-1.5 text-sm font-medium">
+                        Price ({currency})
+                        <input
+                            className="h-10 rounded-lg border bg-background px-3 font-normal"
+                            min={0}
+                            onChange={(event) =>
+                                form.setData('price', event.target.value)
+                            }
+                            required
+                            step="0.01"
+                            type="number"
+                            value={form.data.price}
+                        />
+                        {form.errors.price && (
+                            <span className="text-xs font-normal text-destructive">
+                                {form.errors.price}
+                            </span>
+                        )}
+                    </label>
+                    <label className="grid gap-1.5 text-sm font-medium md:col-span-2">
+                        Description (optional)
+                        <textarea
+                            className="min-h-20 rounded-lg border bg-background px-3 py-2 font-normal"
+                            maxLength={2000}
+                            onChange={(event) =>
+                                form.setData('description', event.target.value)
+                            }
+                            value={form.data.description}
+                        />
+                        {form.errors.description && (
+                            <span className="text-xs font-normal text-destructive">
+                                {form.errors.description}
+                            </span>
+                        )}
+                    </label>
+                    <label className="flex items-center gap-2 text-sm font-medium md:col-span-2">
+                        <input
+                            checked={form.data.is_active}
+                            onChange={(event) =>
+                                form.setData('is_active', event.target.checked)
+                            }
+                            type="checkbox"
+                        />
+                        Available for visit records
+                    </label>
+                    <div className="flex gap-2 md:col-span-2">
+                        <Button disabled={form.processing} type="submit">
+                            Save changes
+                        </Button>
+                        <Button
+                            disabled={form.processing}
+                            onClick={() => setEditing(false)}
+                            type="button"
+                            variant="outline"
+                        >
+                            Cancel
+                        </Button>
+                    </div>
+                </form>
+            ) : (
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-medium">{service.name}</h3>
+                            <span
+                                className={`rounded-full px-2 py-0.5 text-xs ${service.is_active ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-muted text-muted-foreground'}`}
+                            >
+                                {service.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                        </div>
+                        {service.description && (
+                            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                                {service.description}
+                            </p>
+                        )}
+                        <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
+                            <Clock3 aria-hidden="true" size={14} />
+                            {service.duration_minutes} minutes
+                        </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                        <p className="font-medium">
+                            {money(service.price, currency)}
+                        </p>
+                        {canUpdate && (
+                            <Button
+                                aria-label={`Edit ${service.name}`}
+                                onClick={edit}
+                                size="sm"
+                                variant="outline"
+                            >
+                                <Pencil aria-hidden="true" size={15} />
+                                Edit
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            )}
+        </li>
+    );
+}
+
 export default function ServicesIndex({
     services,
     currency,
@@ -37,7 +226,7 @@ export default function ServicesIndex({
 }: {
     services: Service[];
     currency: string;
-    permissions: { create: boolean };
+    permissions: { create: boolean; update: boolean };
 }) {
     const form = useForm<ServiceForm>({
         name: '',
@@ -182,7 +371,7 @@ export default function ServicesIndex({
                 <section className="overflow-hidden rounded-2xl border bg-card">
                     <div className="flex items-center gap-2 border-b px-5 py-4">
                         <Scissors aria-hidden="true" size={18} />
-                        <h2 className="font-semibold">Active services</h2>
+                        <h2 className="font-semibold">Service catalog</h2>
                         <span className="ml-auto text-sm text-muted-foreground">
                             {services.length}
                         </span>
@@ -194,31 +383,12 @@ export default function ServicesIndex({
                     ) : (
                         <ul className="divide-y">
                             {services.map((service) => (
-                                <li
-                                    className="flex flex-wrap items-start justify-between gap-4 p-5"
+                                <ServiceCatalogRow
+                                    canUpdate={permissions.update}
+                                    currency={currency}
                                     key={service.id}
-                                >
-                                    <div className="min-w-0">
-                                        <h3 className="font-medium">
-                                            {service.name}
-                                        </h3>
-                                        {service.description && (
-                                            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                                                {service.description}
-                                            </p>
-                                        )}
-                                        <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-                                            <Clock3
-                                                aria-hidden="true"
-                                                size={14}
-                                            />
-                                            {service.duration_minutes} minutes
-                                        </p>
-                                    </div>
-                                    <p className="shrink-0 font-medium">
-                                        {money(service.price, currency)}
-                                    </p>
-                                </li>
+                                    service={service}
+                                />
                             ))}
                         </ul>
                     )}
