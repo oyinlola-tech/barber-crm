@@ -1,0 +1,93 @@
+<?php
+
+namespace App\Services\Templates\Commands;
+
+use App\Apis\WhatsApp\WhatsAppTemplateApi;
+use App\Models\MessageTemplate;
+use App\Models\User;
+use App\Models\WhatsAppConnection;
+use App\Services\Audit\Commands\RecordAuditLogCommand;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
+
+class SynchronizeMessageTemplatesCommand
+{
+    public function __construct(
+        public WhatsAppTemplateApi $templateApi,
+        public RecordAuditLogCommand $audit,
+    ) {}
+
+    public function execute(int $businessId, int $userId): int
+    {
+        if (! User::query()->findOrFail($userId)->hasBusinessPermission($businessId, 'templates.sync')) {
+            throw new AuthorizationException('You are not allowed to synchronize WhatsApp templates.');
+        }
+
+        $connection = WhatsAppConnection::query()
+            ->where('business_id', $businessId)
+            ->where('status', 'connected')
+            ->first();
+        if ($connection === null || $connection->business_account_id === null || $connection->access_token === null) {
+            throw new RuntimeException('A connected WhatsApp Business account is required to synchronize templates.');
+        }
+
+        $providerTemplates = $this->templateApi->listTemplates($connection);
+
+        return DB::transaction(function () use ($businessId, $userId, $providerTemplates): int {
+            $synchronizedCount = 0;
+            foreach ($providerTemplates as $providerTemplate) {
+                $providerId = $providerTemplate['id'] ?? null;
+                $name = $providerTemplate['name'] ?? null;
+                $language = $providerTemplate['language'] ?? null;
+                $status = $providerTemplate['status'] ?? null;
+
+                if (! is_string($providerId) || ! is_string($name) || ! is_string($language) || ! is_string($status)) {
+                    continue;
+                }
+
+                $template = MessageTemplate::query()
+                    ->where('business_id', $businessId)
+                    ->where(function ($query) use ($providerId, $name, $language): void {
+                        $query->where('provider_template_id', $providerId)
+                            ->orWhere(function ($query) use ($name, $language): void {
+                                $query->whereIn('status', ['submitted', 'submission_uncertain', 'synchronized'])
+                                    ->where('name', $name)
+                                    ->where('language', $language);
+                            });
+                    })
+                    ->lockForUpdate()
+                    ->first();
+
+                $existingStatus = $template?->status;
+                $attributes = [
+                    'provider_template_id' => $providerId,
+                    'provider_status' => strtoupper($status),
+                    'status' => $existingStatus === 'submission_uncertain' ? 'synchronized' : ($existingStatus ?? 'synchronized'),
+                    'category' => is_string($providerTemplate['category'] ?? null) ? strtolower($providerTemplate['category']) : $template?->category,
+                    'components' => is_array($providerTemplate['components'] ?? null) ? $providerTemplate['components'] : [],
+                    'is_enabled' => strtoupper($status) === 'APPROVED' ? (bool) $template?->is_enabled : false,
+                ];
+
+                if ($template === null) {
+                    MessageTemplate::query()->create([
+                        ...$attributes,
+                        'business_id' => $businessId,
+                        'name' => $name,
+                        'language' => $language,
+                        'purpose' => null,
+                        'variable_map' => [],
+                    ]);
+                } else {
+                    $template->update($attributes);
+                }
+
+                $synchronizedCount++;
+            }
+
+            $this->audit->execute($businessId, $userId, 'message_templates.synchronized', MessageTemplate::class, null, null, ['count' => $synchronizedCount]);
+
+            return $synchronizedCount;
+        });
+    }
+}
