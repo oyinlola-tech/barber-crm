@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Configs\AuthorizationConfig;
 use App\Models\Business;
 use Closure;
 use Illuminate\Http\Request;
@@ -9,6 +10,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RequirePrivilegedMfa
 {
+    public function __construct(private readonly AuthorizationConfig $authorization) {}
+
     /** @var list<string> */
     private const MFA_SETUP_PATHS = [
         'settings/security',
@@ -24,27 +27,6 @@ class RequirePrivilegedMfa
         'user/two-factor-secret-key',
         'user/two-factor-recovery-codes',
         'logout',
-    ];
-
-    /** @var list<string> */
-    private const PRIVILEGED_PERMISSIONS = [
-        'staff.invite',
-        'staff.suspend',
-        'roles.create',
-        'roles.update',
-        'roles.delete',
-        'roles.assign',
-        'settings.update',
-        'whatsapp.configure',
-        'whatsapp.disconnect',
-    ];
-
-    /** @var list<string> */
-    private const PRIVILEGED_PERMISSION_GROUPS = [
-        'staff.*',
-        'roles.*',
-        'settings.*',
-        'whatsapp.*',
     ];
 
     public function handle(Request $request, Closure $next): Response
@@ -72,9 +54,9 @@ class RequirePrivilegedMfa
 
         $isOwner = $membership->pivot->role === 'owner';
         $permissions = $user->businessPermissions((int) $businessId);
-        $isPrivileged = array_intersect(self::PRIVILEGED_PERMISSIONS, $permissions) !== []
+        $isPrivileged = array_intersect($this->authorization->privilegedPermissions(), $permissions) !== []
             || in_array('*', $permissions, true)
-            || array_intersect(self::PRIVILEGED_PERMISSION_GROUPS, $permissions) !== [];
+            || array_intersect($this->authorization->privilegedPermissionGroups(), $permissions) !== [];
 
         if (($isOwner || $isPrivileged) && ! $user->hasEnabledTwoFactorAuthentication()) {
             if ($request->expectsJson()) {
