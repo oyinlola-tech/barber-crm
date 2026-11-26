@@ -16,7 +16,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 
 ## Implemented and locally tested
 
-- Private owner provisioning, Fortify authentication, password recovery, email verification, TOTP MFA/recovery codes, privileged MFA enforcement and session revocation. A wildcard MFA setup exception was narrowed so owners without confirmed MFA cannot invoke the session-revocation endpoint.
+- Private owner provisioning, Argon2id password hashing, Fortify authentication, password recovery, email verification, TOTP MFA/recovery codes, privileged MFA enforcement and session revocation. A wildcard MFA setup exception was narrowed so owners without confirmed MFA cannot invoke the session-revocation endpoint.
 - Staff invitations, account suspension, role/permission management, delegation checks and security/audit recording.
 - Business-scoped customer CRUD, normalized international phone numbers, notes/tags, active/archived filters with profile restore, customer import/export, anonymization safeguards, consent history, opt-out processing and stated return date.
 - Completed visit recording/history and after-commit visit events.

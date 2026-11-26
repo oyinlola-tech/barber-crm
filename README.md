@@ -19,6 +19,8 @@ php artisan key:generate
 
 Set PostgreSQL connection values in `.env`, then create the database and run `php artisan migrate --no-interaction`. Do not use `migrate:fresh` against an existing database. Configure a mail transport before using password recovery or staff invitations.
 
+New account passwords use Argon2id (`HASH_DRIVER=argon2id`) with configurable memory, time, and thread costs. The example production defaults use 64 MiB of memory and four iterations; tune them only after checking the target server’s capacity.
+
 Build frontend assets with `pnpm build`; run `pnpm dev` during UI work. Start Laravel using `php artisan serve` or the project Docker Compose setup.
 
 ## Owner and staff access
