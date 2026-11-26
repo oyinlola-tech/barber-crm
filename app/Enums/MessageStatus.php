@@ -7,6 +7,7 @@ enum MessageStatus: string
     case Pending = 'pending';
     case Processing = 'processing';
     case Received = 'received';
+    case Accepted = 'accepted';
     case Sent = 'sent';
     case Delivered = 'delivered';
     case Read = 'read';

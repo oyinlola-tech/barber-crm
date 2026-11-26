@@ -6,7 +6,7 @@ use App\Configs\WhatsAppConfig;
 use App\Enums\ScheduledMessageStatus;
 use App\Interfaces\Apis\MessagingProviderInterface;
 use App\Interfaces\Repositories\Conversations\ConversationRepositoryInterface;
-use App\Mappers\Templates\WhatsAppTemplateComponentMapper;
+use App\Mappers\Templates\WhatsAppTemplateDataMapper;
 use App\Models\AutomationRule;
 use App\Models\Business;
 use App\Models\Conversation;
@@ -29,11 +29,11 @@ class ProcessScheduledMessageCommand
     public function __construct(
         public MessagingProviderInterface $messaging,
         public CustomerCanReceiveMessageQuery $consent,
-        public WhatsAppTemplateComponentMapper $componentMapper,
         public SendWindowCalculator $sendWindow,
         public ScheduleFollowUpCommand $scheduleFollowUp,
         public WhatsAppConfig $whatsAppConfiguration,
         public ConversationRepositoryInterface $conversations,
+        public WhatsAppTemplateDataMapper $templateData,
     ) {}
 
     public function execute(int $scheduledMessageId): void
@@ -119,11 +119,7 @@ class ProcessScheduledMessageCommand
             }
 
             try {
-                $components = $this->componentMapper->toSendComponents(
-                    $this->bodyText($template),
-                    $template->variable_map ?? [],
-                    $this->templateValues($customer, $business),
-                );
+                $components = $this->templateData->map($template, $customer, $business)['components'];
             } catch (ValidationException) {
                 $scheduledMessage->update([
                     'status' => ScheduledMessageStatus::Failed->value,
@@ -302,22 +298,6 @@ class ProcessScheduledMessageCommand
         ]);
     }
 
-    /** @return array<string, scalar|null> */
-    private function templateValues(Customer $customer, Business $business): array
-    {
-        $lastVisit = $customer->visits()->latest('visited_at')->value('visited_at');
-        /** @var array<string, mixed> $businessSettings */
-        $businessSettings = $business->settings ?? [];
-
-        return [
-            'customer_name' => trim($customer->first_name.' '.$customer->last_name),
-            'business_name' => $business->name,
-            'business_phone' => $business->phone,
-            'last_visit_date' => $lastVisit === null ? null : CarbonImmutable::parse($lastVisit)->setTimezone($business->timezone)->format('Y-m-d'),
-            'review_link' => $businessSettings['public_review_link'] ?? $businessSettings['review_link'] ?? null,
-        ];
-    }
-
     private function scheduleNextFollowUp(ScheduledMessage $scheduledMessage): void
     {
         $payload = $scheduledMessage->payload ?? [];
@@ -430,16 +410,5 @@ class ProcessScheduledMessageCommand
 
         return $conversation?->last_customer_message_at === null
             || ! $conversation->last_customer_message_at->greaterThanOrEqualTo($scheduledMessage->created_at);
-    }
-
-    private function bodyText(MessageTemplate $template): string
-    {
-        foreach ($template->components ?? [] as $component) {
-            if (($component['type'] ?? null) === 'BODY' && is_string($component['text'] ?? null)) {
-                return $component['text'];
-            }
-        }
-
-        throw ValidationException::withMessages(['template' => 'The approved template has no text body.']);
     }
 }

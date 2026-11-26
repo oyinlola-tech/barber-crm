@@ -2,13 +2,19 @@
 
 namespace App\Services\Automations\Commands;
 
+use App\Enums\MessageStatus;
 use App\Enums\ScheduledMessageStatus;
+use App\Models\Message;
+use App\Models\MessageEvent;
 use App\Models\ScheduledMessage;
+use App\Services\Audit\Commands\RecordAuditLogCommand;
 use Illuminate\Support\Facades\DB;
 
 class RecoverStalledMessagesCommand
 {
-    /** @return array{requeued: int, reconciliation_required: int} */
+    public function __construct(private readonly RecordAuditLogCommand $audit) {}
+
+    /** @return array{requeued: int, reconciliation_required: int, manual_delivery_uncertain: int} */
     public function execute(): array
     {
         return DB::transaction(function (): array {
@@ -33,7 +39,44 @@ class RecoverStalledMessagesCommand
                     'updated_at' => now(),
                 ]);
 
-            return ['requeued' => $stalledProcessing, 'reconciliation_required' => $stalledSending];
+            $manualSending = Message::query()
+                ->where('direction', 'outbound')
+                ->where('type', 'template')
+                ->where('status', MessageStatus::Pending->value)
+                ->whereNotNull('idempotency_key')
+                ->where('created_at', '<', $cutoff)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($manualSending as $message) {
+                $message->forceFill([
+                    'status' => MessageStatus::DeliveryUncertain->value,
+                    'failed_at' => now(),
+                    'provider_error_code' => 'manual_template_dispatch_stalled',
+                ])->save();
+                MessageEvent::query()->create([
+                    'business_id' => $message->business_id,
+                    'message_id' => $message->getKey(),
+                    'event_type' => 'message.send_uncertain',
+                    'status' => MessageStatus::DeliveryUncertain->value,
+                    'occurred_at' => now(),
+                ]);
+                $this->audit->execute(
+                    (int) $message->business_id,
+                    null,
+                    'message.manual_template_reconciliation_required',
+                    Message::class,
+                    (int) $message->getKey(),
+                    ['status' => MessageStatus::Pending->value],
+                    ['status' => MessageStatus::DeliveryUncertain->value],
+                );
+            }
+
+            return [
+                'requeued' => $stalledProcessing,
+                'reconciliation_required' => $stalledSending,
+                'manual_delivery_uncertain' => $manualSending->count(),
+            ];
         });
     }
 }

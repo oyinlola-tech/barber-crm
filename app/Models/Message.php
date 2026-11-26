@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
  * @property int $business_id
  * @property int $conversation_id
  * @property string|null $provider_message_id
+ * @property string|null $idempotency_key
  * @property string $direction
  * @property string $type
  * @property string $status
@@ -22,7 +23,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $read_at
  * @property Carbon|null $failed_at
  */
-#[Fillable(['business_id', 'conversation_id', 'scheduled_message_id', 'provider_message_id', 'direction', 'type', 'status', 'body', 'payload', 'sent_at'])]
+#[Fillable(['business_id', 'conversation_id', 'scheduled_message_id', 'provider_message_id', 'idempotency_key', 'direction', 'type', 'status', 'body', 'payload', 'sent_at'])]
 class Message extends Model
 {
     /** @return BelongsTo<Conversation, $this> */

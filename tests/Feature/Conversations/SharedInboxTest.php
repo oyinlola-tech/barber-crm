@@ -6,6 +6,7 @@ use App\Models\ConversationNote;
 use App\Models\Customer;
 use App\Models\CustomerConsent;
 use App\Models\Message;
+use App\Models\MessageTemplate;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WhatsAppConnection;
@@ -73,6 +74,23 @@ function makeInboxConversation(bool $withConsent = true, bool $withinServiceWind
     return [$user, $business, $customer, $conversation];
 }
 
+function makeApprovedInboxTemplate(int $businessId): MessageTemplate
+{
+    return MessageTemplate::query()->create([
+        'business_id' => $businessId,
+        'provider_template_id' => 'meta-template-1',
+        'name' => 'visit_follow_up',
+        'language' => 'en',
+        'category' => 'UTILITY',
+        'purpose' => 'experience',
+        'status' => 'approved',
+        'provider_status' => 'APPROVED',
+        'is_enabled' => true,
+        'components' => [['type' => 'BODY', 'text' => 'Hello {{1}}, thank you for visiting.']],
+        'variable_map' => ['customer_name'],
+    ]);
+}
+
 it('renders customer conversations and inbox details from persisted data', function (): void {
     [$user, , , $conversation] = makeInboxConversation();
 
@@ -128,6 +146,107 @@ it('records uncertain provider acceptance without automatically retrying the rep
     Http::assertSentCount(1);
 });
 
+it('sends approved mapped templates when the 24-hour service window is closed', function (): void {
+    [$user, $business, , $conversation] = makeInboxConversation(withinServiceWindow: false);
+    $template = makeApprovedInboxTemplate((int) $business->getKey());
+    Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.template']]], 200)]);
+
+    $this->actingAs($user)->get('/inbox/'.$conversation->getKey())->assertInertia(fn (Assert $page) => $page
+        ->where('canSendTemplate', true)
+        ->where('templates.0.id', $template->getKey())
+        ->missing('templates.0.provider_template_id'));
+
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/template-reply', [
+        'template_id' => $template->getKey(),
+        'idempotency_key' => '7fd47f00-cac2-4c64-a154-5c0a2797745b',
+    ])->assertRedirect();
+
+    $this->assertDatabaseHas('messages', [
+        'conversation_id' => $conversation->getKey(),
+        'provider_message_id' => 'wamid.template',
+        'direction' => 'outbound',
+        'type' => 'template',
+        'status' => 'accepted',
+        'body' => 'Hello '.trim($conversation->customer->first_name.' '.$conversation->customer->last_name).', thank you for visiting.',
+    ]);
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), '/phone-number-1/messages')
+        && $request['template']['name'] === 'visit_follow_up'
+        && $request['template']['components'][0]['parameters'][0]['text'] === trim($conversation->customer->first_name.' '.$conversation->customer->last_name));
+});
+
+it('requires active WhatsApp consent and an approved enabled template for template replies', function (): void {
+    [$user, $business, , $conversation] = makeInboxConversation(withConsent: false, withinServiceWindow: false);
+    $template = makeApprovedInboxTemplate((int) $business->getKey());
+    Http::fake();
+
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/template-reply', [
+        'template_id' => $template->getKey(),
+        'idempotency_key' => '848c79a6-13a3-4c1a-b4b2-15a32d4ae834',
+    ])->assertSessionHasErrors('template_id');
+
+    CustomerConsent::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $conversation->customer_id,
+        'channel' => 'whatsapp',
+        'granted' => true,
+        'source' => 'in_person',
+        'recorded_at' => now(),
+    ]);
+    $template->update(['provider_status' => 'REJECTED']);
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/template-reply', [
+        'template_id' => $template->getKey(),
+        'idempotency_key' => 'dc4429a3-3e1d-43bc-9f9d-4977e82de1e8',
+    ])->assertSessionHasErrors('template_id');
+
+    Http::assertNothingSent();
+    $this->assertDatabaseCount('messages', 1);
+});
+
+it('uses template reply idempotency keys to prevent duplicate provider sends', function (): void {
+    [$user, $business, , $conversation] = makeInboxConversation(withinServiceWindow: false);
+    $template = makeApprovedInboxTemplate((int) $business->getKey());
+    Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.template.once']]], 200)]);
+    $payload = [
+        'template_id' => $template->getKey(),
+        'idempotency_key' => '55249292-7d86-47c7-9d34-cd5ab72b76c8',
+    ];
+
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/template-reply', $payload)->assertRedirect();
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/template-reply', $payload)->assertRedirect();
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/template-reply', [
+        ...$payload,
+        'template_id' => $template->getKey() + 1,
+    ])->assertSessionHasErrors('idempotency_key');
+
+    Http::assertSentCount(1);
+    $this->assertDatabaseCount('messages', 2);
+    $this->assertDatabaseHas('messages', ['idempotency_key' => $payload['idempotency_key'], 'status' => 'accepted']);
+});
+
+it('does not retry template sends after an ambiguous provider response', function (): void {
+    [$user, $business, , $conversation] = makeInboxConversation(withinServiceWindow: false);
+    $template = makeApprovedInboxTemplate((int) $business->getKey());
+    Http::fake(['graph.facebook.com/*' => Http::response(['error' => ['message' => 'Temporary provider error']], 500)]);
+    $payload = [
+        'template_id' => $template->getKey(),
+        'idempotency_key' => 'becf9a17-21df-46ea-b940-f18ab9ab1c14',
+    ];
+
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/template-reply', $payload)
+        ->assertRedirect()
+        ->assertSessionHas('status', 'WhatsApp delivery is uncertain. Do not resend until the message is reconciled.');
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/template-reply', $payload)->assertRedirect();
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/template-reply', [
+        ...$payload,
+        'idempotency_key' => 'd88b73da-3dc0-4206-831b-a1dd04441833',
+    ])->assertSessionHasErrors('template_id');
+
+    Http::assertSentCount(1);
+    $this->assertDatabaseHas('messages', ['idempotency_key' => $payload['idempotency_key'], 'status' => 'delivery_uncertain']);
+    $this->actingAs($user)->get('/inbox/'.$conversation->getKey())->assertInertia(fn (Assert $page) => $page
+        ->where('templateSendBlocked', true));
+});
+
 it('rejects manual replies without active consent or after the service window closes', function (): void {
     [$user, , , $conversation] = makeInboxConversation(withConsent: false);
     Http::fake();
@@ -158,6 +277,10 @@ it('does not expose an inbox to employees without conversation permission', func
 
     $this->actingAs($viewer)->get('/inbox')->assertForbidden();
     $this->actingAs($viewer)->post('/inbox/1/reply', ['body' => 'Unauthorized'])->assertForbidden();
+    $this->actingAs($viewer)->post('/inbox/1/template-reply', [
+        'template_id' => 1,
+        'idempotency_key' => '3a85f035-4ca0-4625-81f7-3606cb6e199c',
+    ])->assertForbidden();
 });
 
 it('does not serialize internal notes for staff with read-only conversation access', function (): void {

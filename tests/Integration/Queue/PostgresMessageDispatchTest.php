@@ -97,7 +97,7 @@ it('claims due messages across concurrent PostgreSQL dispatchers and recovers st
 
     config(['automation.stalled_after_minutes' => 10]);
     expect(app(RecoverStalledMessagesCommand::class)->execute())
-        ->toBe(['requeued' => 1, 'reconciliation_required' => 1])
+        ->toBe(['requeued' => 1, 'reconciliation_required' => 1, 'manual_delivery_uncertain' => 0])
         ->and($processing->fresh()->status)->toBe('pending')
         ->and($sending->fresh()->status)->toBe('reconciliation_required');
 })->group('postgres');
