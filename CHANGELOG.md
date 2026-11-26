@@ -2,7 +2,8 @@
 
 ## 2026-11-26
 
-- Added owner-managed additional WhatsApp opt-out phrases, with standard withdrawal keywords always retained; covered backend authorization, audit, inbound processing, MFA-protected mobile editing, and persistence after reload. Latest local verification: 126 Pest tests / 844 assertions passed, one PostgreSQL-only host test skipped, and 7 Playwright tests passed.
+- Added owner-authorized staff removal with session and password-reset revocation, personal profile redaction, owner/self safeguards, preserved visit/audit attribution, and a responsive browser workflow.
+- Added owner-managed additional WhatsApp opt-out phrases, with standard withdrawal keywords always retained; covered backend authorization, audit, inbound processing, MFA-protected mobile editing, and persistence after reload. Latest local verification: 128 Pest tests / 862 assertions passed, one PostgreSQL-only host test skipped, and 8 Playwright tests passed.
 - Added the missing WhatsApp settings page, extracted reusable connection status and credential form components, and verified Meta phone/WABA access and phone association before saving encrypted credentials.
 - Added a typed WhatsApp configuration accessor and structured customer/WhatsApp command DTOs; made provider failures safe for the UI and audited privileged disconnections.
 - Removed empty placeholder folders and `.gitkeep` files, including obsolete booking and tenant-isolation scaffolds; retained Laravel's active `app/Http/Middleware` pipeline.
@@ -21,7 +22,7 @@
 - Added notifications, date-filtered aggregate analytics, audit and operations health interfaces.
 - Hardened Compose deployment defaults, readiness checks and trusted proxy configuration; documented production and backup verification gaps.
 - Added configurable inactive-customer re-engagement with consent, recent-reply and frequency safeguards, return-date suppression, repeat-cycle idempotency, delivery-time revalidation, and rule editing.
-- Added staff invitation revocation, audited staff profile edits and grouped permission catalogue; staff deletion remains unavailable to preserve historical attribution.
+- Added staff invitation revocation, audited staff profile edits and grouped permission catalogue.
 - Expanded Playwright to cover private sign-in, authenticated dashboard access, and customer creation at a 390px viewport using an isolated SQLite fixture.
 - Changed Inertia page loading to lazy imports; the app entry chunk is now 44.68 kB and the largest React runtime chunk is 356.81 kB (no >500 kB chunk warning).
 - Fixed the Docker frontend stage to include `pnpm-workspace.yaml`; app, queue, scheduler and web images now build successfully. PHP-FPM and Nginx configuration checks passed in disposable containers.

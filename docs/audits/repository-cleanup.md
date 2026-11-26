@@ -45,7 +45,7 @@ This repository is not yet a complete CRM or production-ready system. Inactive-c
 
 ## Verification and limits
 
-- `php artisan route:list --except-vendor` lists 74 non-vendor routes; no booking, appointment, availability, payment or subscription endpoints appeared.
+- `php artisan route:list --except-vendor` lists 77 non-vendor routes; no booking, appointment, availability, payment or subscription endpoints appeared.
 - `php artisan test --compact` passed 93 tests (558 assertions), including visit correction, void/restore and business-timezone handling alongside customer privacy, automation, consent, inbox, templates, analytics, security and webhook behavior.
 - `composer analyse` passed at PHPStan level 5.
 - Pint, ESLint, TypeScript, Prettier, and the Vite production build passed.
