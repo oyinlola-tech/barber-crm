@@ -15,6 +15,7 @@ use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 uses(LazilyRefreshDatabase::class);
 
 it('sends a claimed message once even when its job is delivered twice', function (): void {
+    $this->travelTo(now('Africa/Lagos')->setTime(10, 0)->utc());
     config(['whatsapp.api_version' => 'v99.0']);
     $business = Business::factory()->create();
     $customer = Customer::factory()->create(['business_id' => $business->getKey(), 'phone' => '+2348012345678']);

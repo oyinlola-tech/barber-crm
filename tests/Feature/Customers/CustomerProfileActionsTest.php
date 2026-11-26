@@ -10,10 +10,13 @@ use App\Models\Message;
 use App\Models\ScheduledMessage;
 use App\Models\User;
 use App\Models\Visit;
+use App\Services\Customers\Commands\AddCustomerNoteCommand;
+use App\Services\Customers\Commands\SyncCustomerTagsCommand;
 use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(RefreshDatabase::class);
 
@@ -58,6 +61,34 @@ it('creates and assigns normalized tags only within the current barbershop', fun
         ->toBe(['regular', 'sensitive scalp'])
         ->and(CustomerTag::query()->where('business_id', $business->getKey())->count())->toBe(2)
         ->and(AuditLog::query()->where('business_id', $business->getKey())->where('action', 'customer.tags_updated')->exists())->toBeTrue();
+});
+
+it('enforces note and tag permissions when CQRS commands are called outside HTTP controllers', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $viewer = User::factory()->create();
+    $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
+    $business->members()->attach($viewer, ['role' => 'viewer', 'status' => 'active', 'joined_at' => now()]);
+
+    expect(fn () => app(AddCustomerNoteCommand::class)->execute(
+        (int) $business->getKey(),
+        (int) $customer->getKey(),
+        (int) $viewer->getKey(),
+        'Unauthorized note',
+    ))->toThrow(HttpException::class);
+
+    expect(fn () => app(SyncCustomerTagsCommand::class)->execute(
+        (int) $business->getKey(),
+        (int) $customer->getKey(),
+        (int) $viewer->getKey(),
+        ['unauthorized'],
+    ))->toThrow(HttpException::class);
+
+    expect($customer->noteEntries()->count())->toBe(0)
+        ->and($customer->tags()->count())->toBe(0)
+        ->and(AuditLog::query()->where('business_id', $business->getKey())->whereIn('action', [
+            'customer.note_added', 'customer.tags_updated',
+        ])->count())->toBe(0);
 });
 
 it('lists archived customers and restores them through the authorized profile workflow', function (): void {
