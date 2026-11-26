@@ -21,7 +21,7 @@ class BusinessSettingsController extends Controller
         return Inertia::render('settings/business', [
             'business' => $business->only(['id', 'name', 'slug', 'timezone', 'currency', 'phone', 'email']),
             'canUpdate' => $request->user()->hasBusinessPermission((int) $business->getKey(), 'settings.update'),
-            'optOutKeywords' => $messagingSettings->execute((int) $business->getKey()),
+            'optOutKeywords' => $messagingSettings->additionalPhrases((int) $business->getKey()),
         ]);
     }
 
