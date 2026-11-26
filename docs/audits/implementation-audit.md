@@ -39,7 +39,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 
 ## Verification results
 
-- `vendor/bin/pest`: 107 passed, 705 assertions, 1 PostgreSQL-only integration test skipped by its environment guard (SQLite in-memory; includes Meta credential validation, secret omission, permissions, audited disconnect, custom-role HTTP lifecycle, direct CQRS permission checks, delivery-status ordering, follow-up response-race cancellation, and database queue-worker heartbeat processing).
+- `vendor/bin/pest`: 111 passed, 725 assertions, 1 PostgreSQL-only integration test skipped by its environment guard (SQLite in-memory; includes Meta credential validation, secret omission, permissions, audited disconnect, custom-role HTTP lifecycle, direct CQRS permission checks, delivery-status ordering, follow-up response-race cancellation, database queue-worker heartbeat processing, and single-business middleware boundaries).
 - `pnpm test:e2e`: 5 Playwright Chromium tests passed, including customer create/archive/restore, inbox assignment/note/read/close actions, consent-gated reply visibility, and a read-only authenticated page sweep across staff, roles, automations, templates, reviews, analytics, notifications, audit, health, business settings and WhatsApp settings at a 390px viewport.
 - `composer analyse`: PHPStan/Larastan level 5 passed.
 - `vendor/bin/pint --test`, `pnpm types:check`, `pnpm lint`, `pnpm format:check`, `pnpm build`: passed.
