@@ -44,7 +44,10 @@ TLS/edge controls are intentionally configured.
 The queue container uses a 60-second worker timeout while Laravel's database
 queue retry-after defaults to 90 seconds. Keep the worker timeout shorter than
 `DB_QUEUE_RETRY_AFTER` if either value is changed, to reduce the risk of another
-worker reserving a still-running job.
+worker reserving a still-running job. The worker also exits after one hour and
+Docker restarts it under the `unless-stopped` policy. This periodically releases
+long-lived PHP process memory; in-flight jobs still follow the configured job
+timeout and retry behavior.
 
 ## Operations and limitations
 
