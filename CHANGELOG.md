@@ -4,6 +4,7 @@
 
 - Enforce actor permissions in customer CQRS mutations and exports; derive note access from the user and reject protected customer update fields.
 - Enforce business settings and WhatsApp connect/disconnect permissions inside CQRS commands, rejecting protected business profile attributes.
+- Reserve the `owner` role slug against custom role creation and renaming to prevent privilege escalation through the ownership permission shortcut.
 - Record pre-send WhatsApp connection failures as definite failures instead of leaving manual inbox replies pending, and show outcome-specific feedback.
 - Sanitize scheduled-message retry backoff configuration and clear stale failure timestamps before safe requeue.
 - Show accessible save confirmation for business and messaging settings, and align analytics copy with the returning-customer calculation.
