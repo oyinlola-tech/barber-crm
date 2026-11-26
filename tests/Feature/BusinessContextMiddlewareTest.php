@@ -53,5 +53,11 @@ it('documents configurable application runtime controls in the environment templ
     expect($environmentTemplate)->toBeString()
         ->toContain('WHATSAPP_WEBHOOK_MAX_BYTES=1048576')
         ->toContain('AUTOMATION_QUEUED_RECOVERY_AFTER_MINUTES=5')
-        ->toContain('AUTOMATION_MINIMUM_CUSTOMER_MESSAGE_INTERVAL_HOURS=72');
+        ->toContain('AUTOMATION_MINIMUM_CUSTOMER_MESSAGE_INTERVAL_HOURS=72')
+        ->toContain('SESSION_SECURE_COOKIE=false');
+
+    $deploymentInstructions = file_get_contents(base_path('docs/operations/deployment.md'));
+
+    expect($deploymentInstructions)->toBeString()
+        ->toContain('SESSION_SECURE_COOKIE=true');
 });
