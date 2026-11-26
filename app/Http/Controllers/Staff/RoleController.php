@@ -20,6 +20,13 @@ class RoleController extends Controller
     {
         $business = $request->attributes->get('currentBusiness');
         $this->authorize('viewAny', [Role::class, $business]);
+        $businessId = (int) $business->getKey();
+        $permissionCatalogue = BusinessRole::permissions();
+        $delegablePermissions = array_filter(
+            $permissionCatalogue,
+            fn (string $label, string $permission): bool => $request->user()->hasBusinessPermission($businessId, $permission),
+            ARRAY_FILTER_USE_BOTH,
+        );
         $roles = Role::query()->where(fn ($query) => $query->whereNull('business_id')->orWhere('business_id', $business->getKey()))
             ->orderBy('business_id')->orderBy('name')->get(['id', 'business_id', 'name', 'slug', 'permissions']);
 
@@ -27,8 +34,11 @@ class RoleController extends Controller
             'roles' => $roles->map(fn (Role $role): array => [
                 'id' => (int) $role->getKey(), 'name' => $role->name, 'slug' => $role->slug,
                 'permissions' => $role->permissions ?? [], 'protected' => $role->business_id === null || $role->slug === 'owner',
+                'canUpdate' => $request->user()->can('update', $role),
+                'canDelete' => $request->user()->can('delete', $role),
             ])->values(),
             'permissions' => BusinessRole::permissions(),
+            'delegablePermissions' => $delegablePermissions,
             'capabilities' => [
                 'create' => $request->user()->hasBusinessPermission((int) $business->getKey(), 'roles.create'),
                 'update' => $request->user()->hasBusinessPermission((int) $business->getKey(), 'roles.update'),

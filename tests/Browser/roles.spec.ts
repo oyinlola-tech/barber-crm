@@ -18,6 +18,12 @@ test('read-only staff can inspect roles without seeing role management actions',
     await expect(
         page.getByRole('heading', { name: 'Create custom role' }),
     ).toHaveCount(0);
+    await expect(
+        page.getByRole('button', { name: 'Edit permissions' }),
+    ).toHaveCount(0);
+    await expect(
+        page.getByRole('button', { name: 'Delete', exact: true }),
+    ).toHaveCount(0);
 
     const protectedPages = [
         ['/analytics', 'Analytics'],

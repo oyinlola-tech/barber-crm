@@ -9,15 +9,24 @@ type Role = {
     slug: string;
     permissions: string[];
     protected: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
 };
 type Props = {
     roles: Role[];
     permissions: Record<string, string>;
+    delegablePermissions: Record<string, string>;
     capabilities: { create: boolean; update: boolean; delete: boolean };
 };
 
-export default function RolesPage({ roles, permissions, capabilities }: Props) {
+export default function RolesPage({
+    roles,
+    permissions,
+    delegablePermissions,
+    capabilities,
+}: Props) {
     const [editing, setEditing] = useState<Role | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
     const createForm = useForm({ name: '', permissions: [] as string[] });
     const editForm = useForm({ name: '', permissions: [] as string[] });
     const permissionGroups = Object.entries(permissions).reduce<
@@ -32,13 +41,19 @@ export default function RolesPage({ roles, permissions, capabilities }: Props) {
 
     function createRole(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        createForm.post('/roles', { onSuccess: () => createForm.reset() });
+        setActionError(null);
+        createForm.post('/roles', {
+            onSuccess: () => createForm.reset(),
+        });
     }
     function saveRole(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         if (!editing) return;
         editForm.put(`/roles/${editing.id}`, {
-            onSuccess: () => setEditing(null),
+            onSuccess: () => {
+                setEditing(null);
+                setActionError(null);
+            },
         });
     }
     function beginEdit(role: Role) {
@@ -52,7 +67,14 @@ export default function RolesPage({ roles, permissions, capabilities }: Props) {
                 `Delete the ${role.name} role? It must not be assigned to any staff account.`,
             )
         ) {
-            router.delete(`/roles/${role.id}`);
+            setActionError(null);
+            router.delete(`/roles/${role.id}`, {
+                onError: (errors) =>
+                    setActionError(
+                        Object.values(errors)[0] ??
+                            'The role could not be deleted. Reassign staff and revoke pending invitations first.',
+                    ),
+            });
         }
     }
 
@@ -72,6 +94,14 @@ export default function RolesPage({ roles, permissions, capabilities }: Props) {
                         delegate permissions they already hold.
                     </p>
                 </header>
+                {actionError && (
+                    <p
+                        className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+                        role="alert"
+                    >
+                        {actionError}
+                    </p>
+                )}
                 {capabilities.create && (
                     <section className="mt-7 rounded-2xl border bg-card p-5 sm:p-6">
                         <h2 className="text-lg font-semibold">
@@ -87,12 +117,19 @@ export default function RolesPage({ roles, permissions, capabilities }: Props) {
                                 error={createForm.errors.name}
                             />
                             <PermissionPicker
-                                permissions={permissions}
+                                permissions={delegablePermissions}
                                 selected={createForm.data.permissions}
                                 onChange={(selected) =>
                                     createForm.setData('permissions', selected)
                                 }
                             />
+                            {Object.keys(delegablePermissions).length === 0 && (
+                                <p className="text-sm text-muted-foreground">
+                                    Your account cannot delegate any
+                                    permissions, so you cannot create a usable
+                                    custom role.
+                                </p>
+                            )}
                             {createForm.errors.permissions && (
                                 <ErrorText
                                     text={createForm.errors.permissions}
@@ -131,12 +168,18 @@ export default function RolesPage({ roles, permissions, capabilities }: Props) {
                                 error={editForm.errors.name}
                             />
                             <PermissionPicker
-                                permissions={permissions}
+                                permissions={delegablePermissions}
                                 selected={editForm.data.permissions}
                                 onChange={(selected) =>
                                     editForm.setData('permissions', selected)
                                 }
                             />
+                            {Object.keys(delegablePermissions).length === 0 && (
+                                <p className="text-sm text-muted-foreground">
+                                    Your account cannot delegate any
+                                    permissions.
+                                </p>
+                            )}
                             {editForm.errors.permissions && (
                                 <ErrorText text={editForm.errors.permissions} />
                             )}
@@ -188,24 +231,30 @@ export default function RolesPage({ roles, permissions, capabilities }: Props) {
                                 (capabilities.update ||
                                     capabilities.delete) && (
                                     <div className="mt-4 flex gap-2 border-t pt-4">
-                                        {capabilities.update && (
-                                            <Button
-                                                onClick={() => beginEdit(role)}
-                                                type="button"
-                                                variant="outline"
-                                            >
-                                                Edit permissions
-                                            </Button>
-                                        )}
-                                        {capabilities.delete && (
-                                            <Button
-                                                onClick={() => removeRole(role)}
-                                                type="button"
-                                                variant="ghost"
-                                            >
-                                                Delete
-                                            </Button>
-                                        )}
+                                        {capabilities.update &&
+                                            role.canUpdate && (
+                                                <Button
+                                                    onClick={() =>
+                                                        beginEdit(role)
+                                                    }
+                                                    type="button"
+                                                    variant="outline"
+                                                >
+                                                    Edit permissions
+                                                </Button>
+                                            )}
+                                        {capabilities.delete &&
+                                            role.canDelete && (
+                                                <Button
+                                                    onClick={() =>
+                                                        removeRole(role)
+                                                    }
+                                                    type="button"
+                                                    variant="ghost"
+                                                >
+                                                    Delete
+                                                </Button>
+                                            )}
                                     </div>
                                 )}
                         </article>

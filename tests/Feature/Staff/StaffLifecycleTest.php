@@ -117,6 +117,46 @@ it('renders the complete permission catalogue on the authorized roles page', fun
             ->where('permissions', BusinessRole::permissions()));
 });
 
+it('limits role editing controls and permission choices to the actor delegated authority', function (): void {
+    [$business] = lifecycleBusiness();
+    $limitedRole = Role::query()->create([
+        'business_id' => $business->getKey(),
+        'name' => 'Role administrator',
+        'slug' => 'role-administrator',
+        'permissions' => ['roles.view', 'roles.create', 'roles.update', 'roles.delete', 'customers.view'],
+    ]);
+    $actor = lifecycleUser('Role Administrator', 'role-admin@barber.test');
+    $business->members()->attach($actor, ['role' => $limitedRole->slug, 'status' => 'active', 'joined_at' => now()]);
+    $manageableRole = Role::query()->create([
+        'business_id' => $business->getKey(),
+        'name' => 'Customer viewer',
+        'slug' => 'customer-viewer',
+        'permissions' => ['customers.view'],
+    ]);
+    $unmanageableRole = Role::query()->create([
+        'business_id' => $business->getKey(),
+        'name' => 'Customer editor',
+        'slug' => 'customer-editor',
+        'permissions' => ['customers.update'],
+    ]);
+
+    $this->actingAs($actor)->get(route('roles.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('roles/index')
+            ->where('permissions', BusinessRole::permissions())
+            ->where('delegablePermissions', [
+                'roles.view' => BusinessRole::permissions()['roles.view'],
+                'roles.create' => BusinessRole::permissions()['roles.create'],
+                'roles.update' => BusinessRole::permissions()['roles.update'],
+                'roles.delete' => BusinessRole::permissions()['roles.delete'],
+                'customers.view' => BusinessRole::permissions()['customers.view'],
+            ])
+            ->where('roles', fn ($roles) => collect($roles)->firstWhere('slug', $manageableRole->slug)['canUpdate'] === true
+                && collect($roles)->firstWhere('slug', $unmanageableRole->slug)['canUpdate'] === false
+                && collect($roles)->firstWhere('slug', $manageableRole->slug)['canDelete'] === true));
+});
+
 it('creates, updates, and deletes a custom role through the authorized HTTP workflow', function (): void {
     [$business, $owner] = lifecycleBusiness();
 
