@@ -2,6 +2,7 @@
 
 ## 2026-11-26
 
+- Enforced case-insensitive uniqueness for staff account email addresses in validation, commands, and an additive database index with a duplicate-data preflight; operational health now fails closed when PostgreSQL is unavailable.
 - Removed blanket inline-script allowance from the Content Security Policy and issue a per-response nonce for Vite asset tags; middleware tests verify nonce rotation and policy matching.
 - Closed an MFA exemption that allowed privileged session revocation before confirmed enrollment; a regression test verifies the request is blocked.
 - Made deployment verify the queue worker and scheduler and automatically restore the previous stable release when web or worker health checks fail; recovery is rechecked and deploy still exits nonzero.
