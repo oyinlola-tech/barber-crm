@@ -3,8 +3,10 @@
 use App\Models\AuditLog;
 use App\Models\Business;
 use App\Models\User;
+use App\Services\Operations\Queries\GetOperationalHealthQuery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -87,10 +89,20 @@ it('returns a minimal readiness response without internal health details', funct
 });
 
 it('records scheduler and actual queue worker heartbeats when the heartbeat command runs', function (): void {
+    config(['queue.default' => 'database']);
     Artisan::call('operations:record-heartbeat');
 
     $this->assertDatabaseHas('operational_heartbeats', ['component' => 'scheduler']);
+    $this->assertDatabaseHas('jobs', ['queue' => 'default']);
+    $this->assertDatabaseMissing('operational_heartbeats', ['component' => 'queue_worker']);
+
+    $health = app(GetOperationalHealthQuery::class)->execute(1);
+    expect($health['queue']['status'])->toBe('unhealthy');
+
+    Artisan::call('queue:work', ['--once' => true, '--queue' => 'default']);
+
     $this->assertDatabaseHas('operational_heartbeats', ['component' => 'queue_worker']);
+    expect(DB::table('jobs')->count())->toBe(0);
 });
 
 function confirmOperationsMfa(User $user): void
