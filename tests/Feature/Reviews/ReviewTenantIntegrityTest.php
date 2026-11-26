@@ -45,6 +45,7 @@ it('rejects attaching a customer review to another customers visit', function ()
 it('cancels queued review-request follow-ups after a review without cancelling other or in-flight messages', function (): void {
     $business = Business::factory()->create();
     $user = User::factory()->create();
+    $business->members()->attach($user, ['role' => 'owner', 'status' => 'active']);
     $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
     $visit = Visit::query()->create([
         'business_id' => $business->getKey(),

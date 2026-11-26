@@ -41,6 +41,11 @@ test('read-only staff can inspect roles without seeing role management actions',
         await expect(
             page.getByRole('heading', { name: heading, exact: true }),
         ).toBeVisible();
+        if (path === '/reviews' || path === '/operations/audit') {
+            await expect(
+                page.getByRole('link', { name: 'Export CSV' }),
+            ).toHaveCount(0);
+        }
         expect(
             await page.evaluate(() => document.documentElement.scrollWidth),
             `${path} horizontal overflow`,

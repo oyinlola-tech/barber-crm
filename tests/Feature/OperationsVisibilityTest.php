@@ -50,6 +50,7 @@ it('shows an authorized audit log without exposing stored change payloads and sc
             ->where('logs.data.0.resource', 'Customer')
             ->missing('logs.data.0.before')
             ->missing('logs.data.0.after')
+            ->where('canExport', true)
             ->where('filters.action', ''));
     expect($response->getContent())
         ->not->toContain('secret-before')
@@ -62,7 +63,39 @@ it('denies audit and operational health pages without their respective permissio
     attachOperationsMember($business, $viewer, 'viewer');
 
     $this->actingAs($viewer)->get('/operations/audit')->assertForbidden();
+    $this->get('/operations/audit/export')->assertForbidden();
     $this->actingAs($viewer)->get('/operations/health')->assertForbidden();
+});
+
+it('exports only safe audit columns as a private formula-safe csv and records the export', function (): void {
+    $business = Business::factory()->create();
+    $owner = User::factory()->create();
+    attachOperationsMember($business, $owner, 'owner');
+    confirmOperationsMfa($owner);
+    AuditLog::query()->create([
+        'business_id' => $business->getKey(),
+        'user_id' => $owner->getKey(),
+        'action' => '=HYPERLINK("https://example.test")',
+        'auditable_type' => 'App\\Models\\Customer',
+        'auditable_id' => 15,
+        'before' => ['private' => 'must not export'],
+        'after' => ['token' => 'secret'],
+    ]);
+    $otherBusiness = Business::factory()->create(['is_active' => false]);
+    AuditLog::query()->create([
+        'business_id' => $otherBusiness->getKey(),
+        'action' => 'foreign.audit.entry',
+    ]);
+
+    $response = $this->actingAs($owner)->get('/operations/audit/export');
+    $response->assertOk()->assertHeader('Cache-Control', 'no-store, private');
+    $csv = $response->streamedContent();
+
+    expect($csv)->toContain("'=HYPERLINK")->toContain('Customer')
+        ->not->toContain('must not export')
+        ->not->toContain('secret')
+        ->not->toContain('foreign.audit.entry');
+    $this->assertDatabaseHas('audit_logs', ['business_id' => $business->getKey(), 'user_id' => $owner->getKey(), 'action' => 'audit.exported']);
 });
 
 it('shows operational health only to authorized staff and reports recorded heartbeats', function (): void {

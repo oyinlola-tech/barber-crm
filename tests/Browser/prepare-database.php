@@ -6,6 +6,7 @@ use App\Models\Business;
 use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\Message;
+use App\Models\Review;
 use App\Models\Role;
 use App\Models\StaffProfile;
 use App\Models\User;
@@ -99,6 +100,7 @@ $owner->forceFill([
     'two_factor_secret' => Fortify::currentEncrypter()->encrypt('JBSWY3DPEHPK3PXP'),
     'two_factor_recovery_codes' => Fortify::currentEncrypter()->encrypt(json_encode([
         'browser-recovery-code',
+        'browser-review-recovery-code',
         'browser-staff-recovery-code',
         'browser-template-recovery-code',
     ], JSON_THROW_ON_ERROR)),
@@ -129,6 +131,14 @@ $inboxCustomer = Customer::query()->create([
     'first_name' => 'Inbox',
     'last_name' => 'Customer',
     'phone' => '+2348098765432',
+]);
+Review::query()->create([
+    'business_id' => $business->getKey(),
+    'customer_id' => $inboxCustomer->getKey(),
+    'rating' => 3,
+    'body' => 'The customer shared initial feedback.',
+    'source' => 'internal',
+    'reviewed_at' => now()->subDay(),
 ]);
 $conversation = Conversation::query()->create([
     'business_id' => $business->getKey(),
