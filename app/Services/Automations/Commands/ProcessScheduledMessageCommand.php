@@ -5,6 +5,7 @@ namespace App\Services\Automations\Commands;
 use App\Configs\WhatsAppConfig;
 use App\Enums\ScheduledMessageStatus;
 use App\Interfaces\Apis\MessagingProviderInterface;
+use App\Interfaces\Repositories\Conversations\ConversationRepositoryInterface;
 use App\Mappers\Templates\WhatsAppTemplateComponentMapper;
 use App\Models\AutomationRule;
 use App\Models\Business;
@@ -32,6 +33,7 @@ class ProcessScheduledMessageCommand
         public SendWindowCalculator $sendWindow,
         public ScheduleFollowUpCommand $scheduleFollowUp,
         public WhatsAppConfig $whatsAppConfiguration,
+        public ConversationRepositoryInterface $conversations,
     ) {}
 
     public function execute(int $scheduledMessageId): void
@@ -381,6 +383,19 @@ class ProcessScheduledMessageCommand
     private function isStillEligibleForTrigger(ScheduledMessage $scheduledMessage, Customer $customer, AutomationRule $rule): bool
     {
         $payload = $scheduledMessage->payload ?? [];
+        if (array_key_exists('last_customer_message_id', $payload)) {
+            $expectedMessageId = $payload['last_customer_message_id'];
+            $latestMessageId = $this->conversations->latestInboundMessageIdForCustomer(
+                (int) $scheduledMessage->business_id,
+                (int) $customer->getKey(),
+                (string) $scheduledMessage->channel,
+            );
+
+            if ($expectedMessageId === null ? $latestMessageId !== null : (int) $expectedMessageId !== $latestMessageId) {
+                return false;
+            }
+        }
+
         if (($payload['trigger'] ?? $rule->trigger) !== 'customer_inactive') {
             return true;
         }

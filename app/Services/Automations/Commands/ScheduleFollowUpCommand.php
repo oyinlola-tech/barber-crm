@@ -3,6 +3,7 @@
 namespace App\Services\Automations\Commands;
 
 use App\Enums\ScheduledMessageStatus;
+use App\Interfaces\Repositories\Conversations\ConversationRepositoryInterface;
 use App\Models\AutomationRule;
 use App\Models\Business;
 use App\Models\Customer;
@@ -18,6 +19,7 @@ class ScheduleFollowUpCommand
     public function __construct(
         public CustomerCanReceiveMessageQuery $consent,
         public SendWindowCalculator $sendWindow,
+        public ConversationRepositoryInterface $conversations,
     ) {}
 
     /** @param array<string, mixed> $payload */
@@ -71,6 +73,7 @@ class ScheduleFollowUpCommand
                 'visit_id' => isset($payload['visit_id']) ? (int) $payload['visit_id'] : null,
                 'visit_revision' => isset($payload['visit_revision']) ? (int) $payload['visit_revision'] : null,
                 'inactivity_anchor' => is_string($payload['inactivity_anchor'] ?? null) ? $payload['inactivity_anchor'] : null,
+                'last_customer_message_id' => $this->conversations->latestInboundMessageIdForCustomer($businessId, $customerId, 'whatsapp'),
                 'trigger' => is_string($payload['trigger'] ?? null) ? $payload['trigger'] : $rule->trigger,
                 'max_attempts' => max(1, min((int) ($settings['max_attempts'] ?? config('automation.max_attempts')), 10)),
             ];
