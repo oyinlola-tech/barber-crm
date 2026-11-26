@@ -3,6 +3,7 @@
 use App\Models\AuditLog;
 use App\Models\Business;
 use App\Models\User;
+use App\Models\WhatsAppConnection;
 use App\Services\Operations\Queries\GetOperationalHealthQuery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -136,6 +137,25 @@ it('reports database failure without querying unavailable operational tables', f
         ->and($health['scheduler']['status'])->toBe('unknown')
         ->and($health['whatsapp']['status'])->toBe('unknown')
         ->and($health['webhooks']['status'])->toBe('unknown');
+});
+
+it('does not report a connected WhatsApp record healthy when its runtime API configuration is incomplete', function (): void {
+    $business = Business::factory()->create();
+    WhatsAppConnection::query()->create([
+        'business_id' => $business->getKey(),
+        'phone_number_id' => 'phone-id',
+        'business_account_id' => 'business-account-id',
+        'access_token' => 'stored-token',
+        'status' => 'connected',
+    ]);
+    config(['whatsapp.api_version' => null]);
+
+    $health = app(GetOperationalHealthQuery::class)->execute((int) $business->getKey());
+    expect($health['whatsapp']['status'])->toBe('degraded');
+
+    config(['whatsapp.api_version' => 'v22.0']);
+    $health = app(GetOperationalHealthQuery::class)->execute((int) $business->getKey());
+    expect($health['whatsapp']['status'])->toBe('healthy');
 });
 
 it('records scheduler and actual queue worker heartbeats when the heartbeat command runs', function (): void {

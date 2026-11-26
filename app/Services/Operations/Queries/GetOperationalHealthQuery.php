@@ -2,14 +2,19 @@
 
 namespace App\Services\Operations\Queries;
 
+use App\Configs\WhatsAppConfig;
 use App\Models\WebhookEvent;
 use App\Models\WhatsAppConnection;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class GetOperationalHealthQuery
 {
+    public function __construct(private readonly WhatsAppConfig $whatsAppConfig) {}
+
     /** @return array{overall:string,checked_at:string,database:array{status:string},queue:array{driver:string,status:string,pending:int,failed:int,worker_heartbeat:?string},scheduler:array{status:string,last_heartbeat:?string},whatsapp:array{status:string},webhooks:array{status:string,unprocessed:int,failed_recent:int,last_received_at:?string}} */
     public function execute(int $businessId): array
     {
@@ -127,9 +132,23 @@ class GetOperationalHealthQuery
         }
 
         $connection = WhatsAppConnection::query()->where('business_id', $businessId)->first();
-        $status = $connection->status ?? 'disconnected';
+        if ($connection === null || $connection->status !== 'connected') {
+            return ['status' => 'degraded'];
+        }
 
-        return ['status' => $status === 'connected' ? 'healthy' : 'degraded'];
+        try {
+            $encryptedAccessToken = $connection->getRawOriginal('access_token');
+            $accessToken = is_string($encryptedAccessToken) ? Crypt::decryptString($encryptedAccessToken) : null;
+        } catch (DecryptException) {
+            return ['status' => 'degraded'];
+        }
+
+        $configured = is_string($accessToken) && $accessToken !== ''
+            && is_string($connection->phone_number_id) && $connection->phone_number_id !== ''
+            && is_string($connection->business_account_id) && $connection->business_account_id !== ''
+            && $this->whatsAppConfig->graphApiConfigured();
+
+        return ['status' => $configured ? 'healthy' : 'degraded'];
     }
 
     /** @return array{status:string,unprocessed:int,failed_recent:int,last_received_at:?string} */
