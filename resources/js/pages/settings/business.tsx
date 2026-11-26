@@ -2,6 +2,7 @@ import { Head, useForm } from '@inertiajs/react';
 import { Store } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
+import { MessagingSettingsForm } from '@/features/settings/messaging-settings';
 
 type BusinessProfile = {
     id: number;
@@ -16,9 +17,11 @@ type BusinessProfile = {
 export default function BusinessSettings({
     business,
     canUpdate,
+    optOutKeywords,
 }: {
     business: BusinessProfile;
     canUpdate: boolean;
+    optOutKeywords: string[];
 }) {
     const form = useForm({
         name: business.name,
@@ -127,6 +130,10 @@ export default function BusinessSettings({
                         </div>
                     </form>
                 </section>
+                <MessagingSettingsForm
+                    canUpdate={canUpdate}
+                    keywords={optOutKeywords}
+                />
             </div>
         </main>
     );
