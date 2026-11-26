@@ -68,6 +68,7 @@ Role::query()->create([
         'roles.view', 'staff.view', 'settings.view', 'conversations.view', 'automations.view',
         'templates.view', 'reviews.view', 'analytics.view', 'audit.view', 'system.health.view', 'whatsapp.view',
         'services.view', 'services.create', 'services.update',
+        'services.categories.create', 'services.categories.update', 'services.categories.delete',
         'conversations.reply', 'conversations.assign', 'conversations.close',
     ],
 ]);

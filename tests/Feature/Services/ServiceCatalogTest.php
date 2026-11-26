@@ -4,7 +4,10 @@ use App\Enums\BusinessRole;
 use App\Models\Business;
 use App\Models\Role;
 use App\Models\Service;
+use App\Models\ServiceCategory;
 use App\Models\User;
+use App\Services\ServiceCatalog\Commands\CreateServiceCategoryCommand;
+use App\Services\ServiceCatalog\Commands\DeleteServiceCategoryCommand;
 use App\Services\ServiceCatalog\Commands\UpdateServiceCommand;
 use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -253,4 +256,149 @@ it('adds service update permission to the installed manager role without replaci
 
     $migration->down();
     expect($manager->fresh()->permissions)->toBe(['dashboard.view', 'services.view', 'services.create']);
+});
+
+it('creates, edits and audits categories and scopes the catalog to the business', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $otherBusiness = Business::factory()->create(['is_active' => false]);
+    $manager = serviceCatalogMember($business, BusinessRole::Manager->value);
+    confirmServiceCatalogMfa($manager);
+    ServiceCategory::query()->create([
+        'business_id' => $otherBusiness->getKey(),
+        'name' => 'Foreign category',
+        'sort_order' => 0,
+    ]);
+
+    $this->actingAs($manager)->post('/service-categories', [
+        'name' => 'Haircuts',
+        'description' => 'Cutting services.',
+        'sort_order' => 1,
+    ])->assertRedirect(route('services.index'));
+
+    $category = ServiceCategory::query()->where('business_id', $business->getKey())->firstOrFail();
+    expect($category->name)->toBe('Haircuts')
+        ->and($category->sort_order)->toBe(1);
+    $this->assertDatabaseHas('audit_logs', [
+        'business_id' => $business->getKey(),
+        'user_id' => $manager->getKey(),
+        'action' => 'service_category.created',
+        'auditable_id' => $category->getKey(),
+    ]);
+
+    $this->actingAs($manager)->put('/service-categories/'.$category->getKey(), [
+        'name' => 'Hair and beard',
+        'description' => 'Grooming services.',
+        'sort_order' => 2,
+    ])->assertRedirect(route('services.index'));
+    $this->assertDatabaseHas('audit_logs', [
+        'business_id' => $business->getKey(),
+        'user_id' => $manager->getKey(),
+        'action' => 'service_category.updated',
+        'auditable_id' => $category->getKey(),
+    ]);
+
+    $this->actingAs($manager)->get('/services')->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('categories', 1)
+            ->where('categories.0.id', $category->getKey())
+            ->where('categories.0.name', 'Hair and beard'));
+
+    $this->actingAs($manager)->delete('/service-categories/'.$category->getKey())
+        ->assertRedirect(route('services.index'));
+    $this->assertDatabaseMissing('service_categories', ['id' => $category->getKey()]);
+    $this->assertDatabaseHas('audit_logs', [
+        'business_id' => $business->getKey(),
+        'user_id' => $manager->getKey(),
+        'action' => 'service_category.deleted',
+        'auditable_id' => $category->getKey(),
+    ]);
+});
+
+it('prevents deleting a category assigned to a service and enforces category command permissions', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $manager = serviceCatalogMember($business, BusinessRole::Manager->value);
+    confirmServiceCatalogMfa($manager);
+    $category = ServiceCategory::query()->create([
+        'business_id' => $business->getKey(),
+        'name' => 'Haircuts',
+        'sort_order' => 0,
+    ]);
+    $service = Service::query()->create([
+        'business_id' => $business->getKey(),
+        'service_category_id' => $category->getKey(),
+        'name' => 'Classic haircut',
+        'duration_minutes' => 30,
+        'price' => '5000.00',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($manager)->delete('/service-categories/'.$category->getKey())
+        ->assertSessionHasErrors('category');
+    expect($category->fresh())->not->toBeNull()
+        ->and($service->refresh()->service_category_id)->toBe($category->getKey());
+
+    $barber = serviceCatalogMember($business, BusinessRole::Barber->value);
+    expect(fn () => app(CreateServiceCategoryCommand::class)->execute(
+        (int) $business->getKey(),
+        ['name' => 'Unauthorized category'],
+        (int) $barber->getKey(),
+    ))->toThrow(AuthorizationException::class);
+
+    expect(fn () => app(DeleteServiceCategoryCommand::class)->execute(
+        (int) $business->getKey(),
+        (int) $category->getKey(),
+        (int) $barber->getKey(),
+    ))->toThrow(AuthorizationException::class);
+});
+
+it('validates category uniqueness and rejects another business category assignment', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $otherBusiness = Business::factory()->create(['is_active' => false]);
+    $manager = serviceCatalogMember($business, BusinessRole::Manager->value);
+    confirmServiceCatalogMfa($manager);
+    $category = ServiceCategory::query()->create([
+        'business_id' => $business->getKey(),
+        'name' => 'Haircuts',
+        'sort_order' => 0,
+    ]);
+    $foreignCategory = ServiceCategory::query()->create([
+        'business_id' => $otherBusiness->getKey(),
+        'name' => 'Foreign category',
+        'sort_order' => 0,
+    ]);
+
+    $this->actingAs($manager)->post('/service-categories', [
+        'name' => 'Haircuts',
+    ])->assertSessionHasErrors('name');
+    $this->actingAs($manager)->post('/services', [
+        'name' => 'Unauthorized category service',
+        'duration_minutes' => 30,
+        'price' => '5000.00',
+        'service_category_id' => $foreignCategory->getKey(),
+    ])->assertSessionHasErrors('service_category_id');
+
+    expect($category->fresh()->name)->toBe('Haircuts');
+    $this->assertDatabaseMissing('services', ['name' => 'Unauthorized category service']);
+});
+
+it('adds category permissions to an installed manager without replacing existing grants', function (): void {
+    $manager = Role::query()->create([
+        'business_id' => null,
+        'name' => 'Manager',
+        'slug' => 'manager',
+        'permissions' => ['dashboard.view', 'services.update'],
+    ]);
+    $migration = require database_path('migrations/2026_11_26_162000_add_service_category_permissions.php');
+
+    $migration->up();
+    expect($manager->fresh()->permissions)->toBe([
+        'dashboard.view', 'services.update',
+        'services.categories.create', 'services.categories.update', 'services.categories.delete',
+    ]);
+
+    $migration->down();
+    expect($manager->fresh()->permissions)->toBe(['dashboard.view', 'services.update']);
 });
