@@ -15,6 +15,11 @@ TLS/edge controls are intentionally configured.
    or CIDRs that connect to Laravel; never trust arbitrary forwarded headers
    from the public internet. Keep `.env` outside source control and restrict
    file access.
+   The application applies a same-origin Content Security Policy, frame and
+   MIME protections, referrer and permissions policies, and enables HSTS only
+   on secure requests. Tune HSTS with `SECURITY_HSTS_MAX_AGE` and
+   `SECURITY_HSTS_INCLUDE_SUBDOMAINS`; use subdomain coverage only when every
+   subdomain is HTTPS-ready. HSTS is not a replacement for TLS configuration.
 2. Deploy with `make deploy`. The script snapshots the currently running app
    and web images as `previous-stable`, builds the new `current` images, starts
    the app, web, queue and scheduler, and waits for the web health check. If
