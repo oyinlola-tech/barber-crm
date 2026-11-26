@@ -6,6 +6,7 @@ use App\Models\StaffInvitation;
 use App\Models\StaffProfile;
 use App\Models\User;
 use Database\Seeders\BusinessRoleSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Fortify\Fortify;
@@ -26,6 +27,13 @@ function staffInvitationOwner(): array
 
     return [$owner, $business];
 }
+
+it('enforces case-insensitive email uniqueness in the database', function (): void {
+    User::factory()->create(['email' => 'Sam.Barber@example.test']);
+
+    expect(fn () => User::factory()->create(['email' => 'sam.barber@example.test']))
+        ->toThrow(QueryException::class);
+});
 
 it('invites an employee and accepts a single-use expiring link without storing its raw token', function (): void {
     [$owner, $business] = staffInvitationOwner();
@@ -77,6 +85,42 @@ it('rejects invitation delivery when mail is configured to log secrets', functio
     ])->assertSessionHasErrors('email');
 
     expect(StaffInvitation::query()->count())->toBe(0);
+});
+
+it('rejects invitation email addresses that differ from an existing account only by case', function (): void {
+    [$owner] = staffInvitationOwner();
+    Mail::fake();
+    config(['mail.default' => 'smtp']);
+    User::factory()->create(['email' => 'Sam.Barber@example.test']);
+
+    $this->actingAs($owner)->post('/staff/invitations', [
+        'name' => 'Sam Barber', 'email' => 'sam.barber@example.test', 'role_slug' => 'barber',
+    ])->assertSessionHasErrors('email');
+
+    expect(StaffInvitation::query()->count())->toBe(0);
+});
+
+it('does not accept an invitation when a case-insensitive matching account already exists', function (): void {
+    [$owner, $business] = staffInvitationOwner();
+    $invitation = StaffInvitation::query()->create([
+        'business_id' => $business->getKey(),
+        'invited_by' => $owner->getKey(),
+        'name' => 'Sam Barber',
+        'email' => 'sam.barber@example.test',
+        'role_slug' => 'barber',
+        'token_hash' => hash('sha256', 'case-insensitive-invitation-token'),
+        'expires_at' => now()->addDay(),
+    ]);
+    User::factory()->create(['email' => 'Sam.Barber@example.test']);
+
+    $this->post('/staff/invitations/accept', [
+        'token' => 'case-insensitive-invitation-token',
+        'password' => 'A secure passphrase 9842',
+        'password_confirmation' => 'A secure passphrase 9842',
+    ])->assertSessionHasErrors('token');
+
+    expect(User::query()->whereRaw('LOWER(email) = ?', ['sam.barber@example.test'])->count())->toBe(1)
+        ->and($invitation->fresh()->accepted_at)->toBeNull();
 });
 
 it('prevents expired invitation reuse', function (): void {

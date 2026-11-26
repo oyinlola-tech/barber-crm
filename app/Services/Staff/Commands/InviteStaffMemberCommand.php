@@ -28,7 +28,7 @@ class InviteStaffMemberCommand
         }
 
         $email = mb_strtolower(trim($attributes['email']));
-        if (User::query()->where('email', $email)->exists()) {
+        if (User::query()->whereRaw('LOWER(email) = ?', [$email])->exists()) {
             throw ValidationException::withMessages(['email' => 'An account already uses this email address.']);
         }
 

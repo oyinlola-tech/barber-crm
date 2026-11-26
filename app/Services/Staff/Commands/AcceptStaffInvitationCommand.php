@@ -26,7 +26,7 @@ class AcceptStaffInvitationCommand
                 throw ValidationException::withMessages(['token' => 'This invitation is invalid, expired, or already used.']);
             }
 
-            if (User::query()->where('email', $invitation->email)->exists()) {
+            if (User::query()->whereRaw('LOWER(email) = ?', [mb_strtolower($invitation->email)])->exists()) {
                 throw ValidationException::withMessages(['token' => 'This invitation can no longer be used. Contact the barbershop owner.']);
             }
 
