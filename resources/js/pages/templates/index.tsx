@@ -115,7 +115,12 @@ export default function TemplatesIndex({
 }: {
     templates: Template[];
     allowedVariables: string[];
-    permissions: { create: boolean; update: boolean; sync: boolean };
+    permissions: {
+        create: boolean;
+        update: boolean;
+        sync: boolean;
+        delete: boolean;
+    };
 }) {
     const makeDraft = (): TemplateDraft => ({
         name: '',
@@ -135,6 +140,9 @@ export default function TemplatesIndex({
     );
     const [previewTemplateId, setPreviewTemplateId] = useState<number | null>(
         null,
+    );
+    const [deleteErrors, setDeleteErrors] = useState<Record<number, string>>(
+        {},
     );
 
     function submitDraft(event: FormEvent<HTMLFormElement>): void {
@@ -203,6 +211,28 @@ export default function TemplatesIndex({
             { is_enabled: !template.is_enabled },
             { preserveScroll: true },
         );
+    }
+
+    function deleteDraft(template: Template): void {
+        if (
+            !window.confirm(
+                `Delete the local draft “${template.name}” (${template.language})? This cannot be undone.`,
+            )
+        ) {
+            return;
+        }
+
+        setDeleteErrors((errors) => ({ ...errors, [template.id]: '' }));
+        router.delete(`/templates/${template.id}`, {
+            preserveScroll: true,
+            onError: (errors) =>
+                setDeleteErrors((current) => ({
+                    ...current,
+                    [template.id]:
+                        Object.values(errors)[0] ??
+                        'This draft could not be deleted.',
+                })),
+        });
     }
 
     return (
@@ -449,6 +479,10 @@ export default function TemplatesIndex({
                                     permissions.update &&
                                     template.status === 'draft' &&
                                     template.provider_template_id === null;
+                                const canDeleteDraft =
+                                    permissions.delete &&
+                                    template.status === 'draft' &&
+                                    template.provider_template_id === null;
                                 const canMap =
                                     permissions.update &&
                                     template.provider_template_id !== null &&
@@ -519,6 +553,19 @@ export default function TemplatesIndex({
                                                         Edit draft
                                                     </button>
                                                 )}
+                                                {canDeleteDraft && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            deleteDraft(
+                                                                template,
+                                                            )
+                                                        }
+                                                        className="rounded-lg border border-destructive px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
+                                                    >
+                                                        Delete draft
+                                                    </button>
+                                                )}
                                                 {canMap && (
                                                     <button
                                                         type="button"
@@ -572,6 +619,14 @@ export default function TemplatesIndex({
                                                 )}
                                             </div>
                                         </div>
+                                        {deleteErrors[template.id] && (
+                                            <p
+                                                className="text-sm text-destructive"
+                                                role="alert"
+                                            >
+                                                {deleteErrors[template.id]}
+                                            </p>
+                                        )}
                                         {previewTemplateId === template.id && (
                                             <div
                                                 className="rounded-xl border bg-muted/30 p-4"
