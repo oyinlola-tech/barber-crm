@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 
 PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+rg -q '"--max-time=3600"' "$PROJECT_ROOT/compose.yaml"
 TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/barber-crm-deploy-test.XXXXXX")"
 trap 'rm -rf -- "$TEMP_DIR"' EXIT
 mkdir -p "$TEMP_DIR/bin"

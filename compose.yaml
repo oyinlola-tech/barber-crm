@@ -65,7 +65,7 @@ services:
       DB_DATABASE: ${DB_DATABASE}
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
-    command: ["php", "artisan", "queue:work", "database", "--sleep=3", "--tries=3", "--timeout=60"]
+    command: ["php", "artisan", "queue:work", "database", "--sleep=3", "--tries=3", "--timeout=60", "--max-time=3600"]
     depends_on:
       postgres:
         condition: service_healthy
