@@ -15,7 +15,7 @@ class MarkConversationReadCommand
 
         return DB::transaction(function () use ($businessId, $conversationId): Conversation {
             $conversation = Conversation::query()->where('business_id', $businessId)->lockForUpdate()->findOrFail($conversationId);
-            $conversation->update(['unread_count' => 0]);
+            $conversation->forceFill(['unread_count' => 0])->save();
 
             return $conversation->refresh();
         });
