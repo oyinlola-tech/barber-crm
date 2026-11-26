@@ -2,6 +2,7 @@
 
 namespace App\Services\Conversations\Commands;
 
+use App\Errors\WhatsApp\WhatsAppConnectionUnavailable;
 use App\Interfaces\Apis\MessagingProviderInterface;
 use App\Models\Conversation;
 use App\Models\Message;
@@ -90,6 +91,12 @@ class SendConversationReplyCommand
             $this->recordEvent($message, 'message.accepted', 'sent');
             $conversation->update(['last_message_at' => now()]);
             $this->audit->execute($businessId, $actorId, 'message.sent', Message::class, (int) $message->getKey(), null, ['status' => 'sent']);
+
+            return $message->refresh();
+        } catch (WhatsAppConnectionUnavailable) {
+            $message->update(['status' => 'failed']);
+            $this->recordEvent($message, 'message.send_failed', 'failed');
+            $this->audit->execute($businessId, $actorId, 'message.send_failed', Message::class, (int) $message->getKey(), null, ['status' => 'failed']);
 
             return $message->refresh();
         } catch (ConnectionException) {

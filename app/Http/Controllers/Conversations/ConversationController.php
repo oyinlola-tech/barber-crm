@@ -121,14 +121,22 @@ class ConversationController extends Controller
 
     public function reply(StoreConversationReplyRequest $request, int $conversation, SendConversationReplyCommand $command): RedirectResponse
     {
-        $command->execute(
+        $message = $command->execute(
             $this->businessId($request),
             $conversation,
             (int) $request->user()->getKey(),
             $request->validated('body'),
         );
 
-        return back()->with('success', 'Reply submitted to WhatsApp. Delivery status will update when Meta confirms it.');
+        $feedback = match ($message->status) {
+            MessageStatus::Sent->value => 'WhatsApp accepted the reply. Delivery status will update when Meta confirms it.',
+            MessageStatus::Failed->value => 'WhatsApp did not send the reply. Check the connection and message status before trying again.',
+            MessageStatus::DeliveryUncertain->value => 'WhatsApp delivery is uncertain. Do not resend until the message is reconciled.',
+            MessageStatus::Skipped->value => 'The reply was not sent because customer eligibility changed. Review consent and customer status.',
+            default => 'The reply request is already being processed. Check its delivery status before taking further action.',
+        };
+
+        return back()->with('status', $feedback);
     }
 
     public function templateReply(

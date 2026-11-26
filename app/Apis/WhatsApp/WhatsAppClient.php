@@ -3,10 +3,12 @@
 namespace App\Apis\WhatsApp;
 
 use App\Configs\WhatsAppConfig;
+use App\Errors\WhatsApp\WhatsAppConnectionUnavailable;
 use App\Models\WhatsAppConnection;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
-use RuntimeException;
 
 class WhatsAppClient
 {
@@ -15,12 +17,23 @@ class WhatsAppClient
     private function request(WhatsAppConnection $connection): PendingRequest
     {
         $baseUrl = $this->configuration->graphApiBaseUrl();
-        if (! is_string($connection->access_token) || $connection->access_token === '' || ! is_string($connection->phone_number_id) || $connection->phone_number_id === '' || $baseUrl === null) {
-            throw new RuntimeException('This business WhatsApp Cloud API connection is incomplete.');
+        try {
+            $encryptedAccessToken = $connection->getRawOriginal('access_token');
+            if (! is_string($encryptedAccessToken) || $encryptedAccessToken === '') {
+                throw new WhatsAppConnectionUnavailable('This business WhatsApp Cloud API connection is incomplete.');
+            }
+
+            $accessToken = Crypt::decryptString($encryptedAccessToken);
+        } catch (DecryptException $exception) {
+            throw new WhatsAppConnectionUnavailable('The saved WhatsApp connection credentials are unavailable.', previous: $exception);
+        }
+
+        if ($accessToken === '' || ! is_string($connection->phone_number_id) || $connection->phone_number_id === '' || $baseUrl === null) {
+            throw new WhatsAppConnectionUnavailable('This business WhatsApp Cloud API connection is incomplete.');
         }
 
         return Http::baseUrl($baseUrl)
-            ->withToken($connection->access_token)
+            ->withToken($accessToken)
             ->acceptJson()
             ->asJson()
             ->connectTimeout(5)

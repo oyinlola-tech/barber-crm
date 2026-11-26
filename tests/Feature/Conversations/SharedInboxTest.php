@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\WhatsAppConnection;
 use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -144,6 +145,29 @@ it('records uncertain provider acceptance without automatically retrying the rep
         'status' => 'delivery_uncertain',
     ]);
     Http::assertSentCount(1);
+});
+
+it('records a definite failure when the saved WhatsApp token cannot be decrypted', function (): void {
+    [$user, , , $conversation] = makeInboxConversation();
+    $connection = WhatsAppConnection::query()->where('business_id', $conversation->business_id)->firstOrFail();
+    DB::table('whatsapp_connections')->where('id', $connection->getKey())->update(['access_token' => 'invalid-encrypted-token']);
+    Http::fake();
+
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'Please let us know if you need help.'])
+        ->assertRedirect()
+        ->assertSessionHas('status', 'WhatsApp did not send the reply. Check the connection and message status before trying again.');
+
+    $this->assertDatabaseHas('messages', [
+        'conversation_id' => $conversation->getKey(),
+        'direction' => 'outbound',
+        'status' => 'failed',
+    ]);
+    $this->assertDatabaseHas('message_events', [
+        'business_id' => $conversation->business_id,
+        'event_type' => 'message.send_failed',
+        'status' => 'failed',
+    ]);
+    Http::assertNothingSent();
 });
 
 it('sends approved mapped templates when the 24-hour service window is closed', function (): void {
