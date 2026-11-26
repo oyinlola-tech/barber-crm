@@ -15,4 +15,10 @@ class ListServicesQuery
     {
         return $this->services->activeForBusiness($businessId);
     }
+
+    /** @return Collection<int, Service> */
+    public function catalog(int $businessId): Collection
+    {
+        return $this->services->allForBusiness($businessId);
+    }
 }

@@ -14,6 +14,11 @@ class ServiceRepository implements ServiceRepositoryInterface
         return Service::query()->where('business_id', $businessId)->where('is_active', true)->orderBy('name')->get();
     }
 
+    public function allForBusiness(int $businessId): Collection
+    {
+        return Service::query()->where('business_id', $businessId)->orderByDesc('is_active')->orderBy('name')->get();
+    }
+
     public function findForBusiness(int $businessId, int $serviceId): Service
     {
         return Service::query()->where('business_id', $businessId)->findOrFail($serviceId);
@@ -40,5 +45,13 @@ class ServiceRepository implements ServiceRepositoryInterface
     public function createForBusiness(int $businessId, array $attributes): Service
     {
         return Service::query()->create([...$attributes, 'business_id' => $businessId]);
+    }
+
+    public function updateForBusiness(int $businessId, int $serviceId, array $attributes): Service
+    {
+        $service = $this->findForBusiness($businessId, $serviceId);
+        $service->update($attributes);
+
+        return $service->refresh();
     }
 }

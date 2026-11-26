@@ -11,8 +11,9 @@ class StoreServiceRequest extends FormRequest
     {
         $businessId = $this->attributes->get('currentBusiness')?->getKey();
 
-        return $businessId !== null
-            && ($this->user()?->hasBusinessPermission((int) $businessId, 'services.create') ?? false);
+        $permission = $this->isMethod('post') ? 'services.create' : 'services.update';
+
+        return $businessId !== null && ($this->user()?->hasBusinessPermission((int) $businessId, $permission) ?? false);
     }
 
     public function rules(): array
