@@ -11,7 +11,9 @@ class StoreReviewRequest extends FormRequest
     {
         $businessId = $this->attributes->get('currentBusiness')?->getKey();
 
-        return $businessId !== null && ($this->user()?->hasBusinessPermission((int) $businessId, 'reviews.create') ?? false);
+        return $businessId !== null
+            && $this->user()->hasBusinessPermission((int) $businessId, 'reviews.create')
+            && $this->user()->hasBusinessPermission((int) $businessId, 'customers.view');
     }
 
     public function rules(): array

@@ -5,10 +5,14 @@ namespace App\Interfaces\Repositories\Customers;
 use App\Models\Customer;
 use App\Models\CustomerNote;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 interface CustomerRepositoryInterface
 {
     public function paginateForBusiness(int $businessId, ?string $search = null, int $perPage = 20, string $status = 'active'): LengthAwarePaginator;
+
+    /** @return Collection<int, array{id:int,first_name:string,last_name:?string}> */
+    public function selectOptionsForBusiness(int $businessId): Collection;
 
     public function findForBusiness(int $businessId, int $customerId): Customer;
 

@@ -6,6 +6,7 @@ use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Interfaces\Repositories\Reviews\ReviewRepositoryInterface;
 use App\Interfaces\Repositories\Visits\VisitRepositoryInterface;
 use App\Models\Review;
+use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use App\Services\Automations\Commands\CancelCustomerFollowUpsCommand;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,12 @@ class RecordReviewCommand
     public function execute(int $businessId, int $userId, array $attributes): Review
     {
         return DB::transaction(function () use ($businessId, $userId, $attributes): Review {
+            $actor = User::query()->findOrFail($userId);
+            abort_unless(
+                $actor->hasBusinessPermission($businessId, 'reviews.create')
+                    && $actor->hasBusinessPermission($businessId, 'customers.view'),
+                403,
+            );
             $customer = $this->customers->findForBusiness($businessId, $attributes['customer_id']);
             if (isset($attributes['visit_id'])) {
                 $visit = $this->visits->findForBusiness($businessId, $attributes['visit_id']);

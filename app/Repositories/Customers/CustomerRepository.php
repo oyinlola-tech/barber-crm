@@ -8,10 +8,24 @@ use App\Models\CustomerNote;
 use App\Models\CustomerTag;
 use App\Models\Visit;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class CustomerRepository implements CustomerRepositoryInterface
 {
+    /** @return Collection<int, array{id:int,first_name:string,last_name:?string}> */
+    public function selectOptionsForBusiness(int $businessId): Collection
+    {
+        return Customer::query()->where('business_id', $businessId)->where('status', 'active')
+            ->orderBy('last_name')->orderBy('first_name')->orderBy('id')
+            ->get(['id', 'first_name', 'last_name'])
+            ->map(static fn (Customer $customer): array => [
+                'id' => (int) $customer->getKey(),
+                'first_name' => (string) $customer->first_name,
+                'last_name' => $customer->last_name === null ? null : (string) $customer->last_name,
+            ]);
+    }
+
     public function paginateForBusiness(int $businessId, ?string $search = null, int $perPage = 20, string $status = 'active'): LengthAwarePaginator
     {
         return Customer::query()
