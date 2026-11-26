@@ -8,7 +8,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 
 ## Repository and scope evidence
 
-- The checkout is Git repository `oyinlola-tech/barber-crm` on `main`, with `origin/main` matching the local base commit. `.env`, generated caches, local session files, test databases and browser results are ignored. The available prior history contains one commit by the project owner and no co-author trailer; no new commit adds one.
+- The checkout is Git repository `oyinlola-tech/barber-crm` on `main`, with `origin/main` updated through the ten folder-grouped implementation commits. `.env`, generated caches, local session files, test databases and browser results are ignored. The pushed implementation commits are authored by the project owner and contain no co-author trailers.
 - Laravel 13, PHP 8.4, React, Inertia, TypeScript and the locked Composer/pnpm dependencies are present. No new dependencies were added in the recent implementation slices.
 - `pdo_pgsql` is not installed. `php artisan migrate:status` fails with “could not find driver”; the intended PostgreSQL migration state and business data were not accessed or changed.
 - The active application exposes 71 non-vendor routes. Booking, appointment and availability behavior is absent from the route/controller/service layer. Historical appointment/availability migration definitions remain untouched pending a safe database review.
@@ -30,7 +30,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 - Staff can revoke pending invitations and update staff display names/phone numbers. The roles view includes a grouped canonical permission catalogue. Staff deletion remains unavailable to preserve visit and audit attribution; suspension is the supported access-removal path.
 - Local draft editing/preview and variable mapping, provider status display, review capture/list, visit notifications, date-filtered aggregate analytics, audit log and operational health views.
 - Docker Compose/Nginx/PHP-FPM deployment configuration, loopback default web bind, readiness route, trusted proxy configuration and deployment notes.
-- Deployment scripts retain the currently running PHP and Nginx images as `previous-stable`; `make rollback` switches app, web, queue and scheduler containers back without changing database state. The recovery path is locally syntax/config checked but has not been exercised against a production deployment.
+- Deployment scripts retain the currently running PHP and Nginx images as `previous-stable`; `make rollback` switches app, web, queue and scheduler containers back without changing database state. The automatic recovery path passed a fake-Docker test that simulates a failed deployment and verifies restoration. It has not been exercised against a production deployment.
 - Authenticated streaming encryption for PostgreSQL custom dumps, protected local artifact permissions, and a restore-to-new-database utility that refuses existing targets and leaves the active database unchanged.
 
 ## Verification results
@@ -52,7 +52,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 - The stated return date is stored as customer information and suppresses re-engagement sends while the date is current/future; it does not reserve a booking. No free-text WhatsApp parser infers a return date.
 - Staff profile deletion is intentionally unsupported; suspension preserves historical attribution.
 - Broader browser interaction, full visual QA and accessibility review remain incomplete; Playwright exercises customer creation, consent, notes, tags, visit create/correct/void/restore and representative read-only routes at 390px, but does not cover every module's write actions or a full keyboard/screen-reader audit.
-- The configured PostgreSQL migration/schema/data review, existing-dataset constraints and any corrective migration are unverified. Locking and concurrent dispatch were tested against an isolated PostgreSQL 17 database; production-database behavior and process restart recovery remain unverified. Historical appointment/availability migration definitions remain retained pending review of the actual database.
+- The configured PostgreSQL migration/schema/data review, existing-dataset constraints and any corrective migration are unverified. The current host lacks `pdo_pgsql`, so `php artisan migrate:status` cannot inspect that database; no configured or production database was changed. Locking and concurrent dispatch were tested against an isolated PostgreSQL 17 database; production-database behavior and process restart recovery remain unverified. Historical appointment/availability migration definitions remain retained pending review of the actual database.
 - Docker app, queue, scheduler and web image builds plus fresh-database migration, readiness, and heartbeat checks passed. Deployment/rollback shell control flow passed a fake-Docker test. Production HTTPS/reverse proxy deployment, actual host rollback, restart recovery, remote encrypted backup copy, retention and production restore are unverified.
 - Meta credentials, business verification, webhook subscription, approved templates and live messaging; SMTP/API mail delivery; production Sentry; and legal/privacy compliance remain external setup and verification work.
 
