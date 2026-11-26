@@ -40,6 +40,8 @@ Migrations are append-only once applied. Existing migration files still create a
 ## Security rules
 
 - No public account registration; provision the first owner with `php artisan app:provision-owner`.
+- Laravel's `app/Http/Middleware` pipeline owns trusted-proxy handling, browser security headers, verified-email enforcement, privileged MFA and single-shop resolution. Privileged permissions are centrally defined in `config/authorization.php` and accessed through `App\Configs\AuthorizationConfig`.
+- Session cookies are forced secure when `APP_ENV=production`; local HTTP development remains supported. Keep production behind HTTPS and configure only the actual trusted proxy addresses.
 - Never place passwords, provider tokens or recovery codes in source, command arguments, frontend props, audit metadata or logs.
 - Enforce permissions server-side and scope records to the configured shop.
 - Record and recheck WhatsApp consent both at scheduling and at send time.

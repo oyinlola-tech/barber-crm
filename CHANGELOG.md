@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-27
+
+- Centralized privileged MFA permissions in typed authorization config and extended the gate to staff-removal access.
+- Force secure session cookies in production, add a regression test, and remove the insecure cookie override from the environment template.
+- Recycle the database queue worker hourly under Docker's restart policy.
+- Fix customer profile updates for staff who can edit customer details but cannot edit private notes; add mobile browser regression coverage.
+
 ## 2026-11-26
 
 - Set Argon2id as the default password-hashing driver with centralized, configurable cost parameters and a hash-algorithm regression test.
