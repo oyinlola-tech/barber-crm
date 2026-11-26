@@ -54,10 +54,36 @@ it('documents configurable application runtime controls in the environment templ
         ->toContain('WHATSAPP_WEBHOOK_MAX_BYTES=1048576')
         ->toContain('AUTOMATION_QUEUED_RECOVERY_AFTER_MINUTES=5')
         ->toContain('AUTOMATION_MINIMUM_CUSTOMER_MESSAGE_INTERVAL_HOURS=72')
-        ->toContain('SESSION_SECURE_COOKIE=false');
+        ->toContain('SESSION_SECURE_COOKIE=false')
+        ->toContain('SESSION_HTTP_ONLY=true')
+        ->toContain('SESSION_SAME_SITE=lax')
+        ->not->toContain("AUTOMATION_MANUAL_RETRY_LIMIT=2\nAUTOMATION_MANUAL_RETRY_LIMIT=2");
 
     $deploymentInstructions = file_get_contents(base_path('docs/operations/deployment.md'));
 
     expect($deploymentInstructions)->toBeString()
         ->toContain('SESSION_SECURE_COOKIE=true');
+});
+
+it('adds conservative browser security headers and enables HSTS only for secure requests', function (): void {
+    $business = Business::factory()->create();
+    $user = User::factory()->create();
+    $user->forceFill(['email_verified_at' => now(), 'two_factor_secret' => encrypt('security-header-secret'), 'two_factor_confirmed_at' => now()])->save();
+    $business->members()->attach($user, ['role' => 'owner', 'status' => 'active', 'joined_at' => now()]);
+
+    $response = $this->actingAs($user)->get('/dashboard')
+        ->assertOk()
+        ->assertHeader('X-Content-Type-Options', 'nosniff')
+        ->assertHeader('X-Frame-Options', 'DENY')
+        ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+        ->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+        ->assertHeader('Cross-Origin-Opener-Policy', 'same-origin')
+        ->assertHeaderMissing('Strict-Transport-Security');
+
+    $policy = $response->headers->get('Content-Security-Policy');
+    expect($policy)->toContain("default-src 'self'")->toContain("frame-ancestors 'none'");
+
+    $this->actingAs($user)->get('https://localhost/dashboard')
+        ->assertOk()
+        ->assertHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 });
