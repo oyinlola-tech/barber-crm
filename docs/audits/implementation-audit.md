@@ -23,6 +23,8 @@ The repository is past scaffolding and has locally working core slices for a pri
 - Visit corrections with revision-aware follow-up replacement, audited soft-void and restore workflows, plus business-timezone input conversion and UTC persistence.
 - A responsive WhatsApp connection page with reusable React feature components; typed credentials DTO, centralized typed WhatsApp configuration, numeric ID validation, phone/WABA association verification before saving, safe provider errors and audited disconnect.
 - Official WhatsApp Cloud API client structure; encrypted connection settings; signed, deduplicated webhooks; inbound text/status processing; shared inbox actions and manual replies constrained by consent and the 24-hour service window.
+- Newly received WhatsApp messages notify only active business members with `conversations.view`; deterministic notification IDs and same-transaction database writes prevent duplicate alerts on webhook retries. Notifications include an inbox link but no customer message content.
+- Newly received WhatsApp messages notify only active business members with `conversations.view`; deterministic notification IDs and same-transaction database writes prevent duplicate alerts on webhook retries. Notifications include an inbox link but no customer message content.
 - Removed empty `.gitkeep` scaffolding and now-empty folders, including obsolete booking and tenant-isolation placeholders. Active Laravel middleware remain in `app/Http/Middleware`; no duplicate middleware layer was introduced.
 - Deterministic visit follow-up scheduling, database queue/scheduler, idempotency, sending-hours, bounded retries, stalled-message recovery, consent revalidation and delivery uncertainty handling.
 - Follow-ups stop for new inbound responses and after reviews according to template purpose. Opt-out, response and review cancellation leave sending/reconciliation records intact.
@@ -45,7 +47,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 
 ## Verification results
 
-- `vendor/bin/pest`: 141 passed / 975 assertions, with 1 PostgreSQL-only integration test skipped by its host environment guard. Coverage includes business-scoped review edits/exports, safe audit exports, permission enforcement, and CSV formula protection.
+- `vendor/bin/pest`: 144 passed / 1,027 assertions, with 1 PostgreSQL-only integration test skipped by its host environment guard. Coverage includes business-scoped review edits/exports, safe audit exports, webhook notification recipient/duplication/privacy behavior, permission enforcement, and CSV formula protection.
 - `pnpm test:e2e`: 10 Playwright Chromium tests passed, including mobile review editing alongside owner MFA and settings, staff removal, template deletion, service/category workflows, customer and visit flows, inbox controls, and the read-only page sweep.
 - `composer analyse`: PHPStan/Larastan level 5 passed.
 - `vendor/bin/pint --test`, `pnpm types:check`, `pnpm lint`, `pnpm format:check`, `pnpm build`: passed.
