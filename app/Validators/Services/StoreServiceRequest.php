@@ -9,7 +9,10 @@ class StoreServiceRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        $businessId = $this->attributes->get('currentBusiness')?->getKey();
+
+        return $businessId !== null
+            && ($this->user()?->hasBusinessPermission((int) $businessId, 'services.create') ?? false);
     }
 
     public function rules(): array

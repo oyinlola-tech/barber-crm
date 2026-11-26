@@ -17,9 +17,20 @@ class ServiceController extends Controller
     public function index(Request $request, ListServicesQuery $query): Response
     {
         $this->authorize('viewAny', Service::class);
+        $businessId = (int) $request->attributes->get('currentBusiness')->getKey();
 
         return Inertia::render('services/index', [
-            'services' => $query->execute($request->attributes->get('currentBusiness')->getKey()),
+            'services' => $query->execute($businessId)->map(static fn (Service $service): array => [
+                'id' => (int) $service->getKey(),
+                'name' => $service->name,
+                'description' => $service->description,
+                'duration_minutes' => $service->duration_minutes,
+                'price' => $service->price,
+            ])->values(),
+            'currency' => $request->attributes->get('currentBusiness')->currency,
+            'permissions' => [
+                'create' => $request->user()->hasBusinessPermission($businessId, 'services.create'),
+            ],
         ]);
     }
 

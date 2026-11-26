@@ -11,7 +11,9 @@ use App\Interfaces\Repositories\Reviews\ReviewRepositoryInterface;
 use App\Interfaces\Repositories\Services\ServiceRepositoryInterface;
 use App\Interfaces\Repositories\Staff\StaffRepositoryInterface;
 use App\Interfaces\Repositories\Visits\VisitRepositoryInterface;
+use App\Models\Service;
 use App\Models\StaffProfile;
+use App\Policies\ServicePolicy;
 use App\Policies\StaffPolicy;
 use App\Repositories\Businesses\BusinessRepository;
 use App\Repositories\Conversations\ConversationRepository;
@@ -43,5 +45,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(StaffProfile::class, StaffPolicy::class);
+        Gate::policy(Service::class, ServicePolicy::class);
     }
 }

@@ -22,6 +22,7 @@ enum BusinessRole: string
             'consent.record' => 'Record consent', 'consent.revoke' => 'Revoke consent',
             'visits.view' => 'View visits', 'visits.create' => 'Record visits',
             'visits.update' => 'Update visits', 'visits.delete' => 'Void visits', 'visits.restore' => 'Restore voided visits',
+            'services.view' => 'View service catalog', 'services.create' => 'Create services',
             'staff.view' => 'View staff', 'staff.invite' => 'Invite staff', 'staff.update' => 'Update staff',
             'staff.suspend' => 'Suspend staff', 'staff.activate' => 'Activate staff',
             'roles.view' => 'View roles', 'roles.create' => 'Create roles',

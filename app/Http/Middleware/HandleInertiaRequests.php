@@ -13,6 +13,7 @@ class HandleInertiaRequests extends Middleware
         $navigationItems = [
             ['label' => 'Dashboard', 'href' => '/dashboard', 'permission' => 'dashboard.view'],
             ['label' => 'Customers', 'href' => '/customers', 'permission' => 'customers.view'],
+            ['label' => 'Services', 'href' => '/services', 'permission' => 'services.view'],
             ['label' => 'Inbox', 'href' => '/inbox', 'permission' => 'conversations.view'],
             ['label' => 'Follow-ups', 'href' => '/automations', 'permission' => 'automations.view'],
             ['label' => 'Templates', 'href' => '/templates', 'permission' => 'templates.view'],

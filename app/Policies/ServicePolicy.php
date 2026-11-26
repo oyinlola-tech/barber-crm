@@ -2,26 +2,24 @@
 
 namespace App\Policies;
 
-use App\Enums\BusinessRole;
 use App\Models\User;
 
 class ServicePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $this->hasRole($user, BusinessRole::Owner, BusinessRole::Manager, BusinessRole::Barber, BusinessRole::Receptionist);
+        return $this->hasPermission($user, 'services.view');
     }
 
     public function create(User $user): bool
     {
-        return $this->hasRole($user, BusinessRole::Owner, BusinessRole::Manager);
+        return $this->hasPermission($user, 'services.create');
     }
 
-    private function hasRole(User $user, BusinessRole ...$roles): bool
+    private function hasPermission(User $user, string $permission): bool
     {
         $businessId = request()->attributes->get('currentBusiness')?->getKey();
 
-        return $businessId !== null && $user->businesses()->whereKey($businessId)
-            ->wherePivotIn('role', array_map(fn (BusinessRole $role): string => $role->value, $roles))->exists();
+        return $businessId !== null && $user->hasBusinessPermission((int) $businessId, $permission);
     }
 }
