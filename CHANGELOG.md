@@ -2,6 +2,10 @@
 
 ## 2026-11-27
 
+- Enforce actor permissions in customer CQRS mutations and exports; derive note access from the user and reject protected customer update fields.
+- Record pre-send WhatsApp connection failures as definite failures instead of leaving manual inbox replies pending, and show outcome-specific feedback.
+- Sanitize scheduled-message retry backoff configuration and clear stale failure timestamps before safe requeue.
+- Show accessible save confirmation for business and messaging settings, and align analytics copy with the returning-customer calculation.
 - Enforce staff authorization inside visit and consent CQRS commands, including direct non-HTTP invocation, and add regression coverage.
 - Keep conversation activity timestamps monotonic when delayed inbound WhatsApp webhooks arrive; messages and unread counts are still recorded.
 - Report WhatsApp integration health as degraded when the saved token cannot be decrypted, required IDs are missing, or the Graph API version is invalid.
