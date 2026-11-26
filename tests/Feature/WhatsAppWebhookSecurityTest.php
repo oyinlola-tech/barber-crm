@@ -455,6 +455,55 @@ it('applies delivery progress without allowing stale webhook statuses to regress
     expect($message->fresh()->status)->toBe('delivered')->and($message->fresh()->delivered_at)->not->toBeNull();
 });
 
+it('keeps conversation activity timestamps monotonic when inbound webhooks arrive out of order', function (): void {
+    $business = Business::factory()->create();
+    $customer = Customer::factory()->create(['business_id' => $business->getKey(), 'phone' => '+2348012345678']);
+    $latestActivity = now()->toImmutable()->subMinutes(2)->startOfSecond();
+    $conversation = Conversation::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $customer->getKey(),
+        'channel' => 'whatsapp',
+        'status' => 'open',
+        'last_message_at' => $latestActivity,
+        'last_customer_message_at' => $latestActivity,
+    ]);
+    $conversation->forceFill(['last_customer_message_at' => $latestActivity])->save();
+    WhatsAppConnection::query()->create([
+        'business_id' => $business->getKey(),
+        'phone_number_id' => 'phone-number-1',
+        'access_token' => 'secret-token',
+        'status' => 'connected',
+    ]);
+    $event = WebhookEvent::query()->create([
+        'business_id' => $business->getKey(),
+        'provider' => 'whatsapp',
+        'event_id' => 'message:wamid.delayed-inbound',
+        'event_type' => 'message',
+        'payload' => [
+            'kind' => 'message',
+            'phone_number_id' => 'phone-number-1',
+            'provider_message_id' => 'wamid.delayed-inbound',
+            'from' => '2348012345678',
+            'type' => 'text',
+            'body' => 'A delayed message',
+            'timestamp' => $latestActivity->subHour()->timestamp,
+        ],
+        'status' => 'received',
+    ]);
+
+    (new ProcessWhatsAppWebhookJob((int) $event->getKey()))->handle(
+        app(PhoneNumberNormalizer::class),
+        app(RecordConsentCommand::class),
+        app(CancelCustomerFollowUpsCommand::class),
+        app(GetWhatsAppMessagingSettingsQuery::class),
+    );
+
+    expect($conversation->fresh()->last_message_at->equalTo($latestActivity))->toBeTrue()
+        ->and($conversation->fresh()->last_customer_message_at->equalTo($latestActivity))->toBeTrue()
+        ->and($conversation->fresh()->unread_count)->toBe(1);
+    $this->assertDatabaseHas('messages', ['provider_message_id' => 'wamid.delayed-inbound', 'direction' => 'inbound']);
+});
+
 it('records provider failure after sent but never regresses delivered or failed states', function (): void {
     $business = Business::factory()->create();
     $customer = Customer::factory()->create(['business_id' => $business->getKey()]);

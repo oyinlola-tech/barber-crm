@@ -172,10 +172,12 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
         ]);
 
         if ($message->wasRecentlyCreated) {
+            $lastMessageAt = $conversation->last_message_at;
+            $lastCustomerMessageAt = $conversation->last_customer_message_at;
             $conversation->forceFill([
                 'status' => 'open',
-                'last_message_at' => $occurredAt,
-                'last_customer_message_at' => $occurredAt,
+                'last_message_at' => $lastMessageAt === null || $occurredAt->greaterThan($lastMessageAt) ? $occurredAt : $lastMessageAt,
+                'last_customer_message_at' => $lastCustomerMessageAt === null || $occurredAt->greaterThan($lastCustomerMessageAt) ? $occurredAt : $lastCustomerMessageAt,
                 'unread_count' => $conversation->unread_count + 1,
             ])->save();
 
