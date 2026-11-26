@@ -214,7 +214,11 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
 
         $currentRank = $this->statusRank((string) $message->status);
         $incomingRank = $this->statusRank($mappedStatus);
-        if ($incomingRank < $currentRank || ($incomingRank === $currentRank && $message->status !== $mappedStatus)) {
+        $failureAfterSent = $message->status === 'sent' && $mappedStatus === 'failed';
+        $sentAfterFailure = $message->status === 'failed' && $mappedStatus === 'sent';
+        if ($incomingRank < $currentRank
+            || ($incomingRank === $currentRank && $message->status !== $mappedStatus && ! $failureAfterSent)
+            || $sentAfterFailure) {
             return true;
         }
 
@@ -253,8 +257,8 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
     {
         return match ($status) {
             'sent' => 1,
-            'failed' => 1,
             'delivered' => 2,
+            'failed' => 2,
             'read' => 3,
             default => 0,
         };
