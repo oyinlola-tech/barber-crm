@@ -31,6 +31,45 @@ function customerActionsOwner(): User
     return $user;
 }
 
+it('persists consent and opt-out transitions for the customer profile', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $user = customerActionsOwner();
+    $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
+    $business->members()->attach($user, ['role' => 'owner', 'status' => 'active', 'joined_at' => now()]);
+
+    $this->actingAs($user)
+        ->post(route('customers.consents.store', $customer), [
+            'channel' => 'whatsapp',
+            'granted' => true,
+            'source' => 'written',
+        ])
+        ->assertSessionHas('success', 'Consent preference recorded.');
+
+    $firstConsent = CustomerConsent::query()->where('customer_id', $customer->getKey())->firstOrFail();
+    expect($firstConsent->granted)->toBeTrue()
+        ->and($firstConsent->revoked_at)->toBeNull();
+
+    $this->post(route('customers.consents.store', $customer), [
+        'channel' => 'whatsapp',
+        'granted' => false,
+        'source' => 'whatsapp',
+    ])->assertSessionHas('success', 'Consent preference recorded.');
+
+    $firstConsent->refresh();
+    $latestConsent = CustomerConsent::query()
+        ->where('customer_id', $customer->getKey())
+        ->latest('id')
+        ->firstOrFail();
+
+    expect($firstConsent->revoked_at)->not->toBeNull()
+        ->and($latestConsent->granted)->toBeFalse()
+        ->and($latestConsent->revoked_at)->not->toBeNull()
+        ->and(AuditLog::query()->where('business_id', $business->getKey())->whereIn('action', [
+            'customer.consent_granted', 'customer.consent_revoked',
+        ])->count())->toBe(2);
+});
+
 it('records a private customer note with an audit event', function (): void {
     $this->seed(BusinessRoleSeeder::class);
     $business = Business::factory()->create();

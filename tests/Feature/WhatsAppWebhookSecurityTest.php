@@ -181,6 +181,65 @@ it('stores explicit button replies as message text for deterministic opt-out han
         ->toMatchArray(['type' => 'button', 'body' => 'STOP']);
 });
 
+it('stores non-text inbound messages without retaining provider media payloads', function (): void {
+    Queue::fake([ProcessWhatsAppWebhookJob::class]);
+    Config::set('whatsapp.app_secret', 'test-app-secret');
+    $business = Business::factory()->create();
+    $customer = Customer::factory()->create([
+        'business_id' => $business->getKey(),
+        'phone' => '+2348012345678',
+    ]);
+    WhatsAppConnection::query()->create([
+        'business_id' => $business->getKey(),
+        'phone_number_id' => 'phone-number-1',
+        'business_account_id' => 'business-account-1',
+        'access_token' => 'secret-token',
+        'status' => 'connected',
+    ]);
+    $payload = ['object' => 'whatsapp_business_account', 'entry' => [[
+        'id' => 'business-account-1',
+        'changes' => [['value' => [
+            'metadata' => ['phone_number_id' => 'phone-number-1'],
+            'messages' => [[
+                'id' => 'wamid.image-inbound',
+                'from' => '2348012345678',
+                'type' => 'image',
+                'image' => [
+                    'id' => 'provider-media-id',
+                    'mime_type' => 'image/jpeg',
+                    'sha256' => 'provider-media-digest',
+                ],
+            ]],
+        ]]],
+    ]]];
+    $body = json_encode($payload, JSON_THROW_ON_ERROR);
+    $signature = 'sha256='.hash_hmac('sha256', $body, 'test-app-secret');
+
+    $this->call('POST', route('webhooks.whatsapp.receive'), [], [], [], [
+        'CONTENT_TYPE' => 'application/json',
+        'HTTP_X_HUB_SIGNATURE_256' => $signature,
+    ], $body)->assertOk();
+
+    $event = WebhookEvent::query()->where('event_id', 'message:wamid.image-inbound')->firstOrFail();
+    expect($event->payload)
+        ->toMatchArray(['type' => 'image', 'body' => null])
+        ->not->toHaveKey('image');
+
+    (new ProcessWhatsAppWebhookJob((int) $event->getKey()))->handle(
+        app(PhoneNumberNormalizer::class),
+        app(RecordConsentCommand::class),
+        app(CancelCustomerFollowUpsCommand::class),
+        app(GetWhatsAppMessagingSettingsQuery::class),
+    );
+
+    $message = Message::query()->where('provider_message_id', 'wamid.image-inbound')->firstOrFail();
+    expect($message->business_id)->toBe($business->getKey())
+        ->and($message->conversation->customer_id)->toBe($customer->getKey())
+        ->and($message->type)->toBe('image')
+        ->and($message->body)->toBeNull()
+        ->and($message->payload)->toBeNull();
+});
+
 it('uses the configured exact opt-out keywords while processing inbound messages once', function (): void {
     $business = Business::factory()->create();
     $customer = Customer::factory()->create(['business_id' => $business->getKey(), 'phone' => '+2348012345678']);

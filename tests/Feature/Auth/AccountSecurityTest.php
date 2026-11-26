@@ -58,6 +58,19 @@ it('requires confirmed two-factor authentication for the owner and lets them rea
             ->has('sessions'));
 });
 
+it('does not let an owner without confirmed MFA revoke sessions through the setup exemption', function (): void {
+    $business = accountSecurityBusiness();
+    $owner = User::factory()->create();
+    attachSecurityUser($business, $owner, 'owner');
+    insertAccountSession('ownerrevocationtarget', (int) $owner->getKey());
+
+    $this->actingAs($owner)
+        ->delete('/settings/security/sessions/ownerrevocationtarget')
+        ->assertRedirect(route('account.security'));
+
+    expect(DB::table('sessions')->where('id', 'ownerrevocationtarget')->exists())->toBeTrue();
+});
+
 it('does not force authenticator enrollment on a non-privileged viewer account', function (): void {
     $business = accountSecurityBusiness();
     $viewer = User::factory()->create();
