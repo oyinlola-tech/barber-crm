@@ -1,6 +1,6 @@
 <?php
 
-use App\Controllers\Analytics\AnalyticsController;
+use App\Http\Controllers\Analytics\AnalyticsController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'business'])->group(function (): void {

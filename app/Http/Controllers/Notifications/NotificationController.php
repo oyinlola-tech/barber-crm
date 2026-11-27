@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Controllers\Notifications;
+namespace App\Http\Controllers\Notifications;
 
 use App\Http\Controllers\Controller;
 use App\Services\Notifications\Commands\MarkAllUserNotificationsReadCommand;

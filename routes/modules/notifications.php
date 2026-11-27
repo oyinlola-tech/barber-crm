@@ -1,6 +1,6 @@
 <?php
 
-use App\Controllers\Notifications\NotificationController;
+use App\Http\Controllers\Notifications\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'business'])->group(function (): void {

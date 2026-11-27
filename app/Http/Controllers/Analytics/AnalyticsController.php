@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Controllers\Analytics;
+namespace App\Http\Controllers\Analytics;
 
 use App\Http\Controllers\Controller;
 use App\Services\Analytics\Queries\GetAnalyticsReportQuery;

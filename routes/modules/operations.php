@@ -1,7 +1,7 @@
 <?php
 
-use App\Controllers\Operations\AuditLogController;
-use App\Controllers\Operations\OperationalHealthController;
+use App\Http\Controllers\Operations\AuditLogController;
+use App\Http\Controllers\Operations\OperationalHealthController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/ready', [OperationalHealthController::class, 'ready'])->name('health.ready');

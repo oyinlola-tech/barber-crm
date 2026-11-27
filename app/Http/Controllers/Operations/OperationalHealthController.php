@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Controllers\Operations;
+namespace App\Http\Controllers\Operations;
 
 use App\Http\Controllers\Controller;
 use App\Services\Operations\Queries\GetOperationalHealthQuery;
