@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['name', 'slug', 'timezone', 'currency', 'phone', 'email', 'settings', 'is_active'])]
+#[Fillable(['name', 'slug', 'timezone', 'currency', 'phone', 'email', 'description', 'address', 'public_review_url', 'logo_path', 'settings', 'is_active'])]
 /**
  * @property string $name
  * @property string $timezone
  * @property string|null $phone
+ * @property string|null $logo_path
  * @property array<string, mixed>|null $settings
  */
 class Business extends Model

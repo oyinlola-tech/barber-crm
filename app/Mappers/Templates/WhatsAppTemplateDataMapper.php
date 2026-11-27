@@ -59,7 +59,10 @@ class WhatsAppTemplateDataMapper
             'business_name' => $business->name,
             'business_phone' => $business->phone,
             'last_visit_date' => $lastVisit === null ? null : CarbonImmutable::parse($lastVisit, 'UTC')->setTimezone($business->timezone)->format('Y-m-d'),
-            'review_link' => $businessSettings['public_review_link'] ?? $businessSettings['review_link'] ?? null,
+            'review_link' => $business->public_review_url
+                ?? $businessSettings['public_review_link']
+                ?? $businessSettings['review_link']
+                ?? null,
         ];
     }
 }
