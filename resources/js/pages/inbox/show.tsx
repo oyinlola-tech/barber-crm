@@ -53,6 +53,7 @@ type InboxConversationProps = {
     }>;
     status?: string;
     templateSendBlocked: boolean;
+    freeFormReplyBlocked: boolean;
 };
 
 export default function InboxConversationPage({
@@ -69,6 +70,7 @@ export default function InboxConversationPage({
     templates,
     status,
     templateSendBlocked,
+    freeFormReplyBlocked,
 }: InboxConversationProps) {
     const reply = useForm({ body: '' });
     const note = useForm({ body: '' });
@@ -94,6 +96,7 @@ export default function InboxConversationPage({
                         'canSendTemplate',
                         'templates',
                         'templateSendBlocked',
+                        'freeFormReplyBlocked',
                     ],
                 });
             }
@@ -303,6 +306,15 @@ export default function InboxConversationPage({
                                         </button>
                                     </div>
                                 </form>
+                            ) : freeFormReplyBlocked ? (
+                                <p
+                                    className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+                                    role="alert"
+                                >
+                                    A previous reply has uncertain delivery.
+                                    Wait for reconciliation or a new customer
+                                    message before sending again.
+                                </p>
                             ) : !canReply &&
                               (!canReplyPermission ||
                                   !consentGranted ||

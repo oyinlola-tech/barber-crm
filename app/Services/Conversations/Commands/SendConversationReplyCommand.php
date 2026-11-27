@@ -44,6 +44,21 @@ class SendConversationReplyCommand
             }
 
             $this->assertEligibleForFreeFormReply($businessId, $conversation);
+            $uncertainReply = $conversation->messages()
+                ->where('direction', 'outbound')
+                ->where('type', 'text')
+                ->where('status', 'delivery_uncertain')
+                ->latest('created_at')
+                ->first();
+            $latestInbound = $conversation->messages()
+                ->where('direction', 'inbound')
+                ->whereNotNull('sent_at')
+                ->latest('sent_at')
+                ->first();
+
+            if ($uncertainReply !== null && ($latestInbound?->sent_at === null || $latestInbound->sent_at->lessThanOrEqualTo($uncertainReply->created_at))) {
+                throw ValidationException::withMessages(['body' => 'A previous reply has uncertain delivery. Wait for reconciliation or a new customer message before sending again.']);
+            }
 
             return Message::query()->create([
                 'business_id' => $businessId,

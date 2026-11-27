@@ -80,6 +80,14 @@ class ConversationController extends Controller
             ->first();
         $templateSendBlocked = $latestUncertainTemplate instanceof Message
             && ($latestInbound?->sent_at === null || $latestInbound->sent_at->lessThanOrEqualTo($latestUncertainTemplate->created_at));
+        $latestUncertainText = $conversation->messages()
+            ->where('direction', 'outbound')
+            ->where('type', 'text')
+            ->where('status', 'delivery_uncertain')
+            ->latest('created_at')
+            ->first();
+        $freeFormReplyBlocked = $latestUncertainText instanceof Message
+            && ($latestInbound?->sent_at === null || $latestInbound->sent_at->lessThanOrEqualTo($latestUncertainText->created_at));
         $connectionIsReady = WhatsAppConnection::query()
             ->where('business_id', $businessId)
             ->where('status', 'connected')
@@ -106,9 +114,11 @@ class ConversationController extends Controller
             'canReply' => $canReplyPermission
                 && $hasConsent
                 && $isWithinServiceWindow
-                && $customerIsActive,
+                && $customerIsActive
+                && ! $freeFormReplyBlocked,
             'canSendTemplate' => $canSendTemplate,
             'templateSendBlocked' => $templateSendBlocked,
+            'freeFormReplyBlocked' => $freeFormReplyBlocked,
             'templates' => $availableTemplates,
             'canReplyPermission' => $canReplyPermission,
             'canAssign' => $canAssign,

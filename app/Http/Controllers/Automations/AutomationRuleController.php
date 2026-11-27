@@ -21,15 +21,14 @@ class AutomationRuleController extends Controller
     {
         $businessId = $request->attributes->get('currentBusiness')->getKey();
         abort_unless($request->user()->hasBusinessPermission((int) $businessId, 'automations.view'), 403);
-
-        abort_unless($request->user()->hasBusinessPermission((int) $businessId, 'templates.view'), 403);
+        $canViewTemplates = $request->user()->hasBusinessPermission((int) $businessId, 'templates.view');
 
         return Inertia::render('automations/index', [
             'rules' => $query->execute((int) $businessId),
-            'templates' => $templates->execute((int) $businessId),
+            'templates' => $canViewTemplates ? $templates->execute((int) $businessId) : [],
             'capabilities' => [
-                'create' => $request->user()->hasBusinessPermission((int) $businessId, 'automations.create'),
-                'update' => $request->user()->hasBusinessPermission((int) $businessId, 'automations.update'),
+                'create' => $canViewTemplates && $request->user()->hasBusinessPermission((int) $businessId, 'automations.create'),
+                'update' => $canViewTemplates && $request->user()->hasBusinessPermission((int) $businessId, 'automations.update'),
                 'enable' => $request->user()->hasBusinessPermission((int) $businessId, 'automations.enable'),
                 'disable' => $request->user()->hasBusinessPermission((int) $businessId, 'automations.disable'),
             ],

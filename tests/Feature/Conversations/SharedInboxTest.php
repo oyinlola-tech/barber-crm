@@ -127,7 +127,7 @@ it('sends a free-form reply only with consent and within the customer service wi
         && $request->hasHeader('Authorization', 'Bearer test-access-token'));
 });
 
-it('records uncertain provider acceptance without automatically retrying the reply', function (): void {
+it('blocks another free-form reply after uncertain provider acceptance until a new customer message arrives', function (): void {
     [$user, , , $conversation] = makeInboxConversation();
     Http::fake(['graph.facebook.com/*' => Http::response(['error' => ['message' => 'Temporary provider error']], 500)]);
 
@@ -144,6 +144,15 @@ it('records uncertain provider acceptance without automatically retrying the rep
         'event_type' => 'message.send_uncertain',
         'status' => 'delivery_uncertain',
     ]);
+    Http::assertSentCount(1);
+
+    $this->actingAs($user)->get('/inbox/'.$conversation->getKey())->assertInertia(fn (Assert $page) => $page
+        ->where('freeFormReplyBlocked', true)
+        ->where('canReply', false));
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'A duplicate reply.'])
+        ->assertSessionHasErrors('body');
+
+    $this->assertDatabaseCount('messages', 2);
     Http::assertSentCount(1);
 });
 
