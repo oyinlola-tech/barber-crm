@@ -6,11 +6,11 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
-        "php": "^8.4",
+        "php": "^8.6",
         "giggsey/libphonenumber-for-php": "^9.0",
         "inertiajs/inertia-laravel": "^3.8",
         "laravel/fortify": "^1.44",
-        "laravel/framework": "^13.17",
+        "laravel/framework": "^13.44.1",
         "laravel/tinker": "^3.0",
         "sentry/sentry-laravel": "^4.31"
     },

@@ -6,7 +6,7 @@ For module-by-module implementation limits and current verification results, see
 
 ## Requirements
 
-PHP 8.4 with `mbstring` and `pdo_pgsql`, Composer, Node.js compatible with the locked Vite toolchain, pnpm 11, PostgreSQL, and Docker Compose (or equivalent local services).
+PHP 8.6 with `mbstring`, `intl`, and `pdo_pgsql`, Composer, Node.js compatible with the locked Vite toolchain, pnpm 11, PostgreSQL, and Docker Compose (or equivalent local services). Laravel 13 is locked at v13.44.1.
 
 ## Local setup
 
@@ -23,7 +23,7 @@ Session cookies default to secure in production and cannot be downgraded by `SES
 
 New account passwords use Argon2id (`HASH_DRIVER=argon2id`) with configurable memory, time, and thread costs. The example production defaults use 64 MiB of memory and four iterations; tune them only after checking the target server’s capacity.
 
-Build frontend assets with `pnpm build`; run `pnpm dev` during UI work. Start Laravel using `php artisan serve` or the project Docker Compose setup.
+For UI development, keep `php artisan serve` and `pnpm dev` running in separate terminals. For a built-asset check, run `pnpm build` and then start `php artisan serve`. If the page is blank, check the browser console and confirm the Vite server at `http://localhost:5173` is running; Laravel uses the `public/hot` marker to select Vite development assets. After stopping Vite, remove a stale `public/hot` marker before testing the built manifest again. The E2E test environment uses a separate hot-file path so a developer's local Vite process cannot make browser tests load dead asset URLs.
 
 ## Owner and staff access
 

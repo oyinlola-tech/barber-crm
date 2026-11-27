@@ -10,14 +10,20 @@ COPY resources ./resources
 COPY vite.config.ts tsconfig.json components.json ./
 RUN npm run build
 
-FROM composer:2 AS vendor
+FROM php:8.6-cli-alpine AS vendor
 
 WORKDIR /var/www/html
+
+RUN apk add --no-cache $PHPIZE_DEPS icu-dev oniguruma-dev postgresql-dev unzip \
+    && docker-php-ext-install intl mbstring pdo_pgsql \
+    && apk del $PHPIZE_DEPS
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --prefer-dist --no-interaction --no-scripts
 
-FROM php:8.4-fpm-alpine AS runtime
+FROM php:8.6-fpm-alpine AS runtime
 
 RUN apk add --no-cache $PHPIZE_DEPS icu-dev oniguruma-dev postgresql-dev \
     && docker-php-ext-install bcmath intl mbstring pcntl pdo_pgsql \

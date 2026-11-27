@@ -59,7 +59,28 @@ if (Artisan::call('db:seed', ['--class' => BusinessRoleSeeder::class, '--force' 
     exit(1);
 }
 
-RateLimiter::clear('crm.browser@example.test|127.0.0.1');
+foreach ([
+    'crm.audit-owner@example.test',
+    'crm.browser@example.test',
+    'crm.business-settings-owner@example.test',
+    'crm.customer-lifecycle@example.test',
+    'crm.importer@example.test',
+    'crm.inbox@example.test',
+    'crm.invitation-owner@example.test',
+    'crm.messaging-owner@example.test',
+    'crm.owner@example.test',
+    'crm.privacy@example.test',
+    'crm.profile-editor@example.test',
+    'crm.review-owner@example.test',
+    'crm.role-manager@example.test',
+    'crm.roles@example.test',
+    'crm.services@example.test',
+    'crm.sessions-owner@example.test',
+    'crm.staff-owner@example.test',
+    'crm.template-owner@example.test',
+] as $email) {
+    RateLimiter::clear($email.'|127.0.0.1');
+}
 
 $business = Business::query()->create([
     'name' => 'Browser Test Barbershop',

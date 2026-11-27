@@ -9,7 +9,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 ## Repository and scope evidence
 
 - The checkout is Git repository `oyinlola-tech/barber-crm` on `main`; changes are committed in short folder-focused commits and pushed to `origin/main` without co-author trailers. `.env`, generated caches, local session files, test databases and browser results are ignored. The pushed implementation commits are authored by the project owner and contain no co-author trailers.
-- Laravel 13, PHP 8.4, React, Inertia, TypeScript and the locked Composer/pnpm dependencies are present. No new dependencies were added in the recent implementation slices.
+- Laravel 13.44.1, PHP 8.6, React, Inertia, TypeScript and the locked Composer/pnpm dependencies are present. No new dependencies were added in the recent implementation slices.
 - `pdo_pgsql` is not installed. `php artisan migrate:status` fails with “could not find driver”; the intended PostgreSQL migration state and business data were not accessed or changed.
 - The active application exposes 85 non-vendor routes. Booking, appointment and availability behavior is absent from the route/controller/service layer. Historical appointment/availability migration definitions remain untouched pending a safe database review.
 - No production credentials, live WhatsApp delivery, provider approval, email delivery, production deployment or production backup restoration are claimed.

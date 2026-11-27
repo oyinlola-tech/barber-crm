@@ -4,11 +4,11 @@
 
 This repository is a private CRM for one existing barbershop. Keep one Laravel application with React and Inertia. The supported product covers staff access, customers, consent, completed visits, official WhatsApp messaging and inbox, deterministic follow-up automation, templates, reviews, reporting, settings, notifications, audit records, and operations.
 
-Do not add AI or agents, bookings or appointments, availability calendars, payment/POS/inventory/payroll, subscriptions, SaaS onboarding or workspace switching, multi-business tenancy, mobile apps, separate frontend/backend applications, Redis, Horizon, WebSockets, microservices, Kubernetes, event sourcing, vector search, or public developer APIs.
+Do not add AI or agents, appointment scheduling or time-slot bookings, availability calendars, payment/POS/inventory/payroll, subscriptions, SaaS onboarding or workspace switching, multi-business tenancy, mobile apps, separate frontend/backend applications, Redis, Horizon, WebSockets, microservices, Kubernetes, event sourcing, vector search, or public developer APIs. A customer may share a preferred return date through WhatsApp; store it only as a non-reserving visit intention that notifies staff, never as a slot, appointment, or paid booking.
 
 ## Stack and conventions
 
-Use the versions locked by Composer and pnpm: Laravel 13, PHP 8.4, PostgreSQL, Eloquent, React, TypeScript, Inertia 3, Vite, Tailwind, Fortify, database queue/cache/session, and Meta WhatsApp Cloud API. Confirm a package's installed version before relying on version-specific APIs. Do not change dependencies without authorization.
+Use the versions locked by Composer and pnpm: Laravel 13.44.1, PHP 8.6, PostgreSQL, Eloquent, React, TypeScript, Inertia 3, Vite, Tailwind, Fortify, database queue/cache/session, and Meta WhatsApp Cloud API. Confirm a package's installed version before relying on version-specific APIs. Do not change dependencies without authorization.
 
 Follow Laravel conventions and the centralized Ansofra CQRS layout:
 

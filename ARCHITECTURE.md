@@ -6,11 +6,11 @@ This repository contains one private CRM installation for one existing barbersho
 
 The application manages staff access, customers, messaging consent, completed visits, WhatsApp conversations, deterministic follow-up automation, templates, reviews, reporting, settings, notifications, audit records, and operational health. Customers do not need CRM accounts. WhatsApp delivery requires external Meta credentials, business verification, approved templates, and a publicly reachable webhook.
 
-AI, agents, appointments, bookings, availability, payments, inventory, payroll, subscriptions, SaaS onboarding, multiple business workspaces, mobile apps, microservices, Redis, WebSockets, event sourcing, and public developer APIs are out of scope.
+AI, agents, appointment scheduling, time-slot bookings, availability calendars, payments, inventory, payroll, subscriptions, SaaS onboarding, multiple business workspaces, mobile apps, microservices, Redis, WebSockets, event sourcing, and public developer APIs are out of scope. Customers may express a preferred return date through WhatsApp; this is a date-only visit intention that notifies staff and never reserves a time or creates a booking.
 
 ## Stack
 
-- Laravel 13 / PHP 8.4, Eloquent and Form Requests
+- Laravel 13.44.1 / PHP 8.6, Eloquent and Form Requests
 - Centralized Ansofra CQRS services with `execute()` use cases
 - React 19, TypeScript, Inertia 3, Vite and Tailwind CSS 4
 - PostgreSQL, database queue, database cache and database sessions

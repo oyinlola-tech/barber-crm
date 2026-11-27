@@ -29,6 +29,7 @@ use App\Repositories\Services\ServiceRepository;
 use App\Repositories\Staff\StaffRepository;
 use App\Repositories\Visits\VisitRepository;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -52,6 +53,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if ($this->app->environment('testing')) {
+            Vite::useHotFile(storage_path('framework/testing-vite.hot'));
+        }
+
         Gate::policy(StaffProfile::class, StaffPolicy::class);
         Gate::policy(Service::class, ServicePolicy::class);
         Gate::policy(ServiceCategory::class, ServiceCategoryPolicy::class);
