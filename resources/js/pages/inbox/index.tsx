@@ -187,9 +187,24 @@ export default function InboxIndexPage({ conversations, filters }: InboxProps) {
                                                     {conversation.unread_count >
                                                         0 && (
                                                         <span className="grid min-w-5 place-items-center rounded-full bg-primary px-1.5 py-1 text-[10px] font-semibold text-primary-foreground">
-                                                            {
-                                                                conversation.unread_count
-                                                            }
+                                                            <span
+                                                                className="sr-only"
+                                                                role="status"
+                                                            >
+                                                                {
+                                                                    conversation.unread_count
+                                                                }{' '}
+                                                                unread message
+                                                                {conversation.unread_count ===
+                                                                1
+                                                                    ? ''
+                                                                    : 's'}
+                                                            </span>
+                                                            <span aria-hidden="true">
+                                                                {
+                                                                    conversation.unread_count
+                                                                }
+                                                            </span>
                                                         </span>
                                                     )}
                                                 </span>

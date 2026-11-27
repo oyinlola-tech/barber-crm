@@ -351,18 +351,34 @@ export default function CustomersPage({
                     ) : (
                         <div className="w-full max-w-full overflow-x-auto">
                             <table className="w-full min-w-[600px] text-left text-sm">
+                                <caption className="sr-only">
+                                    Customer records with contact information
+                                    and completed visit counts
+                                </caption>
                                 <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
                                     <tr>
-                                        <th className="px-5 py-3 font-medium">
+                                        <th
+                                            className="px-5 py-3 font-medium"
+                                            scope="col"
+                                        >
                                             Customer
                                         </th>
-                                        <th className="px-5 py-3 font-medium">
+                                        <th
+                                            className="px-5 py-3 font-medium"
+                                            scope="col"
+                                        >
                                             WhatsApp
                                         </th>
-                                        <th className="px-5 py-3 font-medium">
+                                        <th
+                                            className="px-5 py-3 font-medium"
+                                            scope="col"
+                                        >
                                             Visits
                                         </th>
-                                        <th className="px-5 py-3 font-medium">
+                                        <th
+                                            className="px-5 py-3 font-medium"
+                                            scope="col"
+                                        >
                                             <span className="sr-only">
                                                 Actions
                                             </span>
