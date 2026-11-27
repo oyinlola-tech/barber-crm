@@ -108,6 +108,12 @@ jobs:
             - name: Build frontend
               run: pnpm build
 
+            - name: Build PHP runtime image for recovery drill
+              run: docker build --target runtime --tag barber-crm-app:latest .
+
+            - name: Verify encrypted backup and restore safeguards
+              run: bash tests/Operations/backup-restore-drill.sh
+
             - name: Check deployment and rollback control flow
               run: bash tests/Operations/deployment-scripts.sh
 
