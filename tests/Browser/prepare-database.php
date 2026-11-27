@@ -14,6 +14,7 @@ use App\Models\StaffProfile;
 use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Models\WhatsAppConnection;
+use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
@@ -49,6 +50,11 @@ if (is_file($expectedPath) && ! unlink($expectedPath)) {
 }
 
 if (Artisan::call('migrate:fresh', ['--force' => true, '--no-interaction' => true]) !== 0) {
+    fwrite(STDERR, Artisan::output());
+    exit(1);
+}
+
+if (Artisan::call('db:seed', ['--class' => BusinessRoleSeeder::class, '--force' => true, '--no-interaction' => true]) !== 0) {
     fwrite(STDERR, Artisan::output());
     exit(1);
 }
@@ -194,6 +200,7 @@ foreach ([
     ['Browser Template Owner', 'crm.template-owner@example.test', ['browser-template-owner-recovery-code']],
     ['Browser Sessions Owner', 'crm.sessions-owner@example.test', ['browser-sessions-recovery-code', 'browser-sessions-second-recovery-code']],
     ['Browser Audit Owner', 'crm.audit-owner@example.test', ['browser-audit-recovery-code']],
+    ['Browser Invitation Owner', 'crm.invitation-owner@example.test', ['browser-invitation-owner-recovery-code']],
 ] as [$name, $email, $recoveryCode]) {
     $specializedOwner = User::query()->create([
         'name' => $name,
