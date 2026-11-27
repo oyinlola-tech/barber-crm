@@ -14,4 +14,6 @@ PostgreSQL is the only required application database. Laravel migrations define 
 
 The precise columns, constraints, indexes and migration history are defined by `database/migrations`. Migration files that may already be applied must not be edited. The historical appointments/availability migration is retained pending inspection of the configured PostgreSQL migration table and data; there is no active appointment behavior. See [relationships](relationships.md) for the main data paths.
 
+The business profile stores its description, address, HTTPS public-review URL and private logo path on the existing single-shop `businesses` record. Logo bytes live on Laravel's private local disk and are served only by an authenticated, permission-checked route; they are not exposed through the public storage symlink.
+
 The current host PHP environment lacks `pdo_pgsql`, so it cannot inspect the configured database. Disposable PostgreSQL migration tests do not prove the production schema state. Do not apply or remove schema changes in a business database without a reviewed backup and migration-status inspection.
