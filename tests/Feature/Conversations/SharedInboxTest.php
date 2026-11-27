@@ -156,6 +156,28 @@ it('blocks another free-form reply after uncertain provider acceptance until a n
     Http::assertSentCount(1);
 });
 
+it('blocks a second free-form reply while the previous provider request is still pending', function (): void {
+    [$user, , , $conversation] = makeInboxConversation();
+    Message::query()->create([
+        'business_id' => $conversation->business_id,
+        'conversation_id' => $conversation->getKey(),
+        'direction' => 'outbound',
+        'type' => 'text',
+        'status' => 'pending',
+        'body' => 'First reply still processing.',
+    ]);
+    Http::fake();
+
+    $this->actingAs($user)->get('/inbox/'.$conversation->getKey())->assertInertia(fn (Assert $page) => $page
+        ->where('freeFormReplyBlocked', true)
+        ->where('canReply', false));
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'A duplicate reply.'])
+        ->assertSessionHasErrors('body');
+
+    $this->assertDatabaseCount('messages', 2);
+    Http::assertNothingSent();
+});
+
 it('records a definite failure when the saved WhatsApp token cannot be decrypted', function (): void {
     [$user, , , $conversation] = makeInboxConversation();
     $connection = WhatsAppConnection::query()->where('business_id', $conversation->business_id)->firstOrFail();

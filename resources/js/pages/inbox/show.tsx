@@ -311,9 +311,10 @@ export default function InboxConversationPage({
                                     className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
                                     role="alert"
                                 >
-                                    A previous reply has uncertain delivery.
-                                    Wait for reconciliation or a new customer
-                                    message before sending again.
+                                    A previous reply is still processing or has
+                                    uncertain delivery. Wait for it to be
+                                    reconciled or for a new customer message
+                                    before sending again.
                                 </p>
                             ) : !canReply &&
                               (!canReplyPermission ||

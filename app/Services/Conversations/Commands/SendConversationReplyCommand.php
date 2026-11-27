@@ -47,7 +47,7 @@ class SendConversationReplyCommand
             $uncertainReply = $conversation->messages()
                 ->where('direction', 'outbound')
                 ->where('type', 'text')
-                ->where('status', 'delivery_uncertain')
+                ->whereIn('status', ['pending', 'processing', 'delivery_uncertain'])
                 ->latest('created_at')
                 ->first();
             $latestInbound = $conversation->messages()
