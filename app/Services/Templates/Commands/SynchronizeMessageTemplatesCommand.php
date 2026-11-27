@@ -7,6 +7,7 @@ use App\Models\MessageTemplate;
 use App\Models\User;
 use App\Models\WhatsAppConnection;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
+use App\Services\Automations\Commands\DisableAutomationsForTemplateCommand;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -16,6 +17,7 @@ class SynchronizeMessageTemplatesCommand
     public function __construct(
         public WhatsAppTemplateApi $templateApi,
         public RecordAuditLogCommand $audit,
+        private readonly DisableAutomationsForTemplateCommand $disableAutomations,
     ) {}
 
     public function execute(int $businessId, int $userId): int
@@ -80,7 +82,7 @@ class SynchronizeMessageTemplatesCommand
                 ];
 
                 if ($template === null) {
-                    MessageTemplate::query()->create([
+                    $template = MessageTemplate::query()->create([
                         ...$attributes,
                         'business_id' => $businessId,
                         'name' => $name,
@@ -90,6 +92,15 @@ class SynchronizeMessageTemplatesCommand
                     ]);
                 } else {
                     $template->update($attributes);
+                }
+
+                if (strtoupper($status) !== 'APPROVED' || $providerIdentityChanged) {
+                    $this->disableAutomations->execute(
+                        $businessId,
+                        (int) $template->getKey(),
+                        $userId,
+                        $providerIdentityChanged ? 'provider_identity_changed' : 'provider_template_not_approved',
+                    );
                 }
 
                 $synchronizedCount++;
@@ -109,6 +120,12 @@ class SynchronizeMessageTemplatesCommand
                     'provider_status' => 'DELETED',
                     'is_enabled' => false,
                 ]);
+                $this->disableAutomations->execute(
+                    $businessId,
+                    (int) $missingTemplate->getKey(),
+                    $userId,
+                    'provider_template_missing',
+                );
             }
 
             $this->audit->execute($businessId, $userId, 'message_templates.synchronized', MessageTemplate::class, null, null, [

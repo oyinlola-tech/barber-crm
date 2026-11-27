@@ -5,13 +5,17 @@ namespace App\Services\Templates\Commands;
 use App\Models\MessageTemplate;
 use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
+use App\Services\Automations\Commands\DisableAutomationsForTemplateCommand;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 class SetMessageTemplateEnabledCommand
 {
-    public function __construct(public RecordAuditLogCommand $audit) {}
+    public function __construct(
+        public RecordAuditLogCommand $audit,
+        private readonly DisableAutomationsForTemplateCommand $disableAutomations,
+    ) {}
 
     public function execute(int $businessId, int $templateId, int $userId, bool $enabled): MessageTemplate
     {
@@ -28,6 +32,15 @@ class SetMessageTemplateEnabledCommand
             $before = ['is_enabled' => $template->is_enabled];
             $template->update(['is_enabled' => $enabled]);
             $this->audit->execute($businessId, $userId, $enabled ? 'message_template.enabled' : 'message_template.disabled', MessageTemplate::class, $template->getKey(), $before, ['is_enabled' => $enabled]);
+
+            if (! $enabled) {
+                $this->disableAutomations->execute(
+                    $businessId,
+                    (int) $template->getKey(),
+                    $userId,
+                    'template_disabled_by_staff',
+                );
+            }
 
             return $template->refresh();
         });
