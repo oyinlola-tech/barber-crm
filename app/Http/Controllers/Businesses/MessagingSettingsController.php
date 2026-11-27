@@ -13,14 +13,6 @@ class MessagingSettingsController extends Controller
         UpdateWhatsAppMessagingSettingsRequest $request,
         UpdateWhatsAppMessagingSettingsCommand $command,
     ): RedirectResponse {
-        abort_unless(
-            $request->user()->hasBusinessPermission(
-                (int) $request->attributes->get('currentBusiness')->getKey(),
-                'settings.update',
-            ),
-            403,
-        );
-
         $command->execute(
             (int) $request->attributes->get('currentBusiness')->getKey(),
             (int) $request->user()->getKey(),

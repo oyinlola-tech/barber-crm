@@ -6,6 +6,14 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateWhatsAppMessagingSettingsRequest extends FormRequest
 {
+    public function authorize(): bool
+    {
+        $businessId = $this->attributes->get('currentBusiness')?->getKey();
+
+        return $businessId !== null
+            && ($this->user()?->hasBusinessPermission((int) $businessId, 'settings.update') ?? false);
+    }
+
     protected function prepareForValidation(): void
     {
         $keywords = $this->input('opt_out_keywords');

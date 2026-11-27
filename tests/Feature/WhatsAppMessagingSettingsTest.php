@@ -69,7 +69,7 @@ it('rejects staff without settings permission and invalid or duplicate keywords'
     ]);
 
     $this->actingAs($staff)
-        ->put('/settings/messaging', ['opt_out_keywords' => ['NO MORE']])
+        ->put('/settings/messaging', ['opt_out_keywords' => []])
         ->assertForbidden();
 
     $owner = attachMessagingSettingsOwner($business);
