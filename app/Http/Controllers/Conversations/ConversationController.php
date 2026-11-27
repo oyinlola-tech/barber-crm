@@ -110,7 +110,9 @@ class ConversationController extends Controller
 
         return Inertia::render('inbox/show', [
             'conversation' => $conversation,
-            'assignees' => $business->members()->wherePivot('status', 'active')->orderBy('name')->get(['users.id', 'users.name']),
+            'assignees' => $canAssign
+                ? $business->members()->wherePivot('status', 'active')->orderBy('name')->get(['users.id', 'users.name'])
+                : [],
             'canReply' => $canReplyPermission
                 && $hasConsent
                 && $isWithinServiceWindow

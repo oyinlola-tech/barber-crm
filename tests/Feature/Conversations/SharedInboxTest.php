@@ -103,10 +103,32 @@ it('renders customer conversations and inbox details from persisted data', funct
     $this->actingAs($user)->get('/inbox/'.$conversation->getKey())->assertInertia(fn (Assert $page) => $page
         ->component('inbox/show')
         ->where('conversation.id', $conversation->getKey())
+        ->where('assignees.0.id', $user->getKey())
         ->where('canReply', true)
         ->where('consentGranted', true)
         ->where('serviceWindowOpen', true)
         ->has('conversation.messages', 1));
+});
+
+it('does not expose staff assignment data to conversation viewers without assignment permission', function (): void {
+    [$owner, $business, , $conversation] = makeInboxConversation();
+    $staff = User::factory()->create(['name' => 'Private staff identity']);
+    $business->members()->attach($staff, ['role' => 'barber', 'status' => 'active', 'joined_at' => now()]);
+    $viewer = User::factory()->create();
+    Role::query()->create([
+        'business_id' => $business->getKey(),
+        'name' => 'Conversation reader',
+        'slug' => 'conversation_reader',
+        'permissions' => ['conversations.view'],
+    ]);
+    $business->members()->attach($viewer, ['role' => 'conversation_reader', 'status' => 'active', 'joined_at' => now()]);
+
+    $this->actingAs($viewer)->get('/inbox/'.$conversation->getKey())->assertInertia(fn (Assert $page) => $page
+        ->where('canAssign', false)
+        ->has('assignees', 0)
+        ->missing('assignees.0.name'));
+
+    expect($owner->hasBusinessPermission((int) $business->getKey(), 'conversations.assign'))->toBeTrue();
 });
 
 it('sends a free-form reply only with consent and within the customer service window', function (): void {
