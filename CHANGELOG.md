@@ -9,6 +9,7 @@
 - Document Meta dashboard webhook configuration, callback verification, signature validation, and troubleshooting.
 - Redact internal conversation notes when an authorized customer anonymization workflow runs.
 - Ignore stale failed-delivery callbacks that predate the recorded sent timestamp while retaining their audit event.
+- Compare corrected visit times in the barbershop timezone so lifecycle regression coverage is stable at UTC date boundaries.
 - Enforce actor permissions in customer CQRS mutations and exports; derive note access from the user and reject protected customer update fields.
 - Enforce business settings and WhatsApp connect/disconnect permissions inside CQRS commands, rejecting protected business profile attributes.
 - Reserve the `owner` role slug against custom role creation and renaming to prevent privilege escalation through the ownership permission shortcut.

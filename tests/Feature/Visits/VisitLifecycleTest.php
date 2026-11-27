@@ -66,6 +66,7 @@ it('enforces visit permissions inside CQRS commands when invoked directly', func
 
 it('corrects a completed visit and audits the revision without exposing notes', function (): void {
     [$business, $user, $customer] = visitLifecycleSetup();
+    $correctedLocalVisitTime = now('Africa/Lagos')->subDays(7)->format('Y-m-d H:i:s');
     $visit = Visit::query()->create([
         'business_id' => $business->getKey(),
         'customer_id' => $customer->getKey(),
@@ -75,12 +76,12 @@ it('corrects a completed visit and audits the revision without exposing notes', 
     ]);
 
     $this->actingAs($user)->put(route('visits.update', $visit), [
-        'visited_at' => now()->subDays(7)->format('Y-m-d H:i:s'),
+        'visited_at' => $correctedLocalVisitTime,
         'notes' => 'Corrected note',
         'service_ids' => [],
     ])->assertRedirect(route('customers.show', $customer));
 
-    expect($visit->refresh()->visited_at->toDateString())->toBe(now()->subDays(7)->toDateString())
+    expect($visit->refresh()->visited_at->setTimezone('Africa/Lagos')->format('Y-m-d H:i:s'))->toBe($correctedLocalVisitTime)
         ->and((int) $visit->automation_revision)->toBe(2)
         ->and($visit->notes)->toBe('Corrected note')
         ->and(AuditLog::query()->where('action', 'visit.updated')->firstOrFail()->after)
