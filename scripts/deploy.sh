@@ -16,6 +16,15 @@ if previous_stable_release_available; then
     previous_available=1
 fi
 
+snapshot_status=0
+snapshot_running_release_as_previous || snapshot_status=$?
+if (( snapshot_status == 0 )); then
+    previous_available=1
+elif (( snapshot_status != 2 )); then
+    printf 'Deployment stopped: the currently running release could not be saved for rollback.\n' >&2
+    exit 1
+fi
+
 if ! docker compose up --build --detach app web queue scheduler; then
     recover_previous_release "$previous_available" || true
 
@@ -35,9 +44,8 @@ if ! verify_background_services; then
     exit 1
 fi
 
-if ! tag_current_release_as_previous; then
-    printf 'Deployment is running, but the last known stable image pair could not be recorded for rollback.\n' >&2
-    exit 1
+if (( previous_available == 1 )); then
+    printf 'Deployment is healthy. The pre-deployment stable release is saved for `make rollback`.\n'
+else
+    printf 'Deployment is healthy. No earlier stable release existed, so rollback becomes available after the next successful deployment.\n'
 fi
-
-printf 'Deployment is healthy. The previous stable release is retained in Docker as barber-crm-app:previous-stable and barber-crm-web:previous-stable.\n'

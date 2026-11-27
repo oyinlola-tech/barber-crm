@@ -70,14 +70,31 @@ previous_stable_release_available() {
         && docker image inspect barber-crm-web:previous-stable >/dev/null 2>&1
 }
 
-tag_current_release_as_previous() {
-    local app_image web_image
+snapshot_running_release_as_previous() {
+    local app_container web_container app_image web_image
 
-    app_image="$(docker image inspect --format '{{.Id}}' barber-crm-app:current)" || return 1
-    web_image="$(docker image inspect --format '{{.Id}}' barber-crm-web:current)" || return 1
+    app_container="$(docker compose ps --status running -q app)" || return 1
+    web_container="$(docker compose ps --status running -q web)" || return 1
+
+    # A first deployment has no running pair to preserve. Existing saved
+    # rollback tags, if any, remain available in that case.
+    if [[ -z "$app_container" && -z "$web_container" ]]; then
+        return 2
+    fi
+    [[ -n "$app_container" && -n "$web_container" ]] || return 1
+
+    app_image="$(docker inspect --format '{{.Image}}' "$app_container")" || return 1
+    web_image="$(docker inspect --format '{{.Image}}' "$web_container")" || return 1
     [[ -n "$app_image" && -n "$web_image" ]] || return 1
 
+    tag_image_pair_as_previous "$app_image" "$web_image"
+}
+
+tag_image_pair_as_previous() {
+    local app_image="$1"
+    local web_image="$2"
     local previous_app_image previous_web_image
+
     previous_app_image="$(docker image inspect --format '{{.Id}}' barber-crm-app:previous-stable 2>/dev/null || true)"
     previous_web_image="$(docker image inspect --format '{{.Id}}' barber-crm-web:previous-stable 2>/dev/null || true)"
 
@@ -95,20 +112,6 @@ tag_current_release_as_previous() {
         fi
         return 1
     fi
-}
-
-tag_running_release_as_current() {
-    local app_container web_container app_image web_image
-
-    app_container="$(docker compose ps -q app)"
-    web_container="$(docker compose ps -q web)"
-    [[ -n "$app_container" && -n "$web_container" ]] || return 1
-    app_image="$(docker inspect --format '{{.Image}}' "$app_container")" || return 1
-    web_image="$(docker inspect --format '{{.Image}}' "$web_container")" || return 1
-    [[ -n "$app_image" && -n "$web_image" ]] || return 1
-
-    docker tag "$app_image" barber-crm-app:current || return 1
-    docker tag "$web_image" barber-crm-web:current || return 1
 }
 
 restore_previous_release_tags() {

@@ -11,6 +11,10 @@ export FAKE_DOCKER_LOG="$TEMP_DIR/docker.log"
 export FAKE_HEALTH_SEQUENCE="$TEMP_DIR/health-sequence"
 export FAKE_HEALTH_COUNT="$TEMP_DIR/health-count"
 export FAKE_RECOVERY_STARTED="$TEMP_DIR/recovery-started"
+export FAKE_PREVIOUS_APP_IMAGE="$TEMP_DIR/previous-app-image"
+export FAKE_PREVIOUS_WEB_IMAGE="$TEMP_DIR/previous-web-image"
+printf 'sha256:stable-app\n' > "$FAKE_PREVIOUS_APP_IMAGE"
+printf 'sha256:stable-web\n' > "$FAKE_PREVIOUS_WEB_IMAGE"
 
 cat > "$TEMP_DIR/bin/docker" <<'DOCKER_STUB'
 #!/usr/bin/env bash
@@ -27,6 +31,10 @@ if [[ "$1" == compose ]]; then
     fi
     if [[ "$1" == ps ]]; then
         service="${*: -1}"
+        if [[ " ${*} " == *" --status running "* && "${FAKE_NO_RUNNING:-0}" == 1 \
+            && ( "$service" == app || "$service" == web ) ]]; then
+            exit 0
+        fi
         stopped_services="${FAKE_STOPPED_SERVICES:-}"
         if [[ -f "$FAKE_RECOVERY_STARTED" ]]; then
             stopped_services="${FAKE_RECOVERY_STOPPED_SERVICES:-}"
@@ -68,19 +76,28 @@ if [[ "$1" == image && "$2" == inspect ]]; then
         case "${*: -1}" in
             barber-crm-app:current) printf 'sha256:built-app\n' ;;
             barber-crm-web:current) printf 'sha256:built-web\n' ;;
-            barber-crm-app:previous-stable) printf 'sha256:stable-app\n' ;;
-            barber-crm-web:previous-stable) printf 'sha256:stable-web\n' ;;
+            barber-crm-app:previous-stable) cat "$FAKE_PREVIOUS_APP_IMAGE" 2>/dev/null || exit 1 ;;
+            barber-crm-web:previous-stable) cat "$FAKE_PREVIOUS_WEB_IMAGE" 2>/dev/null || exit 1 ;;
             *) exit 1 ;;
         esac
         exit 0
     fi
-    exit 0
+    case "${*: -1}" in
+        barber-crm-app:previous-stable) [[ -s "$FAKE_PREVIOUS_APP_IMAGE" ]] ;;
+        barber-crm-web:previous-stable) [[ -s "$FAKE_PREVIOUS_WEB_IMAGE" ]] ;;
+        *) exit 1 ;;
+    esac
+    exit $?
 fi
 
 if [[ "$1" == tag ]]; then
     if [[ "${FAKE_FAIL_TAG_TARGET:-}" == "${@: -1}" ]]; then
         exit 1
     fi
+    case "${@: -1}" in
+        barber-crm-app:previous-stable) printf '%s\n' "$2" > "$FAKE_PREVIOUS_APP_IMAGE" ;;
+        barber-crm-web:previous-stable) printf '%s\n' "$2" > "$FAKE_PREVIOUS_WEB_IMAGE" ;;
+    esac
     exit 0
 fi
 
@@ -91,20 +108,39 @@ chmod 700 "$TEMP_DIR/bin/docker"
 export PATH="$TEMP_DIR/bin:$PATH"
 
 : > "$FAKE_DOCKER_LOG"
-"$PROJECT_ROOT/scripts/deploy.sh"
-rg -q 'tag sha256:built-app barber-crm-app:previous-stable' "$FAKE_DOCKER_LOG"
-rg -q 'tag sha256:built-web barber-crm-web:previous-stable' "$FAKE_DOCKER_LOG"
+"$PROJECT_ROOT/scripts/deploy.sh" >"$TEMP_DIR/deploy-output"
+rg -q 'tag sha256:old-app barber-crm-app:previous-stable' "$FAKE_DOCKER_LOG"
+rg -q 'tag sha256:old-web barber-crm-web:previous-stable' "$FAKE_DOCKER_LOG"
+! rg -q 'tag sha256:built-(app|web) barber-crm-(app|web):previous-stable' "$FAKE_DOCKER_LOG"
+rg -q 'Deployment is healthy. The pre-deployment stable release is saved' "$TEMP_DIR/deploy-output"
 rg -q 'compose up --build --detach app web queue scheduler' "$FAKE_DOCKER_LOG"
 
-# A failure while recording either image must not be reported as a successful
-# deployment with a mismatched or missing rollback pair.
+# A first deployment has no running release to snapshot and should say so
+# without inventing a rollback image pair.
+: > "$FAKE_DOCKER_LOG"
+: > "$FAKE_PREVIOUS_APP_IMAGE"
+: > "$FAKE_PREVIOUS_WEB_IMAGE"
+export FAKE_NO_RUNNING=1
+"$PROJECT_ROOT/scripts/deploy.sh" >"$TEMP_DIR/deploy-output"
+rg -q 'No earlier stable release existed' "$TEMP_DIR/deploy-output"
+! rg -q 'tag .*barber-crm-(app|web):previous-stable' "$FAKE_DOCKER_LOG"
+unset FAKE_NO_RUNNING
+printf 'sha256:old-app\n' > "$FAKE_PREVIOUS_APP_IMAGE"
+printf 'sha256:old-web\n' > "$FAKE_PREVIOUS_WEB_IMAGE"
+
+# A failure while saving either running image must stop deployment before
+# Compose replaces the healthy release.
 : > "$FAKE_DOCKER_LOG"
 export FAKE_FAIL_TAG_TARGET=barber-crm-web:previous-stable
 if "$PROJECT_ROOT/scripts/deploy.sh" >"$TEMP_DIR/deploy-output" 2>&1; then
     printf 'Deployment test expected rollback-image recording failure to fail.\n' >&2
     exit 1
 fi
-rg -q 'last known stable image pair could not be recorded' "$TEMP_DIR/deploy-output"
+rg -q 'Deployment stopped: the currently running release could not be saved for rollback' "$TEMP_DIR/deploy-output"
+if rg -q 'compose up --build --detach app web queue scheduler' "$FAKE_DOCKER_LOG"; then
+    printf 'Deployment continued after saving the prior release failed.\n' >&2
+    exit 1
+fi
 unset FAKE_FAIL_TAG_TARGET
 
 # A healthy web probe alone must not make deploy report success while a
@@ -144,8 +180,8 @@ rm -f -- "$FAKE_RECOVERY_STARTED"
 
 : > "$FAKE_DOCKER_LOG"
 "$PROJECT_ROOT/scripts/rollback.sh"
-rg -q 'tag sha256:stable-app barber-crm-app:current' "$FAKE_DOCKER_LOG"
-rg -q 'tag sha256:stable-web barber-crm-web:current' "$FAKE_DOCKER_LOG"
+rg -q 'tag sha256:old-app barber-crm-app:current' "$FAKE_DOCKER_LOG"
+rg -q 'tag sha256:old-web barber-crm-web:current' "$FAKE_DOCKER_LOG"
 rg -q 'compose up --no-build --pull never --detach --force-recreate app web queue scheduler' "$FAKE_DOCKER_LOG"
 rg -q 'compose stop queue scheduler' "$FAKE_DOCKER_LOG"
 rg -q 'compose ps --status running -q queue' "$FAKE_DOCKER_LOG"
@@ -184,8 +220,8 @@ if "$PROJECT_ROOT/scripts/deploy.sh"; then
     printf 'Deployment test expected health failure and recovery.\n' >&2
     exit 1
 fi
-rg -q 'tag sha256:stable-app barber-crm-app:current' "$FAKE_DOCKER_LOG"
-rg -q 'tag sha256:stable-web barber-crm-web:current' "$FAKE_DOCKER_LOG"
+rg -q 'tag sha256:old-app barber-crm-app:current' "$FAKE_DOCKER_LOG"
+rg -q 'tag sha256:old-web barber-crm-web:current' "$FAKE_DOCKER_LOG"
 
 # Without a saved previous release, rollback should stop before changing any
 # containers or image tags.
