@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { currentTotp } from './totp';
 
 test('owner can create, update, and delete a custom role on mobile', async ({
     page,
@@ -12,11 +13,8 @@ test('owner can create, update, and delete a custom role on mobile', async ({
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(/two-factor-challenge/);
     await page
-        .getByRole('button', { name: 'Use a recovery code instead' })
-        .click();
-    await page
-        .getByLabel('Recovery code')
-        .fill('browser-roles-owner-recovery-code');
+        .getByLabel('Authentication code')
+        .fill(currentTotp('JBSWY3DPEHPK3PXP'));
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page).toHaveURL(/dashboard/);
 

@@ -488,6 +488,27 @@ it('imports only new normalized phone numbers and reports duplicates without ove
         ->and(AuditLog::query()->where('business_id', $business->getKey())->where('action', 'customers.imported')->value('after'))->toMatchArray(['created' => 1, 'skipped' => 2]);
 });
 
+it('does not let an invalid import row suppress a later valid row with the same phone number', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $user = customerActionsOwner();
+    $business->members()->attach($user, ['role' => 'owner', 'status' => 'active', 'joined_at' => now()]);
+    $csv = "first_name,last_name,phone,email\n,Invalid,+2348031234567,\nValid,Customer,08031234567,valid@example.test\n";
+
+    $this->actingAs($user)->post(route('customers.import'), [
+        'file' => UploadedFile::fake()->createWithContent('customers.csv', $csv),
+    ])->assertRedirect(route('customers.index'));
+
+    $this->get(route('customers.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('customers/index')
+            ->where('importResult.created', 1)
+            ->where('importResult.skipped', 1));
+
+    expect(Customer::query()->where('business_id', $business->getKey())->where('phone', '+2348031234567')->value('first_name'))->toBe('Valid');
+});
+
 it('anonymizes a customer and preserves retained history without retaining message bodies or PII audit metadata', function (): void {
     $this->seed(BusinessRoleSeeder::class);
     $business = Business::factory()->create();

@@ -477,6 +477,67 @@ it('applies delivery progress without allowing stale webhook statuses to regress
     expect($message->fresh()->status)->toBe('delivered')->and($message->fresh()->delivered_at)->not->toBeNull();
 });
 
+it('records unsupported signed delivery statuses as failed without changing the message', function (): void {
+    Config::set('whatsapp.app_secret', 'test-app-secret');
+    Queue::fake([ProcessWhatsAppWebhookJob::class]);
+    $business = Business::factory()->create();
+    $customer = Customer::factory()->create(['business_id' => $business->getKey(), 'phone' => '+2348012345678']);
+    $conversation = Conversation::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $customer->getKey(),
+        'channel' => 'whatsapp',
+        'status' => 'open',
+    ]);
+    $message = Message::query()->create([
+        'business_id' => $business->getKey(),
+        'conversation_id' => $conversation->getKey(),
+        'provider_message_id' => 'wamid.unsupported-status',
+        'direction' => 'outbound',
+        'type' => 'text',
+        'status' => 'sent',
+        'body' => 'Thanks for visiting.',
+        'sent_at' => now()->subMinute(),
+    ]);
+    WhatsAppConnection::query()->create([
+        'business_id' => $business->getKey(),
+        'phone_number_id' => 'phone-number-1',
+        'business_account_id' => 'business-account-1',
+        'access_token' => 'secret-token',
+        'status' => 'connected',
+    ]);
+    $payload = ['object' => 'whatsapp_business_account', 'entry' => [[
+        'id' => 'business-account-1',
+        'changes' => [['value' => [
+            'metadata' => ['phone_number_id' => 'phone-number-1'],
+            'statuses' => [[
+                'id' => 'wamid.unsupported-status',
+                'status' => 'future_provider_status',
+                'timestamp' => (string) now()->timestamp,
+            ]],
+        ]]],
+    ]]];
+    $body = json_encode($payload, JSON_THROW_ON_ERROR);
+    $signature = 'sha256='.hash_hmac('sha256', $body, 'test-app-secret');
+
+    $this->call('POST', route('webhooks.whatsapp.receive'), [], [], [], [
+        'CONTENT_TYPE' => 'application/json',
+        'HTTP_X_HUB_SIGNATURE_256' => $signature,
+    ], $body)->assertOk();
+
+    $event = WebhookEvent::query()->where('event_type', 'status')->firstOrFail();
+    (new ProcessWhatsAppWebhookJob((int) $event->getKey()))->handle(
+        app(PhoneNumberNormalizer::class),
+        app(RecordConsentCommand::class),
+        app(CancelCustomerFollowUpsCommand::class),
+        app(GetWhatsAppMessagingSettingsQuery::class),
+    );
+
+    expect($event->fresh()->status)->toBe('failed')
+        ->and($event->fresh()->payload)->toBe(['kind' => 'status', 'unsupported_status' => true])
+        ->and($message->fresh()->status)->toBe('sent');
+    $this->assertDatabaseMissing('message_events', ['webhook_event_id' => $event->getKey()]);
+});
+
 it('keeps conversation activity timestamps monotonic when inbound webhooks arrive out of order', function (): void {
     $business = Business::factory()->create();
     $customer = Customer::factory()->create(['business_id' => $business->getKey(), 'phone' => '+2348012345678']);

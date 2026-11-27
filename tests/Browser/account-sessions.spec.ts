@@ -59,4 +59,22 @@ test('owner can revoke another session without revoking the current browser', as
     ).toHaveCount(0);
     await page.goto('/dashboard');
     await expect(page).toHaveURL(/dashboard/);
+
+    await page.goto('/settings/security');
+    await page
+        .getByLabel('Current password', { exact: true })
+        .last()
+        .fill('Browser-only owner password 9842!');
+    await page
+        .getByLabel('New password', { exact: true })
+        .fill('Browser-updated owner password 7642!');
+    await page
+        .getByLabel('Confirm new password')
+        .fill('Browser-updated owner password 7642!');
+    await page.getByRole('button', { name: 'Update password' }).click();
+    await expect(
+        page.getByRole('heading', { name: 'Change password' }),
+    ).toBeVisible();
+    await page.goto('/dashboard');
+    await expect(page).toHaveURL(/dashboard/);
 });
