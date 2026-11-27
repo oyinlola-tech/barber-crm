@@ -205,6 +205,33 @@ foreach ([
     ]);
 }
 
+$privacyRole = Role::query()->create([
+    'business_id' => $business->getKey(),
+    'name' => 'Customer privacy browser tester',
+    'slug' => 'customer_privacy_browser_tester',
+    'permissions' => ['dashboard.view', 'customers.view', 'customers.anonymize'],
+]);
+$privacyUser = User::query()->create([
+    'name' => 'Customer Privacy Tester',
+    'email' => 'crm.privacy@example.test',
+    'password' => Hash::make('Browser-only privacy password 9842!'),
+]);
+$privacyUser->forceFill(['email_verified_at' => now()])->save();
+$business->members()->attach($privacyUser, [
+    'role' => $privacyRole->slug,
+    'status' => 'active',
+    'joined_at' => now(),
+]);
+$privacyCustomer = Customer::query()->create([
+    'business_id' => $business->getKey(),
+    'created_by' => $privacyUser->getKey(),
+    'first_name' => 'Privacy',
+    'last_name' => 'Customer',
+    'phone' => '+2348076543210',
+    'email' => 'private.customer@example.test',
+    'notes' => 'Private note for anonymization browser coverage.',
+]);
+
 $barber = User::factory()->create(['name' => 'Browser Test Barber']);
 $business->members()->attach($barber, [
     'role' => 'barber',
