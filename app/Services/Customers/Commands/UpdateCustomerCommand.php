@@ -2,12 +2,14 @@
 
 namespace App\Services\Customers\Commands;
 
+use App\Events\Customers\CustomerReturnIntentionRecorded;
 use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Models\Customer;
 use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use App\Services\Automations\Commands\CancelCustomerReturnReminderMessagesCommand;
 use App\Services\Customers\Queries\CustomerHasUpcomingReturnDateQuery;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -38,16 +40,27 @@ class UpdateCustomerCommand
             $customer = $this->customers->findForBusiness($businessId, $customerId);
             $auditFields = array_values(array_diff(array_keys($attributes), ['notes']));
             $before = $customer->only($auditFields);
+            $previousReturnDate = $customer->intended_return_date === null
+                ? null
+                : CarbonImmutable::parse($customer->intended_return_date)->toDateString();
             if (array_key_exists('intended_return_date', $attributes)) {
-                $before['intended_return_date'] = $customer->getAttribute('intended_return_date')?->format('Y-m-d');
+                $before['intended_return_date'] = $previousReturnDate;
             }
             $customer = $this->customers->updateForBusiness($businessId, $customerId, $attributes);
             $after = $customer->only($auditFields);
-            if (array_key_exists('intended_return_date', $attributes)
-                && $this->upcomingReturnDate->execute($businessId, $customer)) {
+            $returnDate = $customer->intended_return_date === null
+                ? null
+                : CarbonImmutable::parse($customer->intended_return_date)->toDateString();
+            if (array_key_exists('intended_return_date', $attributes) && $this->upcomingReturnDate->execute($businessId, $customer)) {
                 $after['cancelled_return_reminders'] = $this->cancelReturnReminders->execute($businessId, $customerId);
             }
             $this->audit->execute($businessId, $userId, 'customer.updated', Customer::class, $customer->getKey(), $before, $after);
+
+            if (array_key_exists('intended_return_date', $attributes)
+                && $returnDate !== null
+                && $returnDate !== $previousReturnDate) {
+                CustomerReturnIntentionRecorded::dispatch($customer, $userId, $returnDate);
+            }
 
             return $customer;
         });

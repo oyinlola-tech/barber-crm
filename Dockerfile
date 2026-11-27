@@ -27,8 +27,7 @@ FROM php:8.6-fpm-alpine AS runtime
 
 RUN apk add --no-cache $PHPIZE_DEPS icu-dev oniguruma-dev postgresql-dev \
     && docker-php-ext-install bcmath intl mbstring pcntl pdo_pgsql \
-    && apk del $PHPIZE_DEPS \
-    && docker-php-ext-enable opcache
+    && apk del $PHPIZE_DEPS
 
 WORKDIR /var/www/html
 
