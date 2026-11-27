@@ -89,13 +89,32 @@ it('redacts expired unresolved callback payloads while retaining callback data f
         'status' => 'delivered',
         'occurred_at' => now()->subDays(31),
     ]);
+    $recent = WebhookEvent::query()->create([
+        'business_id' => $business->getKey(),
+        'provider' => 'whatsapp',
+        'event_id' => 'status:wamid.retryable',
+        'event_type' => 'status',
+        'payload' => ['kind' => 'status', 'provider_message_id' => 'wamid.retryable'],
+        'status' => 'awaiting_message',
+    ]);
+    $recent->forceFill(['updated_at' => now()->subDays(2)])->saveQuietly();
+    $pendingMessageEvent = MessageEvent::query()->create([
+        'business_id' => $business->getKey(),
+        'webhook_event_id' => $recent->getKey(),
+        'provider_message_id' => 'wamid.retryable',
+        'event_type' => 'message.status',
+        'status' => 'delivered',
+        'occurred_at' => now(),
+    ]);
 
     $redacted = app(RedactExpiredWebhookPayloadsCommand::class)->execute();
 
     expect($redacted)->toBe(1)
         ->and($event->fresh()->payload)->toBe(['redacted' => true])
         ->and($event->fresh()->status)->toBe('awaiting_message')
-        ->and($messageEvent->fresh()->provider_message_id)->toBe('wamid.never-arrived');
+        ->and($messageEvent->fresh()->provider_message_id)->toBe('wamid.never-arrived')
+        ->and($recent->fresh()->payload)->toBe(['kind' => 'status', 'provider_message_id' => 'wamid.retryable'])
+        ->and($pendingMessageEvent->fresh()->provider_message_id)->toBe('wamid.retryable');
 
     Carbon::setTestNow();
 });

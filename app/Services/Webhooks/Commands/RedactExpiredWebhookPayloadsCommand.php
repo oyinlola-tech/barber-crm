@@ -18,13 +18,37 @@ class RedactExpiredWebhookPayloadsCommand
 
         WebhookEvent::query()
             ->where('provider', 'whatsapp')
-            ->whereIn('status', ['processed', 'unmatched_connection', 'unmatched_message', 'failed', 'awaiting_message'])
+            ->whereIn('status', ['processed', 'unmatched_connection', 'unmatched_message', 'failed'])
             ->where('updated_at', '<=', $cutoff)
-            ->whereJsonDoesntContain('payload', ['redacted' => true])
-            ->select(['id'])
+            ->select(['id', 'payload'])
             ->chunkById($batchSize, function ($events) use (&$redacted): void {
+                $eventIds = $events
+                    ->filter(fn (WebhookEvent $event): bool => $event->payload !== ['redacted' => true])
+                    ->modelKeys();
+                if ($eventIds === []) {
+                    return;
+                }
+
                 $redacted += WebhookEvent::query()
-                    ->whereIn('id', $events->modelKeys())
+                    ->whereIn('id', $eventIds)
+                    ->update(['payload' => json_encode(['redacted' => true])]);
+            });
+
+        WebhookEvent::query()
+            ->where('provider', 'whatsapp')
+            ->where('status', 'awaiting_message')
+            ->where('updated_at', '<=', $cutoff)
+            ->select(['id', 'payload'])
+            ->chunkById($batchSize, function ($events) use (&$redacted): void {
+                $eventIds = $events
+                    ->filter(fn (WebhookEvent $event): bool => $event->payload !== ['redacted' => true])
+                    ->modelKeys();
+                if ($eventIds === []) {
+                    return;
+                }
+
+                $redacted += WebhookEvent::query()
+                    ->whereIn('id', $eventIds)
                     ->update(['payload' => json_encode(['redacted' => true])]);
             });
 
