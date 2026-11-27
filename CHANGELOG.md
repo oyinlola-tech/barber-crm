@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Make `make rollback` automatically restore the image pair saved after the last successful deployment; verify failed image-tag operations and preserve database state.
+- Add a mobile-browser customer anonymization regression test and update implementation verification notes.
+
 ## 2026-11-27
 
 - Default the application database, queue batches, and failed jobs to PostgreSQL when `DB_CONNECTION` is omitted.

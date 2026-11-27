@@ -12,7 +12,7 @@ if (( $# > 0 )); then
 fi
 
 previous_available=0
-if tag_running_release_as_previous; then
+if previous_stable_release_available; then
     previous_available=1
 fi
 
@@ -32,6 +32,11 @@ if ! verify_background_services; then
     printf 'Deployment failed: the web service is healthy, but one or more background services are unavailable.\n' >&2
     recover_previous_release "$previous_available" || true
 
+    exit 1
+fi
+
+if ! tag_current_release_as_previous; then
+    printf 'Deployment is running, but the last known stable image pair could not be recorded for rollback.\n' >&2
     exit 1
 fi
 

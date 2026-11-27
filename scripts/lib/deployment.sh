@@ -65,33 +65,73 @@ recover_previous_release() {
     return 0
 }
 
-tag_running_release_as_previous() {
+previous_stable_release_available() {
+    docker image inspect barber-crm-app:previous-stable >/dev/null 2>&1 \
+        && docker image inspect barber-crm-web:previous-stable >/dev/null 2>&1
+}
+
+tag_current_release_as_previous() {
+    local app_image web_image
+
+    app_image="$(docker image inspect --format '{{.Id}}' barber-crm-app:current)" || return 1
+    web_image="$(docker image inspect --format '{{.Id}}' barber-crm-web:current)" || return 1
+    [[ -n "$app_image" && -n "$web_image" ]] || return 1
+
+    local previous_app_image previous_web_image
+    previous_app_image="$(docker image inspect --format '{{.Id}}' barber-crm-app:previous-stable 2>/dev/null || true)"
+    previous_web_image="$(docker image inspect --format '{{.Id}}' barber-crm-web:previous-stable 2>/dev/null || true)"
+
+    docker tag "$app_image" barber-crm-app:previous-stable || return 1
+    if ! docker tag "$web_image" barber-crm-web:previous-stable; then
+        if [[ -n "$previous_app_image" ]]; then
+            docker tag "$previous_app_image" barber-crm-app:previous-stable || true
+        else
+            docker image rm barber-crm-app:previous-stable >/dev/null 2>&1 || true
+        fi
+        if [[ -n "$previous_web_image" ]]; then
+            docker tag "$previous_web_image" barber-crm-web:previous-stable || true
+        else
+            docker image rm barber-crm-web:previous-stable >/dev/null 2>&1 || true
+        fi
+        return 1
+    fi
+}
+
+tag_running_release_as_current() {
     local app_container web_container app_image web_image
 
     app_container="$(docker compose ps -q app)"
     web_container="$(docker compose ps -q web)"
-    if [[ -n "$app_container" && -n "$web_container" ]]; then
-        app_image="$(docker inspect --format '{{.Image}}' "$app_container")"
-        web_image="$(docker inspect --format '{{.Image}}' "$web_container")"
-    else
-        app_image="$(docker image inspect --format '{{.Id}}' barber-crm-app:current 2>/dev/null || true)"
-        web_image="$(docker image inspect --format '{{.Id}}' barber-crm-web:current 2>/dev/null || true)"
-    fi
+    [[ -n "$app_container" && -n "$web_container" ]] || return 1
+    app_image="$(docker inspect --format '{{.Image}}' "$app_container")" || return 1
+    web_image="$(docker inspect --format '{{.Image}}' "$web_container")" || return 1
+    [[ -n "$app_image" && -n "$web_image" ]] || return 1
 
-    if [[ -z "$app_image" || -z "$web_image" ]]; then
-        return 1
-    fi
-
-    docker tag "$app_image" barber-crm-app:previous-stable
-    docker tag "$web_image" barber-crm-web:previous-stable
-    return 0
+    docker tag "$app_image" barber-crm-app:current || return 1
+    docker tag "$web_image" barber-crm-web:current || return 1
 }
 
 restore_previous_release_tags() {
-    docker image inspect barber-crm-app:previous-stable >/dev/null
-    docker image inspect barber-crm-web:previous-stable >/dev/null
-    docker tag barber-crm-app:previous-stable barber-crm-app:current
-    docker tag barber-crm-web:previous-stable barber-crm-web:current
+    local app_image web_image current_app_image current_web_image
+
+    app_image="$(docker image inspect --format '{{.Id}}' barber-crm-app:previous-stable)" || return 1
+    web_image="$(docker image inspect --format '{{.Id}}' barber-crm-web:previous-stable)" || return 1
+    current_app_image="$(docker image inspect --format '{{.Id}}' barber-crm-app:current 2>/dev/null || true)"
+    current_web_image="$(docker image inspect --format '{{.Id}}' barber-crm-web:current 2>/dev/null || true)"
+    [[ -n "$app_image" && -n "$web_image" ]] || return 1
+
+    docker tag "$app_image" barber-crm-app:current || return 1
+    if ! docker tag "$web_image" barber-crm-web:current; then
+        if [[ -n "$current_app_image" ]]; then
+            docker tag "$current_app_image" barber-crm-app:current || true
+        else
+            docker image rm barber-crm-app:current >/dev/null 2>&1 || true
+        fi
+        if [[ -n "$current_web_image" ]]; then
+            docker tag "$current_web_image" barber-crm-web:current || true
+        fi
+        return 1
+    fi
 }
 
 start_current_release() {

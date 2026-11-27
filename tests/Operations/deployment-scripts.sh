@@ -64,10 +64,23 @@ if [[ "$1" == inspect && "$2" == --format ]]; then
 fi
 
 if [[ "$1" == image && "$2" == inspect ]]; then
+    if [[ " ${*} " == *" --format "* ]]; then
+        case "${*: -1}" in
+            barber-crm-app:current) printf 'sha256:built-app\n' ;;
+            barber-crm-web:current) printf 'sha256:built-web\n' ;;
+            barber-crm-app:previous-stable) printf 'sha256:stable-app\n' ;;
+            barber-crm-web:previous-stable) printf 'sha256:stable-web\n' ;;
+            *) exit 1 ;;
+        esac
+        exit 0
+    fi
     exit 0
 fi
 
 if [[ "$1" == tag ]]; then
+    if [[ "${FAKE_FAIL_TAG_TARGET:-}" == "${@: -1}" ]]; then
+        exit 1
+    fi
     exit 0
 fi
 
@@ -79,9 +92,20 @@ export PATH="$TEMP_DIR/bin:$PATH"
 
 : > "$FAKE_DOCKER_LOG"
 "$PROJECT_ROOT/scripts/deploy.sh"
-rg -q 'tag sha256:old-app barber-crm-app:previous-stable' "$FAKE_DOCKER_LOG"
-rg -q 'tag sha256:old-web barber-crm-web:previous-stable' "$FAKE_DOCKER_LOG"
+rg -q 'tag sha256:built-app barber-crm-app:previous-stable' "$FAKE_DOCKER_LOG"
+rg -q 'tag sha256:built-web barber-crm-web:previous-stable' "$FAKE_DOCKER_LOG"
 rg -q 'compose up --build --detach app web queue scheduler' "$FAKE_DOCKER_LOG"
+
+# A failure while recording either image must not be reported as a successful
+# deployment with a mismatched or missing rollback pair.
+: > "$FAKE_DOCKER_LOG"
+export FAKE_FAIL_TAG_TARGET=barber-crm-web:previous-stable
+if "$PROJECT_ROOT/scripts/deploy.sh" >"$TEMP_DIR/deploy-output" 2>&1; then
+    printf 'Deployment test expected rollback-image recording failure to fail.\n' >&2
+    exit 1
+fi
+rg -q 'last known stable image pair could not be recorded' "$TEMP_DIR/deploy-output"
+unset FAKE_FAIL_TAG_TARGET
 
 # A healthy web probe alone must not make deploy report success while a
 # background service is stopped.
@@ -120,8 +144,8 @@ rm -f -- "$FAKE_RECOVERY_STARTED"
 
 : > "$FAKE_DOCKER_LOG"
 "$PROJECT_ROOT/scripts/rollback.sh"
-rg -q 'tag barber-crm-app:previous-stable barber-crm-app:current' "$FAKE_DOCKER_LOG"
-rg -q 'tag barber-crm-web:previous-stable barber-crm-web:current' "$FAKE_DOCKER_LOG"
+rg -q 'tag sha256:stable-app barber-crm-app:current' "$FAKE_DOCKER_LOG"
+rg -q 'tag sha256:stable-web barber-crm-web:current' "$FAKE_DOCKER_LOG"
 rg -q 'compose up --no-build --pull never --detach --force-recreate app web queue scheduler' "$FAKE_DOCKER_LOG"
 rg -q 'compose stop queue scheduler' "$FAKE_DOCKER_LOG"
 rg -q 'compose ps --status running -q queue' "$FAKE_DOCKER_LOG"
@@ -160,8 +184,8 @@ if "$PROJECT_ROOT/scripts/deploy.sh"; then
     printf 'Deployment test expected health failure and recovery.\n' >&2
     exit 1
 fi
-rg -q 'tag barber-crm-app:previous-stable barber-crm-app:current' "$FAKE_DOCKER_LOG"
-rg -q 'tag barber-crm-web:previous-stable barber-crm-web:current' "$FAKE_DOCKER_LOG"
+rg -q 'tag sha256:stable-app barber-crm-app:current' "$FAKE_DOCKER_LOG"
+rg -q 'tag sha256:stable-web barber-crm-web:current' "$FAKE_DOCKER_LOG"
 
 # Without a saved previous release, rollback should stop before changing any
 # containers or image tags.
@@ -184,5 +208,17 @@ if rg -q 'compose stop|compose up|tag ' "$FAKE_DOCKER_LOG"; then
     printf 'Rollback changed deployment state without a previous stable release.\n' >&2
     exit 1
 fi
+
+# A failure to switch either image must be detected explicitly.
+cp "$TEMP_DIR/bin/docker-with-stable-release" "$TEMP_DIR/bin/docker"
+chmod 700 "$TEMP_DIR/bin/docker"
+export FAKE_FAIL_TAG_TARGET=barber-crm-web:current
+: > "$FAKE_DOCKER_LOG"
+if "$PROJECT_ROOT/scripts/rollback.sh" >"$TEMP_DIR/rollback-output" 2>&1; then
+    printf 'Rollback test expected an image-tag failure to be reported.\n' >&2
+    exit 1
+fi
+rg -q 'Rollback failed: the saved stable image pair could not be selected' "$TEMP_DIR/rollback-output"
+unset FAKE_FAIL_TAG_TARGET
 
 printf 'Deployment and rollback script checks passed.\n'

@@ -86,8 +86,9 @@ docker compose logs --tail=200 app web queue scheduler
 ```
 
 `make deploy` automatically restores retained previous app/web images when
-post-start checks fail. `make rollback` manually restores those image tags; it
-does not revert migrations, database contents or volumes. If there is no
+post-start checks fail. `make rollback` automatically restores the app/web pair
+saved by the last successfully deployed release; it does not revert migrations,
+database contents or volumes. If there is no
 previous stable image on a new host, rollback is unavailable until a successful
 deployment has created the retained tags. If rollback health checks fail, do
 not repeatedly switch versions: preserve logs, identify the failed service and
