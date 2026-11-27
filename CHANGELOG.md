@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Reconcile sent-message follow-ups after interrupted workers using an additive migration, stable idempotency keys and eligibility rechecks; reject enabled repeating rules without a positive interval.
+- Require fresh database, scheduler and queue-worker health before advertising application readiness; document the explicit first-deploy database review and migration sequence.
+- Enforce customer creation and import permissions during request authorization, before validation or import processing.
+
+## Unreleased
+
+- Recover follow-up scheduling for sent WhatsApp messages if the worker stops after the provider send is persisted; use a transactional completion marker, eligibility checks and stable idempotency keys.
 - Make `make rollback` automatically restore the image pair saved after the last successful deployment; verify failed image-tag operations and preserve database state.
 - Add a mobile-browser customer anonymization regression test and update implementation verification notes.
 
