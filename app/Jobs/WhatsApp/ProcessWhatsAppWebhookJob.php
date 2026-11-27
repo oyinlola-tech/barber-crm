@@ -12,6 +12,7 @@ use App\Services\Automations\Commands\CancelCustomerFollowUpsCommand;
 use App\Services\Consent\Commands\RecordConsentCommand;
 use App\Services\Notifications\Commands\NotifyStaffOfInboundMessageCommand;
 use App\Services\Settings\Queries\GetWhatsAppMessagingSettingsQuery;
+use App\Services\WhatsApp\Commands\ApplyWhatsAppDeliveryStatusCommand;
 use App\Utils\PhoneNumberNormalizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
@@ -47,9 +48,11 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
         CancelCustomerFollowUpsCommand $cancelCustomerFollowUps,
         GetWhatsAppMessagingSettingsQuery $messagingSettings,
         ?NotifyStaffOfInboundMessageCommand $notifyStaff = null,
+        ?ApplyWhatsAppDeliveryStatusCommand $applyDeliveryStatus = null,
     ): void {
         $notifyStaff ??= app(NotifyStaffOfInboundMessageCommand::class);
-        $processed = DB::transaction(function () use ($phoneNumbers, $recordConsent, $cancelCustomerFollowUps, $messagingSettings, $notifyStaff): bool {
+        $applyDeliveryStatus ??= app(ApplyWhatsAppDeliveryStatusCommand::class);
+        $processed = DB::transaction(function () use ($phoneNumbers, $recordConsent, $cancelCustomerFollowUps, $messagingSettings, $notifyStaff, $applyDeliveryStatus): bool {
             $event = WebhookEvent::query()->lockForUpdate()->findOrFail($this->webhookEventId);
             if ($event->status === 'processed' || $event->business_id === null) {
                 return true;
@@ -69,7 +72,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             if (($payload['kind'] ?? null) === 'message') {
                 $this->processInboundMessage($event, $payload, $phoneNumbers, $recordConsent, $cancelCustomerFollowUps, $messagingSettings->execute((int) $event->business_id), $notifyStaff);
             } elseif (($payload['kind'] ?? null) === 'status') {
-                if (! $this->processDeliveryStatus($event, $payload)) {
+                if (! $this->processDeliveryStatus($event, $payload, $applyDeliveryStatus)) {
                     $event->update(['status' => 'awaiting_message']);
 
                     return false;
@@ -192,7 +195,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
     }
 
     /** @param array<string, mixed> $payload */
-    private function processDeliveryStatus(WebhookEvent $event, array $payload): bool
+    private function processDeliveryStatus(WebhookEvent $event, array $payload, ApplyWhatsAppDeliveryStatusCommand $applyDeliveryStatus): bool
     {
         $providerMessageId = $payload['provider_message_id'] ?? null;
         $providerStatus = $payload['status'] ?? null;
@@ -200,11 +203,6 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             return true;
         }
 
-        $message = Message::query()
-            ->where('business_id', $event->business_id)
-            ->where('provider_message_id', $providerMessageId)
-            ->lockForUpdate()
-            ->first();
         $occurredAt = $this->timestamp($payload['timestamp'] ?? null);
         $mappedStatus = match ($providerStatus) {
             'sent' => 'sent',
@@ -218,46 +216,20 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             'webhook_event_id' => $event->getKey(),
         ], [
             'business_id' => $event->business_id,
-            'message_id' => $message?->getKey(),
+            'provider_message_id' => $providerMessageId,
             'event_type' => 'message.status',
             'status' => $mappedStatus,
             'provider_error_code' => is_string($payload['error_code'] ?? null) ? $payload['error_code'] : null,
             'occurred_at' => $occurredAt,
         ]);
 
-        if ($message === null || $mappedStatus === null) {
-            return $message !== null || $mappedStatus === null;
-        }
-
-        $currentRank = $this->statusRank((string) $message->status);
-        $incomingRank = $this->statusRank($mappedStatus);
-        $sentAfterFailure = $message->status === 'failed' && $mappedStatus === 'sent';
-        $staleFailureAfterSent = $message->status === 'sent'
-            && $mappedStatus === 'failed'
-            && $message->sent_at !== null
-            && $occurredAt->lessThan($message->sent_at);
-        if ($staleFailureAfterSent
-            || $incomingRank < $currentRank
-            || ($incomingRank === $currentRank && $message->status !== $mappedStatus)
-            || $sentAfterFailure) {
+        if ($mappedStatus === null) {
             return true;
         }
 
-        $attributes = ['status' => $mappedStatus];
-        if ($mappedStatus === 'sent') {
-            $attributes['sent_at'] = $message->sent_at ?? $occurredAt;
-        } elseif ($mappedStatus === 'delivered') {
-            $attributes['delivered_at'] = $message->delivered_at ?? $occurredAt;
-        } elseif ($mappedStatus === 'read') {
-            $attributes['read_at'] = $message->read_at ?? $occurredAt;
-        } else {
-            $attributes['failed_at'] = $occurredAt;
-            $attributes['provider_error_code'] = $payload['error_code'] ?? null;
-        }
+        $messageEvent = MessageEvent::query()->where('webhook_event_id', $event->getKey())->firstOrFail();
 
-        $message->forceFill($attributes)->save();
-
-        return true;
+        return $applyDeliveryStatus->execute((int) $messageEvent->getKey());
     }
 
     /** @param list<string> $keywords */
@@ -272,17 +244,6 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
         }
 
         return false;
-    }
-
-    private function statusRank(string $status): int
-    {
-        return match ($status) {
-            'sent' => 1,
-            'delivered' => 2,
-            'failed' => 2,
-            'read' => 3,
-            default => 0,
-        };
     }
 
     private function timestamp(mixed $timestamp): CarbonImmutable

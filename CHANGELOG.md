@@ -8,6 +8,8 @@
 - Show role actions only when the actor can manage that role, and restrict delegated permissions to the actor's own authority.
 - Document Meta dashboard webhook configuration, callback verification, signature validation, and troubleshooting.
 - Link WhatsApp setup guidance to Meta's current Cloud API and approved-template references.
+- Reconcile out-of-order WhatsApp delivery callbacks after webhook payload retention redacts their raw payload; schedule the recovery command each minute and retain only the provider message ID needed for matching.
+- Add architecture, Ansofra CQRS, product scope, database relationship, authentication, RBAC, privacy, security-testing, queue, scheduler, monitoring and troubleshooting guides grounded in the current implementation.
 - Redact internal conversation notes when an authorized customer anonymization workflow runs.
 - Ignore stale failed-delivery callbacks that predate the recorded sent timestamp while retaining their audit event.
 - Compare corrected visit times in the barbershop timezone so lifecycle regression coverage is stable at UTC date boundaries.

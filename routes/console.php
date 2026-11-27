@@ -27,3 +27,8 @@ Schedule::command('operations:record-heartbeat')
 Schedule::command('webhooks:redact-expired-payloads')
     ->dailyAt('02:30')
     ->withoutOverlapping(60);
+
+Schedule::command('webhooks:reconcile-delivery-statuses')
+    ->everyMinute()
+    ->withoutOverlapping(2)
+    ->runInBackground();

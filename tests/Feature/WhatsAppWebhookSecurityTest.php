@@ -7,6 +7,7 @@ use App\Models\Conversation;
 use App\Models\Customer;
 use App\Models\CustomerConsent;
 use App\Models\Message;
+use App\Models\MessageEvent;
 use App\Models\Role;
 use App\Models\ScheduledMessage;
 use App\Models\User;
@@ -16,6 +17,7 @@ use App\Services\Automations\Commands\CancelCustomerFollowUpsCommand;
 use App\Services\Consent\Commands\RecordConsentCommand;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
 use App\Services\Settings\Queries\GetWhatsAppMessagingSettingsQuery;
+use App\Services\Webhooks\Commands\ReconcileOrphanedWhatsAppDeliveryStatusesCommand;
 use App\Utils\PhoneNumberNormalizer;
 use App\Validators\WhatsApp\ConnectWhatsAppRequest;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -627,6 +629,7 @@ it('holds early delivery callbacks until the accepted outbound message record ar
     $job->handle(app(PhoneNumberNormalizer::class), app(RecordConsentCommand::class), app(CancelCustomerFollowUpsCommand::class), app(GetWhatsAppMessagingSettingsQuery::class));
 
     expect($event->fresh()->status)->toBe('awaiting_message');
+    expect(MessageEvent::query()->where('webhook_event_id', $event->getKey())->value('provider_message_id'))->toBe('wamid.outbound-late');
     $message = Message::query()->create([
         'business_id' => $business->getKey(), 'conversation_id' => $conversation->getKey(),
         'provider_message_id' => 'wamid.outbound-late', 'direction' => 'outbound', 'type' => 'text',
@@ -636,4 +639,90 @@ it('holds early delivery callbacks until the accepted outbound message record ar
 
     expect($message->fresh()->status)->toBe('delivered')
         ->and($event->fresh()->status)->toBe('processed');
+});
+
+it('reconciles early delivery callbacks after their payload has been redacted', function (): void {
+    $business = Business::factory()->create();
+    $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
+    $conversation = Conversation::query()->create([
+        'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp', 'status' => 'open',
+    ]);
+    $event = WebhookEvent::query()->create([
+        'business_id' => $business->getKey(), 'provider' => 'whatsapp', 'event_id' => 'status:orphan-redacted-delivery',
+        'event_type' => 'status', 'payload' => ['kind' => 'status', 'processed' => false],
+        'status' => 'unmatched_message', 'processed_at' => now(),
+    ]);
+    MessageEvent::query()->create([
+        'business_id' => $business->getKey(), 'webhook_event_id' => $event->getKey(),
+        'provider_message_id' => 'wamid.redacted-late', 'event_type' => 'message.status', 'status' => 'delivered',
+        'occurred_at' => now()->subMinute(),
+    ]);
+    $message = Message::query()->create([
+        'business_id' => $business->getKey(), 'conversation_id' => $conversation->getKey(),
+        'provider_message_id' => 'wamid.redacted-late', 'direction' => 'outbound', 'type' => 'text',
+        'status' => 'sent', 'body' => 'Thanks', 'sent_at' => now()->subMinutes(2),
+    ]);
+
+    $result = app(ReconcileOrphanedWhatsAppDeliveryStatusesCommand::class)->execute();
+
+    expect($result)->toBe(['checked' => 1, 'reconciled' => 1])
+        ->and($message->fresh()->status)->toBe('delivered')
+        ->and($event->fresh()->status)->toBe('processed')
+        ->and($event->fresh()->payload)->toBe(['kind' => 'status', 'processed' => true]);
+});
+
+it('reconciles orphaned delivery callbacks after webhook payload redaction and scopes by business', function (): void {
+    $business = Business::factory()->create();
+    $otherBusiness = Business::factory()->create();
+    $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
+    $otherCustomer = Customer::factory()->create(['business_id' => $otherBusiness->getKey()]);
+    $conversation = Conversation::query()->create([
+        'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp', 'status' => 'open',
+    ]);
+    $otherConversation = Conversation::query()->create([
+        'business_id' => $otherBusiness->getKey(), 'customer_id' => $otherCustomer->getKey(), 'channel' => 'whatsapp', 'status' => 'open',
+    ]);
+    WhatsAppConnection::query()->create([
+        'business_id' => $business->getKey(), 'phone_number_id' => 'phone-number-1', 'access_token' => 'secret-token', 'status' => 'connected',
+    ]);
+    $webhook = WebhookEvent::query()->create([
+        'business_id' => $business->getKey(), 'provider' => 'whatsapp', 'event_id' => 'status:callback-before-message',
+        'event_type' => 'status', 'payload' => [
+            'kind' => 'status', 'phone_number_id' => 'phone-number-1', 'provider_message_id' => 'wamid.late-record',
+            'status' => 'delivered', 'timestamp' => now()->timestamp, 'error_code' => null,
+        ], 'status' => 'received',
+    ]);
+
+    (new ProcessWhatsAppWebhookJob((int) $webhook->getKey()))->handle(
+        app(PhoneNumberNormalizer::class),
+        app(RecordConsentCommand::class),
+        app(CancelCustomerFollowUpsCommand::class),
+        app(GetWhatsAppMessagingSettingsQuery::class),
+    );
+    $statusEvent = MessageEvent::query()->where('webhook_event_id', $webhook->getKey())->firstOrFail();
+    $webhook->update(['status' => 'unmatched_message', 'payload' => ['redacted' => true]]);
+
+    $otherMessage = Message::query()->create([
+        'business_id' => $otherBusiness->getKey(), 'conversation_id' => $otherConversation->getKey(),
+        'provider_message_id' => 'wamid.late-record', 'direction' => 'outbound', 'type' => 'text',
+        'status' => 'sent', 'body' => 'Other business', 'sent_at' => now()->subMinute(),
+    ]);
+    $reconcile = app(ReconcileOrphanedWhatsAppDeliveryStatusesCommand::class);
+
+    expect($reconcile->execute())->toBe(['checked' => 1, 'reconciled' => 0])
+        ->and($statusEvent->fresh()->message_id)->toBeNull()
+        ->and($otherMessage->fresh()->status)->toBe('sent');
+
+    $message = Message::query()->create([
+        'business_id' => $business->getKey(), 'conversation_id' => $conversation->getKey(),
+        'provider_message_id' => 'wamid.late-record', 'direction' => 'outbound', 'type' => 'text',
+        'status' => 'sent', 'body' => 'Thanks', 'sent_at' => now()->subMinute(),
+    ]);
+
+    expect($reconcile->execute())->toBe(['checked' => 1, 'reconciled' => 1])
+        ->and($message->fresh()->status)->toBe('delivered')
+        ->and($statusEvent->fresh()->message_id)->toBe($message->getKey())
+        ->and($statusEvent->fresh()->provider_message_id)->toBe('wamid.late-record')
+        ->and($webhook->fresh()->status)->toBe('processed')
+        ->and($webhook->fresh()->payload)->toBe(['kind' => 'status', 'processed' => true]);
 });
