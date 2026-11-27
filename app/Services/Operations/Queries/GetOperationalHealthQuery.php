@@ -15,7 +15,7 @@ class GetOperationalHealthQuery
 {
     public function __construct(private readonly WhatsAppConfig $whatsAppConfig) {}
 
-    /** @return array{overall:string,checked_at:string,database:array{status:string},queue:array{driver:string,status:string,pending:int,failed:int,worker_status:string,worker_heartbeat:?string},scheduler:array{status:string,last_heartbeat:?string},whatsapp:array{status:string},webhooks:array{status:string,unprocessed:int,failed_recent:int,last_received_at:?string}} */
+    /** @return array{overall:string,checked_at:string,database:array{status:string},queue:array{driver:string,status:string,pending:int,failed:int,worker_status:string,worker_heartbeat:?string},scheduler:array{status:string,last_heartbeat:?string},whatsapp:array{status:string},webhooks:array{status:string,unprocessed:int,stale_callbacks:int,failed_recent:int,last_received_at:?string}} */
     public function execute(int $businessId): array
     {
         $databaseStatus = $this->databaseStatus();
@@ -34,7 +34,7 @@ class GetOperationalHealthQuery
                 ],
                 'scheduler' => ['status' => 'unknown', 'last_heartbeat' => null],
                 'whatsapp' => ['status' => 'unknown'],
-                'webhooks' => ['status' => 'unknown', 'unprocessed' => 0, 'failed_recent' => 0, 'last_received_at' => null],
+                'webhooks' => ['status' => 'unknown', 'unprocessed' => 0, 'stale_callbacks' => 0, 'failed_recent' => 0, 'last_received_at' => null],
             ];
         }
 
@@ -153,22 +153,26 @@ class GetOperationalHealthQuery
         return ['status' => $configured ? 'healthy' : 'degraded'];
     }
 
-    /** @return array{status:string,unprocessed:int,failed_recent:int,last_received_at:?string} */
+    /** @return array{status:string,unprocessed:int,stale_callbacks:int,failed_recent:int,last_received_at:?string} */
     private function webhookStatus(int $businessId): array
     {
         if (! Schema::hasTable('webhook_events')) {
-            return ['status' => 'unknown', 'unprocessed' => 0, 'failed_recent' => 0, 'last_received_at' => null];
+            return ['status' => 'unknown', 'unprocessed' => 0, 'stale_callbacks' => 0, 'failed_recent' => 0, 'last_received_at' => null];
         }
 
         $events = WebhookEvent::query()->where('business_id', $businessId);
         $unprocessed = (clone $events)->whereIn('status', ['received', 'processing'])->count();
+        $staleCallbacks = (clone $events)->where('status', 'awaiting_message')
+            ->where('updated_at', '<=', now()->subMinutes($this->whatsAppConfig->webhookCallbackStaleMinutes()))
+            ->count();
         $failedRecent = (clone $events)->where('status', 'failed')->where('created_at', '>=', now()->subDay())->count();
         $lastReceivedAt = (clone $events)->max('created_at');
-        $status = $failedRecent > 0 ? 'degraded' : ($unprocessed > 0 ? 'degraded' : 'healthy');
+        $status = $failedRecent > 0 || $staleCallbacks > 0 ? 'degraded' : ($unprocessed > 0 ? 'degraded' : 'healthy');
 
         return [
             'status' => $status,
             'unprocessed' => $unprocessed,
+            'stale_callbacks' => $staleCallbacks,
             'failed_recent' => $failedRecent,
             'last_received_at' => $lastReceivedAt === null ? null : now()->parse((string) $lastReceivedAt)->toIso8601String(),
         ];

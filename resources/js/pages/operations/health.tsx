@@ -24,6 +24,7 @@ type OperationalHealth = {
     webhooks: {
         status: string;
         unprocessed: number;
+        stale_callbacks: number;
         failed_recent: number;
         last_received_at: string | null;
     };
@@ -66,7 +67,7 @@ export default function OperationalHealthPage({
             name: 'Webhook processing',
             icon: <Activity size={18} />,
             status: health.webhooks.status,
-            details: `${health.webhooks.unprocessed} pending · ${health.webhooks.failed_recent} failed in 24 hours`,
+            details: `${health.webhooks.unprocessed} pending · ${health.webhooks.stale_callbacks} stale callbacks · ${health.webhooks.failed_recent} failed in 24 hours`,
         },
     ];
 

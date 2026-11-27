@@ -3,8 +3,10 @@
 use App\Models\AuditLog;
 use App\Models\Business;
 use App\Models\User;
+use App\Models\WebhookEvent;
 use App\Models\WhatsAppConnection;
 use App\Services\Operations\Queries\GetOperationalHealthQuery;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -114,6 +116,28 @@ it('shows operational health only to authorized staff and reports recorded heart
             ->where('health.scheduler.status', 'healthy')
             ->where('health.queue.worker_heartbeat', fn ($timestamp) => is_string($timestamp))
             ->where('health.whatsapp.status', 'degraded'));
+});
+
+it('degrades webhook health when delivery callbacks remain unresolved beyond the configured threshold', function (): void {
+    Carbon::setTestNow('2026-11-27 12:00:00');
+    config(['whatsapp.webhook_callback_stale_minutes' => 10]);
+    $business = Business::factory()->create();
+    $event = WebhookEvent::query()->create([
+        'business_id' => $business->getKey(),
+        'provider' => 'whatsapp',
+        'event_id' => 'status:stale-callback-health',
+        'event_type' => 'status',
+        'payload' => ['redacted' => true],
+        'status' => 'awaiting_message',
+    ]);
+    $event->forceFill(['updated_at' => now()->subMinutes(11)])->saveQuietly();
+
+    $health = app(GetOperationalHealthQuery::class)->execute((int) $business->getKey());
+
+    expect($health['webhooks']['status'])->toBe('degraded')
+        ->and($health['webhooks']['stale_callbacks'])->toBe(1);
+
+    Carbon::setTestNow();
 });
 
 it('returns unavailable readiness when required operational heartbeats are missing', function (): void {

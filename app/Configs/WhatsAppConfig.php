@@ -39,6 +39,11 @@ final class WhatsAppConfig
         return min(3650, max(1, (int) config('whatsapp.webhook_payload_retention_days', 30)));
     }
 
+    public function webhookCallbackStaleMinutes(): int
+    {
+        return min(1440, max(1, (int) config('whatsapp.webhook_callback_stale_minutes', 10)));
+    }
+
     /** @return list<string> */
     public function optOutKeywords(): array
     {
