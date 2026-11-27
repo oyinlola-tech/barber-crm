@@ -8,11 +8,15 @@ use App\Models\Message;
 use App\Models\MessageEvent;
 use App\Models\ScheduledMessage;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
+use App\Services\Notifications\Commands\NotifyStaffOfUncertainMessageCommand;
 use Illuminate\Support\Facades\DB;
 
 class RecoverStalledMessagesCommand
 {
-    public function __construct(private readonly RecordAuditLogCommand $audit) {}
+    public function __construct(
+        private readonly RecordAuditLogCommand $audit,
+        private readonly NotifyStaffOfUncertainMessageCommand $notifications,
+    ) {}
 
     /** @return array{requeued: int, reconciliation_required: int, manual_delivery_uncertain: int} */
     public function execute(): array
@@ -30,14 +34,19 @@ class RecoverStalledMessagesCommand
                     'updated_at' => now(),
                 ]);
 
-            $stalledSending = ScheduledMessage::query()
+            $stalledSendingMessages = ScheduledMessage::query()
                 ->where('status', ScheduledMessageStatus::Sending->value)
                 ->where('claimed_at', '<', $cutoff)
-                ->update([
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($stalledSendingMessages as $scheduledMessage) {
+                $scheduledMessage->update([
                     'status' => ScheduledMessageStatus::ReconciliationRequired->value,
                     'last_error' => 'Provider dispatch stalled; delivery outcome requires reconciliation before retry.',
-                    'updated_at' => now(),
                 ]);
+                $this->notifications->execute((int) $scheduledMessage->business_id, (int) $scheduledMessage->getKey(), 'scheduled_message');
+            }
 
             $manualSending = Message::query()
                 ->where('direction', 'outbound')
@@ -70,11 +79,12 @@ class RecoverStalledMessagesCommand
                     ['status' => MessageStatus::Pending->value],
                     ['status' => MessageStatus::DeliveryUncertain->value],
                 );
+                $this->notifications->execute((int) $message->business_id, (int) $message->getKey(), 'message');
             }
 
             return [
                 'requeued' => $stalledProcessing,
-                'reconciliation_required' => $stalledSending,
+                'reconciliation_required' => $stalledSendingMessages->count(),
                 'manual_delivery_uncertain' => $manualSending->count(),
             ];
         });
