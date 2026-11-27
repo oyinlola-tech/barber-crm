@@ -36,12 +36,13 @@ class UpdateCustomerCommand
 
         return DB::transaction(function () use ($businessId, $customerId, $userId, $attributes): Customer {
             $customer = $this->customers->findForBusiness($businessId, $customerId);
-            $before = $customer->only(['first_name', 'last_name', 'phone', 'email', 'date_of_birth', 'notes']);
+            $auditFields = array_values(array_diff(array_keys($attributes), ['notes']));
+            $before = $customer->only($auditFields);
             if (array_key_exists('intended_return_date', $attributes)) {
                 $before['intended_return_date'] = $customer->getAttribute('intended_return_date')?->format('Y-m-d');
             }
             $customer = $this->customers->updateForBusiness($businessId, $customerId, $attributes);
-            $after = $customer->only(array_keys($before));
+            $after = $customer->only($auditFields);
             if (array_key_exists('intended_return_date', $attributes)
                 && $this->upcomingReturnDate->execute($businessId, $customer)) {
                 $after['cancelled_return_reminders'] = $this->cancelReturnReminders->execute($businessId, $customerId);

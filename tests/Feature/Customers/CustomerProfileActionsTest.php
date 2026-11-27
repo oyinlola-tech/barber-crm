@@ -100,6 +100,33 @@ it('records a private customer note with an audit event', function (): void {
         ->and(AuditLog::query()->where('business_id', $business->getKey())->where('action', 'customer.note_added')->exists())->toBeTrue();
 });
 
+it('keeps private customer notes out of customer update audit metadata', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $user = customerActionsOwner();
+    $customer = Customer::factory()->create([
+        'business_id' => $business->getKey(),
+        'notes' => 'Sensitive personal detail that must not be retained in audit logs.',
+    ]);
+    $business->members()->attach($user, ['role' => 'owner', 'status' => 'active', 'joined_at' => now()]);
+    $command = app(UpdateCustomerCommand::class);
+
+    $command->execute((int) $business->getKey(), (int) $customer->getKey(), (int) $user->getKey(), ['first_name' => 'Updated']);
+    $command->execute((int) $business->getKey(), (int) $customer->getKey(), (int) $user->getKey(), [
+        'notes' => 'Another sensitive note that must not be retained.',
+    ]);
+
+    $auditRows = AuditLog::query()->where('business_id', $business->getKey())->where('action', 'customer.updated')->get();
+    expect($auditRows)->toHaveCount(2);
+    foreach ($auditRows as $auditRow) {
+        expect(json_encode([$auditRow->before, $auditRow->after]))
+            ->not->toContain('Sensitive personal detail')
+            ->not->toContain('Another sensitive note')
+            ->not->toContain('notes');
+    }
+    expect($auditRows[0]->before)->toHaveKey('first_name');
+});
+
 it('creates and assigns normalized tags only within the current barbershop', function (): void {
     $this->seed(BusinessRoleSeeder::class);
     $business = Business::factory()->create();
