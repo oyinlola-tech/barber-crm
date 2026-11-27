@@ -34,7 +34,7 @@ export default defineConfig({
             APP_KEY: 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
             DB_CONNECTION: 'sqlite',
             DB_DATABASE: playwrightDatabase,
-            SESSION_DRIVER: 'file',
+            SESSION_DRIVER: 'database',
             CACHE_STORE: 'file',
             QUEUE_CONNECTION: 'sync',
             MAIL_MAILER: 'array',

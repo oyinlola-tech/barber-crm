@@ -26,13 +26,14 @@ test('audit export follows the applied filter, not an unsubmitted draft', async 
     page,
 }) => {
     await page.goto('/login');
-    await page.getByLabel('Email address').fill('crm.owner@example.test');
+    await page.getByLabel('Email address').fill('crm.audit-owner@example.test');
     await page.getByLabel('Password').fill('Browser-only owner password 9842!');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(/two-factor-challenge/);
     await page
-        .getByLabel('Authentication code')
-        .fill(authenticatorCode('JBSWY3DPEHPK3PXP'));
+        .getByRole('button', { name: 'Use a recovery code instead' })
+        .click();
+    await page.getByLabel('Recovery code').fill('browser-audit-recovery-code');
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page).toHaveURL(/dashboard/);
 

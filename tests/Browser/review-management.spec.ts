@@ -5,14 +5,14 @@ test('owner can update recorded customer feedback on a mobile browser', async ({
 }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/login');
-    await page.getByLabel('Email address').fill('crm.owner@example.test');
+    await page.getByLabel('Email address').fill('crm.review-owner@example.test');
     await page.getByLabel('Password').fill('Browser-only owner password 9842!');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(/two-factor-challenge/);
     await page
         .getByRole('button', { name: 'Use a recovery code instead' })
         .click();
-    await page.getByLabel('Recovery code').fill('browser-review-recovery-code');
+    await page.getByLabel('Recovery code').fill('browser-review-owner-recovery-code');
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page).toHaveURL(/dashboard/);
 

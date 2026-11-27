@@ -476,6 +476,12 @@ export default function AccountSecurityPage({
                                     onClick={() =>
                                         router.delete(
                                             `/settings/security/sessions/${encodeURIComponent(session.id)}`,
+                                            {
+                                                onSuccess: () =>
+                                                    router.reload({
+                                                        only: ['sessions'],
+                                                    }),
+                                            },
                                         )
                                     }
                                     variant="outline"

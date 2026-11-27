@@ -129,10 +129,7 @@ $owner->forceFill([
     'email_verified_at' => now(),
     'two_factor_secret' => Fortify::currentEncrypter()->encrypt('JBSWY3DPEHPK3PXP'),
     'two_factor_recovery_codes' => Fortify::currentEncrypter()->encrypt(json_encode([
-        'browser-recovery-code',
-        'browser-review-recovery-code',
-        'browser-staff-recovery-code',
-        'browser-template-recovery-code',
+        'browser-owner-recovery-code',
     ], JSON_THROW_ON_ERROR)),
     'two_factor_confirmed_at' => now(),
 ])->save();
@@ -141,6 +138,35 @@ $business->members()->attach($owner, [
     'status' => 'active',
     'joined_at' => now(),
 ]);
+
+foreach ([
+    ['Browser Messaging Owner', 'crm.messaging-owner@example.test', ['browser-messaging-recovery-code']],
+    ['Browser Review Owner', 'crm.review-owner@example.test', ['browser-review-owner-recovery-code']],
+    ['Browser Staff Owner', 'crm.staff-owner@example.test', ['browser-staff-owner-recovery-code']],
+    ['Browser Template Owner', 'crm.template-owner@example.test', ['browser-template-owner-recovery-code']],
+    ['Browser Sessions Owner', 'crm.sessions-owner@example.test', ['browser-sessions-recovery-code', 'browser-sessions-second-recovery-code']],
+    ['Browser Audit Owner', 'crm.audit-owner@example.test', ['browser-audit-recovery-code']],
+] as [$name, $email, $recoveryCode]) {
+    $specializedOwner = User::query()->create([
+        'name' => $name,
+        'email' => $email,
+        'email_verified_at' => now(),
+        'password' => Hash::make('Browser-only owner password 9842!'),
+    ]);
+    $specializedOwner->forceFill([
+        'email_verified_at' => now(),
+        'two_factor_secret' => Fortify::currentEncrypter()->encrypt('JBSWY3DPEHPK3PXP'),
+        'two_factor_recovery_codes' => Fortify::currentEncrypter()->encrypt(json_encode([
+            ...$recoveryCode,
+        ], JSON_THROW_ON_ERROR)),
+        'two_factor_confirmed_at' => now(),
+    ])->save();
+    $business->members()->attach($specializedOwner, [
+        'role' => 'owner',
+        'status' => 'active',
+        'joined_at' => now(),
+    ]);
+}
 
 $barber = User::factory()->create(['name' => 'Browser Test Barber']);
 $business->members()->attach($barber, [
