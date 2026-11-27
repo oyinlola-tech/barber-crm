@@ -40,6 +40,39 @@ test('owner can delete an unused local template draft on mobile', async ({
         }),
     ).toBeVisible();
     await expect(draft).toHaveCount(0);
+
+    const approvedTemplate = page.locator('article').filter({
+        hasText: 'browser_return_follow_up',
+    });
+    await approvedTemplate
+        .getByRole('button', { name: 'Map variables' })
+        .click();
+    await expect(
+        approvedTemplate.getByRole('heading', {
+            name: 'Map approved template parameters',
+        }),
+    ).toBeVisible();
+    await approvedTemplate
+        .getByLabel('Meta parameter {{1}}')
+        .selectOption('business_name');
+    await approvedTemplate
+        .getByRole('button', { name: 'Save mapping' })
+        .click();
+    await expect(
+        approvedTemplate.getByRole('button', { name: 'Map variables' }),
+    ).toBeVisible();
+    await approvedTemplate.getByRole('button', { name: 'Preview' }).click();
+    await expect(approvedTemplate).toContainText(
+        'Hello {{business_name}}, when might you return?',
+    );
+
+    await approvedTemplate.getByRole('button', { name: 'Disable' }).click();
+    await expect(approvedTemplate).toContainText(
+        'provider APPROVED · disabled',
+    );
+    await approvedTemplate.getByRole('button', { name: 'Enable' }).click();
+    await expect(approvedTemplate).toContainText('provider APPROVED · enabled');
+
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(390);
