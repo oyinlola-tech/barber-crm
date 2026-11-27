@@ -29,45 +29,66 @@ class ReconcileOrphanedWhatsAppDeliveryStatusesCommand
         $applyStatus = app(ApplyWhatsAppDeliveryStatusCommand::class);
 
         foreach ($eventIds as $eventId) {
-            $wasReconciled = DB::transaction(function () use ($eventId, $applyStatus): bool {
-                $statusEvent = MessageEvent::query()->find($eventId);
-                if ($statusEvent === null || $statusEvent->webhook_event_id === null) {
-                    return false;
+            $reconciled += DB::transaction(function () use ($eventId, $applyStatus): int {
+                $firstEvent = MessageEvent::query()->find($eventId);
+                if ($firstEvent === null || $firstEvent->message_id !== null || $firstEvent->webhook_event_id === null) {
+                    return 0;
                 }
 
-                $webhook = WebhookEvent::query()
-                    ->whereKey($statusEvent->webhook_event_id)
+                $orphanEvents = MessageEvent::query()
+                    ->whereNull('message_id')
+                    ->where('business_id', $firstEvent->business_id)
+                    ->where('provider_message_id', $firstEvent->provider_message_id)
+                    ->where('event_type', 'message.status')
+                    ->whereIn('status', ['sent', 'delivered', 'read', 'failed'])
+                    ->orderBy('occurred_at')
+                    ->orderBy('id')
                     ->lockForUpdate()
-                    ->first();
-                if ($webhook === null
-                    || $webhook->business_id !== $statusEvent->business_id
-                    || ! in_array($webhook->status, ['awaiting_message', 'unmatched_message', 'failed'], true)) {
-                    return false;
+                    ->get();
+                if ($orphanEvents->isEmpty()) {
+                    return 0;
                 }
 
-                if (! $applyStatus->execute((int) $statusEvent->getKey())) {
-                    return false;
+                $webhookIds = $orphanEvents->pluck('webhook_event_id')->filter()->unique()->sort()->values();
+                $webhooks = WebhookEvent::query()
+                    ->whereIn('id', $webhookIds)
+                    ->where('business_id', $firstEvent->business_id)
+                    ->where('provider', 'whatsapp')
+                    ->whereIn('status', ['awaiting_message', 'unmatched_message', 'failed'])
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy(fn (WebhookEvent $webhook): int => (int) $webhook->getKey());
+                if ($webhooks->isEmpty()) {
+                    return 0;
                 }
 
-                $statusEvent->refresh();
-                if ($statusEvent->message_id === null) {
-                    return false;
+                $processedWebhookIds = [];
+                foreach ($orphanEvents as $orphanEvent) {
+                    $webhookId = (int) $orphanEvent->webhook_event_id;
+                    if (! $webhooks->has($webhookId)) {
+                        continue;
+                    }
+
+                    if (! $applyStatus->execute((int) $orphanEvent->getKey())) {
+                        continue;
+                    }
+
+                    if ($orphanEvent->fresh()?->message_id !== null) {
+                        $processedWebhookIds[$webhookId] = true;
+                    }
                 }
 
-                $webhook->update([
-                    'status' => 'processed',
-                    'payload' => ['kind' => 'status', 'processed' => true],
-                    'processed_at' => now(),
-                ]);
+                foreach (array_keys($processedWebhookIds) as $processedWebhookId) {
+                    $webhooks->get($processedWebhookId)?->update([
+                        'status' => 'processed',
+                        'payload' => ['kind' => 'status', 'processed' => true],
+                        'processed_at' => now(),
+                    ]);
+                }
 
-                return true;
+                return count($processedWebhookIds);
             }, 3);
-
-            if (! $wasReconciled) {
-                continue;
-            }
-
-            $reconciled++;
         }
 
         return ['checked' => $eventIds->count(), 'reconciled' => $reconciled];

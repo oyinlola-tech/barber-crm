@@ -671,6 +671,54 @@ it('reconciles early delivery callbacks after their payload has been redacted', 
         ->and($event->fresh()->payload)->toBe(['kind' => 'status', 'processed' => true]);
 });
 
+it('reconciles out-of-order orphan statuses by provider timestamp', function (): void {
+    $business = Business::factory()->create();
+    $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
+    $conversation = Conversation::query()->create([
+        'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp', 'status' => 'open',
+    ]);
+    $baseTime = now()->subMinutes(10)->startOfSecond();
+    $callbacks = [
+        ['sent', $baseTime],
+        ['failed', $baseTime->copy()->addMinutes(2)],
+        ['delivered', $baseTime->copy()->addMinute()],
+    ];
+
+    foreach (array_reverse($callbacks) as $index => [$status, $occurredAt]) {
+        $webhook = WebhookEvent::query()->create([
+            'business_id' => $business->getKey(),
+            'provider' => 'whatsapp',
+            'event_id' => 'status:ordered-'.$index,
+            'event_type' => 'status',
+            'payload' => ['kind' => 'status', 'processed' => false],
+            'status' => 'unmatched_message',
+        ]);
+        MessageEvent::query()->create([
+            'business_id' => $business->getKey(),
+            'webhook_event_id' => $webhook->getKey(),
+            'provider_message_id' => 'wamid.out-of-order-orphan',
+            'event_type' => 'message.status',
+            'status' => $status,
+            'occurred_at' => $occurredAt,
+        ]);
+    }
+
+    $message = Message::query()->create([
+        'business_id' => $business->getKey(),
+        'conversation_id' => $conversation->getKey(),
+        'provider_message_id' => 'wamid.out-of-order-orphan',
+        'direction' => 'outbound',
+        'type' => 'template',
+        'status' => 'sent',
+        'sent_at' => $baseTime,
+    ]);
+
+    expect(app(ReconcileOrphanedWhatsAppDeliveryStatusesCommand::class)->execute())->toBe(['checked' => 3, 'reconciled' => 3])
+        ->and($message->fresh()->status)->toBe('delivered')
+        ->and(MessageEvent::query()->where('provider_message_id', 'wamid.out-of-order-orphan')->whereNotNull('message_id')->count())->toBe(3)
+        ->and(WebhookEvent::query()->where('event_id', 'like', 'status:ordered-%')->where('status', 'processed')->count())->toBe(3);
+});
+
 it('reconciles orphaned delivery callbacks after webhook payload redaction and scopes by business', function (): void {
     $business = Business::factory()->create();
     $otherBusiness = Business::factory()->create();
