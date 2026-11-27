@@ -30,11 +30,17 @@ export default function AccountSecurityPage({
     const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
     const [loadingCodes, setLoadingCodes] = useState(false);
     const [securityError, setSecurityError] = useState<string | null>(null);
+    const [securitySuccess, setSecuritySuccess] = useState<string | null>(null);
     const enableForm = useForm({});
     const confirmForm = useForm({ code: '' });
     const disableForm = useForm({});
     const revokeOthersForm = useForm({ password: '' });
     const passwordConfirmationForm = useForm({ password: '' });
+    const updatePasswordForm = useForm({
+        current_password: '',
+        password: '',
+        password_confirmation: '',
+    });
 
     useEffect(() => {
         if (!twoFactor.pendingConfirmation) {
@@ -190,14 +196,112 @@ export default function AccountSecurityPage({
                 </p>
             </header>
 
-            {(securityNotice || securityError) && (
+            {(securityNotice || securityError || securitySuccess) && (
                 <div
-                    className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+                    className={
+                        securityError
+                            ? 'rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100'
+                            : 'rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100'
+                    }
                     role="status"
                 >
-                    {securityError ?? securityNotice}
+                    {securityError ?? securitySuccess ?? securityNotice}
                 </div>
             )}
+
+            <section className="rounded-2xl border bg-card p-5 sm:p-6">
+                <div>
+                    <h2 className="text-lg font-semibold">Change password</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Choose a new password. Other signed-in sessions and
+                        remembered devices will be revoked.
+                    </p>
+                </div>
+                <form
+                    className="mt-4 grid max-w-xl gap-4"
+                    onSubmit={(event: FormEvent<HTMLFormElement>) => {
+                        event.preventDefault();
+                        updatePasswordForm.put('/user/password', {
+                            onSuccess: () => {
+                                updatePasswordForm.reset();
+                                setSecuritySuccess(
+                                    'Password updated. Other sessions and remembered devices were revoked.',
+                                );
+                            },
+                        });
+                    }}
+                >
+                    <label className="grid gap-1 text-sm font-medium">
+                        Current password
+                        <input
+                            autoComplete="current-password"
+                            className="h-10 rounded-lg border bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring"
+                            onChange={(event) =>
+                                updatePasswordForm.setData(
+                                    'current_password',
+                                    event.target.value,
+                                )
+                            }
+                            required
+                            type="password"
+                            value={updatePasswordForm.data.current_password}
+                        />
+                    </label>
+                    {updatePasswordForm.errors.current_password && (
+                        <p className="text-sm text-destructive">
+                            {updatePasswordForm.errors.current_password}
+                        </p>
+                    )}
+                    <label className="grid gap-1 text-sm font-medium">
+                        New password
+                        <input
+                            autoComplete="new-password"
+                            className="h-10 rounded-lg border bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring"
+                            onChange={(event) =>
+                                updatePasswordForm.setData(
+                                    'password',
+                                    event.target.value,
+                                )
+                            }
+                            required
+                            type="password"
+                            value={updatePasswordForm.data.password}
+                        />
+                    </label>
+                    {updatePasswordForm.errors.password && (
+                        <p className="text-sm text-destructive">
+                            {updatePasswordForm.errors.password}
+                        </p>
+                    )}
+                    <label className="grid gap-1 text-sm font-medium">
+                        Confirm new password
+                        <input
+                            autoComplete="new-password"
+                            className="h-10 rounded-lg border bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring"
+                            onChange={(event) =>
+                                updatePasswordForm.setData(
+                                    'password_confirmation',
+                                    event.target.value,
+                                )
+                            }
+                            required
+                            type="password"
+                            value={
+                                updatePasswordForm.data.password_confirmation
+                            }
+                        />
+                    </label>
+                    <Button
+                        className="w-fit"
+                        disabled={updatePasswordForm.processing}
+                        type="submit"
+                    >
+                        {updatePasswordForm.processing
+                            ? 'Updating…'
+                            : 'Update password'}
+                    </Button>
+                </form>
+            </section>
 
             <section className="rounded-2xl border bg-card p-5 sm:p-6">
                 {!passwordConfirmed && (
