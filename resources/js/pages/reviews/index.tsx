@@ -42,7 +42,6 @@ export default function ReviewsIndex({
         visit_id: '',
         rating: '5',
         body: '',
-        source: 'internal',
     });
 
     function submit(event: FormEvent<HTMLFormElement>) {
