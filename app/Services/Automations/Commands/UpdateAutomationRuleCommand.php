@@ -33,6 +33,18 @@ class UpdateAutomationRuleCommand
             $rule = AutomationRule::query()->where('business_id', $businessId)->lockForUpdate()->findOrFail($ruleId);
             $settings = $attributes['settings'] ?? $rule->settings ?? [];
             $trigger = $attributes['trigger'] ?? $rule->trigger;
+            $maxFollowUps = filter_var($settings['max_follow_ups'] ?? 1, FILTER_VALIDATE_INT);
+            $repeatInterval = filter_var($settings['repeat_interval_minutes'] ?? 0, FILTER_VALIDATE_INT);
+            $enabled = ($attributes['is_enabled'] ?? $rule->is_enabled) === true;
+            if ($enabled
+                && is_int($maxFollowUps)
+                && $maxFollowUps > 1
+                && (! is_int($repeatInterval) || $repeatInterval < 1)) {
+                throw ValidationException::withMessages([
+                    'settings.repeat_interval_minutes' => 'Set a repeat interval of at least one minute when enabling multiple follow-ups.',
+                ]);
+            }
+
             if ($trigger === AutomationTrigger::CustomerInactive->value) {
                 $inactiveDays = filter_var($settings['inactive_after_days'] ?? null, FILTER_VALIDATE_INT);
                 if (! is_int($inactiveDays) || $inactiveDays < 3 || $inactiveDays > 365) {

@@ -9,12 +9,14 @@ use App\Models\Role;
 use App\Models\ScheduledMessage;
 use App\Models\User;
 use App\Models\Visit;
+use App\Services\Automations\Commands\CreateAutomationRuleCommand;
 use App\Services\Automations\Commands\ScheduleInactiveCustomerFollowUpsCommand;
 use App\Services\Automations\Commands\SetAutomationRuleStatusCommand;
 use App\Services\Automations\Commands\UpdateAutomationRuleCommand;
 use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Validation\ValidationException;
 
 uses(LazilyRefreshDatabase::class);
 
@@ -150,6 +152,35 @@ it('allows an authorized owner to edit the inactivity threshold and follow-up po
         ->and($updated->settings['inactive_after_days'])->toBe(42)
         ->and($updated->settings['max_follow_ups'])->toBe(3)
         ->and($updated->settings['repeat_interval_minutes'])->toBe(20160);
+});
+
+it('rejects enabled automation rules with multiple follow-ups and no repeat interval', function (): void {
+    $fixture = inactiveCustomerFixture();
+    $this->seed(BusinessRoleSeeder::class);
+    $owner = User::factory()->create();
+    $fixture['business']->members()->attach($owner, [
+        'role' => 'owner',
+        'status' => 'active',
+        'joined_at' => now(),
+    ]);
+
+    expect(fn () => app(CreateAutomationRuleCommand::class)->execute(
+        (int) $fixture['business']->getKey(),
+        [
+            'name' => 'No repeat delay',
+            'trigger' => 'customer_inactive',
+            'action' => 'send_template',
+            'delay_minutes' => 0,
+            'is_enabled' => true,
+            'settings' => [
+                'template_id' => $fixture['template']->getKey(),
+                'inactive_after_days' => 30,
+                'max_follow_ups' => 2,
+                'repeat_interval_minutes' => 0,
+            ],
+        ],
+        (int) $owner->getKey(),
+    ))->toThrow(ValidationException::class);
 });
 
 it('uses separate enable and disable permissions when changing a rule status', function (): void {

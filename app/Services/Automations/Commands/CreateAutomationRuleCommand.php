@@ -20,6 +20,17 @@ class CreateAutomationRuleCommand
         return DB::transaction(function () use ($businessId, $attributes, $userId): AutomationRule {
             $this->assertPermission($businessId, $userId, 'automations.create');
             $settings = $attributes['settings'] ?? [];
+            $maxFollowUps = filter_var($settings['max_follow_ups'] ?? 1, FILTER_VALIDATE_INT);
+            $repeatInterval = filter_var($settings['repeat_interval_minutes'] ?? 0, FILTER_VALIDATE_INT);
+            if (($attributes['is_enabled'] ?? false)
+                && is_int($maxFollowUps)
+                && $maxFollowUps > 1
+                && (! is_int($repeatInterval) || $repeatInterval < 1)) {
+                throw ValidationException::withMessages([
+                    'settings.repeat_interval_minutes' => 'Set a repeat interval of at least one minute when enabling multiple follow-ups.',
+                ]);
+            }
+
             $templateId = filter_var($settings['template_id'] ?? null, FILTER_VALIDATE_INT);
             $template = is_int($templateId)
                 ? MessageTemplate::query()->where('business_id', $businessId)->find($templateId)
