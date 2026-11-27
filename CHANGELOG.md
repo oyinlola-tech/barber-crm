@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add consent-gated interactive reply choices to the shared WhatsApp inbox; customers can tap one of up to three choices or reply in their own words, and choice IDs are retained for follow-up review.
+- Notify active staff with customer access when a customer records a stated return date; the email and in-app alert explicitly explain that the date does not reserve a time.
+- Fix the PHP 8.6 Docker image build by relying on PHP's built-in OPcache module.
+- Align analytics, notification and operations controllers with Laravel's `app/Http/Controllers` convention.
 - Make manual free-form inbox replies idempotent across retries and reject request-key reuse for a different conversation or body.
 - Exclude private customer notes from customer update audit metadata.
 - Create a new revision and reschedule eligible follow-ups when restoring a voided completed visit.

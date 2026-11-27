@@ -139,6 +139,7 @@ class ConversationController extends Controller
             (int) $request->user()->getKey(),
             $request->validated('body'),
             (string) $request->validated('idempotency_key'),
+            $request->validated('buttons'),
         );
 
         $feedback = match ($message->status) {

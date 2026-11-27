@@ -25,19 +25,21 @@ class SendConversationReplyCommand
         public RecordAuditLogCommand $audit,
     ) {}
 
-    public function execute(int $businessId, int $conversationId, int $actorId, string $body, string $idempotencyKey): Message
+    /** @param list<string>|null $buttonTitles */
+    public function execute(int $businessId, int $conversationId, int $actorId, string $body, string $idempotencyKey, ?array $buttonTitles = null): Message
     {
         $actor = User::query()->findOrFail($actorId);
         abort_unless($actor->hasBusinessPermission($businessId, 'conversations.reply'), 403);
+        $buttons = $this->prepareButtons($buttonTitles, $idempotencyKey);
 
         try {
-            $context = DB::transaction(function () use ($businessId, $conversationId, $body, $idempotencyKey): array {
+            $context = DB::transaction(function () use ($businessId, $conversationId, $body, $idempotencyKey, $buttons): array {
                 $existing = Message::query()
                     ->where('business_id', $businessId)
                     ->where('idempotency_key', $idempotencyKey)
                     ->first();
                 if ($existing !== null) {
-                    $this->assertSameRequest($existing, $conversationId, $body);
+                    $this->assertSameRequest($existing, $conversationId, $body, $buttons);
 
                     return ['message' => $existing, 'should_send' => false];
                 }
@@ -58,7 +60,7 @@ class SendConversationReplyCommand
                 $this->assertEligibleForFreeFormReply($businessId, $conversation);
                 $uncertainReply = $conversation->messages()
                     ->where('direction', 'outbound')
-                    ->where('type', 'text')
+                    ->whereIn('type', ['text', 'interactive'])
                     ->whereIn('status', ['pending', 'processing', 'delivery_uncertain'])
                     ->latest('created_at')
                     ->first();
@@ -77,9 +79,10 @@ class SendConversationReplyCommand
                     'conversation_id' => $conversation->getKey(),
                     'idempotency_key' => $idempotencyKey,
                     'direction' => 'outbound',
-                    'type' => 'text',
+                    'type' => $buttons === [] ? 'text' : 'interactive',
                     'status' => 'pending',
                     'body' => trim($body),
+                    'payload' => $buttons === [] ? null : ['buttons' => $buttons],
                 ]), 'should_send' => true];
             });
         } catch (UniqueConstraintViolationException $exception) {
@@ -90,7 +93,7 @@ class SendConversationReplyCommand
             if ($existing === null) {
                 throw $exception;
             }
-            $this->assertSameRequest($existing, $conversationId, $body);
+            $this->assertSameRequest($existing, $conversationId, $body, $buttons);
 
             return $existing;
         }
@@ -119,7 +122,9 @@ class SendConversationReplyCommand
         }
 
         try {
-            $response = $this->provider->sendText($connection, $conversation->customer->phone, trim($message->body));
+            $response = $buttons === []
+                ? $this->provider->sendText($connection, $conversation->customer->phone, trim($message->body))
+                : $this->provider->sendInteractiveButtons($connection, $conversation->customer->phone, trim($message->body), $buttons);
             $providerMessageId = data_get($response, 'messages.0.id');
             if (! is_string($providerMessageId) || $providerMessageId === '') {
                 $message->update(['status' => 'delivery_uncertain']);
@@ -161,13 +166,39 @@ class SendConversationReplyCommand
         }
     }
 
-    private function assertSameRequest(Message $message, int $conversationId, string $body): void
+    /** @param list<array{id:string,title:string}> $buttons */
+    private function assertSameRequest(Message $message, int $conversationId, string $body, array $buttons): void
     {
         if ((int) $message->conversation_id !== $conversationId
-            || $message->type !== 'text'
-            || trim((string) $message->body) !== trim($body)) {
+            || $message->type !== ($buttons === [] ? 'text' : 'interactive')
+            || trim((string) $message->body) !== trim($body)
+            || ($message->payload['buttons'] ?? []) !== $buttons) {
             throw ValidationException::withMessages(['idempotency_key' => 'This request key has already been used for a different message.']);
         }
+    }
+
+    /** @param list<string>|null $buttonTitles @return list<array{id:string,title:string}> */
+    private function prepareButtons(?array $buttonTitles, string $idempotencyKey): array
+    {
+        if ($buttonTitles === null || $buttonTitles === []) {
+            return [];
+        }
+        $buttonTitles = array_map('trim', $buttonTitles);
+        if (count($buttonTitles) > 3
+            || in_array('', $buttonTitles, true)
+            || array_any($buttonTitles, static fn (string $title): bool => mb_strlen($title) > 20)
+            || count(array_unique(array_map('mb_strtolower', $buttonTitles))) !== count($buttonTitles)) {
+            throw ValidationException::withMessages(['buttons' => 'Choose up to three options with unique labels.']);
+        }
+
+        return array_map(
+            static fn (string $title, int $index): array => [
+                'id' => 'choice_'.substr(hash('sha256', $idempotencyKey.':'.$index), 0, 24),
+                'title' => trim($title),
+            ],
+            $buttonTitles,
+            array_keys($buttonTitles),
+        );
     }
 
     private function assertEligibleForFreeFormReply(int $businessId, Conversation $conversation): void

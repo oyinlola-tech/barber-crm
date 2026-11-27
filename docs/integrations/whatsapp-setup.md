@@ -12,6 +12,10 @@ The owner configures the phone number ID, WhatsApp Business Account ID and a sys
 
 The token must be allowed to read the business account and its phone numbers, and it must have messaging permissions for the app's sending and template workflows. Follow Meta's current permission requirements for the business setup in use.
 
+## Shared inbox replies
+
+Within the 24-hour customer service window, staff can send a free-form reply with up to three quick-reply buttons. The customer can tap an option or send their own text response. Button replies are stored with the inbound message ID and title for staff review. These interactive replies use the same customer consent, active-customer, connection and service-window checks as other free-form replies. Outside the service window, staff must use an enabled, approved WhatsApp template.
+
 ## Official Meta references
 
 - [WhatsApp Business Management API guides](https://developers.facebook.com/docs/whatsapp/business-management-api/guides/)

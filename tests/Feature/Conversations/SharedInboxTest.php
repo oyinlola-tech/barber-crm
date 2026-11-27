@@ -149,6 +149,51 @@ it('sends a free-form reply only with consent and within the customer service wi
         && $request->hasHeader('Authorization', 'Bearer test-access-token'));
 });
 
+it('sends up to three interactive reply choices and prevents idempotency key reuse', function (): void {
+    [$user, , , $conversation] = makeInboxConversation();
+    Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.choices']]], 200)]);
+    $payload = [
+        'body' => 'How was your haircut?',
+        'buttons' => ['Loved it', 'It was okay', 'I have feedback'],
+        'idempotency_key' => '9fae1c5e-97e8-43ab-a889-22170bc628a2',
+    ];
+
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', $payload)->assertRedirect();
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', $payload)->assertRedirect();
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', [
+        ...$payload,
+        'buttons' => ['Yes', 'No'],
+    ])->assertSessionHasErrors('idempotency_key');
+
+    $message = Message::query()->where('provider_message_id', 'wamid.choices')->firstOrFail();
+    expect($message->type)->toBe('interactive')
+        ->and($message->payload['buttons'])->toHaveCount(3)
+        ->and($message->payload['buttons'][0]['title'])->toBe('Loved it');
+
+    Http::assertSentCount(1);
+    Http::assertSent(fn ($request): bool => $request['type'] === 'interactive'
+        && $request['interactive']['type'] === 'button'
+        && $request['interactive']['body']['text'] === 'How was your haircut?'
+        && $request['interactive']['action']['buttons'][0]['reply']['title'] === 'Loved it'
+        && str_starts_with($request['interactive']['action']['buttons'][0]['reply']['id'], 'choice_'));
+});
+
+it('rejects more than three or duplicate quick reply options', function (): void {
+    [$user, , , $conversation] = makeInboxConversation();
+
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', [
+        'body' => 'How was your visit?',
+        'buttons' => ['Good', 'Okay', 'Bad', 'Other'],
+        'idempotency_key' => '96f44e61-d128-4a92-9a42-1c12dbe42faa',
+    ])->assertSessionHasErrors('buttons');
+
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', [
+        'body' => 'How was your visit?',
+        'buttons' => ['Good', 'Good'],
+        'idempotency_key' => '43526d62-9af4-4dc0-af66-1fc6e8e8ebfc',
+    ])->assertSessionHasErrors('buttons.1');
+});
+
 it('reuses successful free-form replies for the same idempotency key and rejects key reuse', function (): void {
     [$user, , , $conversation] = makeInboxConversation();
     Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.outbound.once']]], 200)]);

@@ -20,6 +20,25 @@ class WhatsAppMessageApi implements MessagingProviderInterface
         ]);
     }
 
+    /** @param list<array{id:string,title:string}> $buttons @return array<string, mixed> */
+    public function sendInteractiveButtons(WhatsAppConnection $connection, string $recipient, string $body, array $buttons): array
+    {
+        return $this->client->send($connection, [
+            'messaging_product' => 'whatsapp',
+            'recipient_type' => 'individual',
+            'to' => $recipient,
+            'type' => 'interactive',
+            'interactive' => [
+                'type' => 'button',
+                'body' => ['text' => $body],
+                'action' => ['buttons' => array_map(fn (array $button): array => [
+                    'type' => 'reply',
+                    'reply' => $button,
+                ], $buttons)],
+            ],
+        ]);
+    }
+
     public function sendTemplate(WhatsAppConnection $connection, string $recipient, string $templateName, string $language, array $payload = []): array
     {
         return $this->client->send($connection, [

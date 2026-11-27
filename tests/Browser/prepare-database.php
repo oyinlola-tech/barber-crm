@@ -323,6 +323,40 @@ Message::query()->create([
     'sent_at' => now(),
 ]);
 
+$choicesCustomer = Customer::query()->create([
+    'business_id' => $business->getKey(),
+    'created_by' => $user->getKey(),
+    'first_name' => 'Choices',
+    'last_name' => 'Customer',
+    'phone' => '+2348098765433',
+]);
+CustomerConsent::query()->create([
+    'business_id' => $business->getKey(),
+    'customer_id' => $choicesCustomer->getKey(),
+    'channel' => 'whatsapp',
+    'granted' => true,
+    'source' => 'in_person',
+    'recorded_at' => now()->subDay(),
+]);
+$choicesConversation = Conversation::query()->create([
+    'business_id' => $business->getKey(),
+    'customer_id' => $choicesCustomer->getKey(),
+    'channel' => 'whatsapp',
+    'status' => 'open',
+    'last_message_at' => now(),
+]);
+$choicesConversation->forceFill(['last_customer_message_at' => now()])->save();
+Message::query()->create([
+    'business_id' => $business->getKey(),
+    'conversation_id' => $choicesConversation->getKey(),
+    'provider_message_id' => 'wamid.browser-choices',
+    'direction' => 'inbound',
+    'type' => 'text',
+    'status' => 'received',
+    'body' => 'How was the visit?',
+    'sent_at' => now(),
+]);
+
 $templateCustomer = Customer::query()->create([
     'business_id' => $business->getKey(),
     'created_by' => $user->getKey(),

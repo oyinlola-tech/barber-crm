@@ -1,6 +1,13 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowLeft, CheckCheck, MessageCircle, Send } from 'lucide-react';
-import { useEffect, useRef, type FormEvent } from 'react';
+import {
+    ArrowLeft,
+    CheckCheck,
+    MessageCircle,
+    Plus,
+    Send,
+    X,
+} from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 type MessageItem = {
     id: number;
@@ -72,7 +79,12 @@ export default function InboxConversationPage({
     templateSendBlocked,
     freeFormReplyBlocked,
 }: InboxConversationProps) {
-    const reply = useForm({ body: '', idempotency_key: '' });
+    const reply = useForm({
+        body: '',
+        idempotency_key: '',
+        buttons: [] as string[],
+    });
+    const [showReplyChoices, setShowReplyChoices] = useState(false);
     const note = useForm({ body: '' });
     const assignment = useForm({
         assignee_id: conversation.assigned_to?.toString() ?? '',
@@ -108,9 +120,13 @@ export default function InboxConversationPage({
 
     function sendReply(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        if (replyRequest.current?.body !== reply.data.body) {
+        const requestContent = JSON.stringify({
+            body: reply.data.body,
+            buttons: reply.data.buttons,
+        });
+        if (replyRequest.current?.body !== requestContent) {
             replyRequest.current = {
-                body: reply.data.body,
+                body: requestContent,
                 key: crypto.randomUUID(),
             };
         }
@@ -298,6 +314,147 @@ export default function InboxConversationPage({
                                             {reply.errors.body}
                                         </p>
                                     )}
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <button
+                                            className="inline-flex min-h-9 items-center gap-2 rounded-md border px-3 text-xs font-medium hover:bg-muted"
+                                            onClick={() => {
+                                                const next = !showReplyChoices;
+                                                setShowReplyChoices(next);
+                                                if (
+                                                    next &&
+                                                    reply.data.buttons
+                                                        .length === 0
+                                                ) {
+                                                    reply.setData('buttons', [
+                                                        'Loved it',
+                                                        'It was okay',
+                                                        'I have feedback',
+                                                    ]);
+                                                }
+                                                if (!next)
+                                                    reply.setData(
+                                                        'buttons',
+                                                        [],
+                                                    );
+                                            }}
+                                            type="button"
+                                        >
+                                            {showReplyChoices ? (
+                                                <X
+                                                    aria-hidden="true"
+                                                    size={14}
+                                                />
+                                            ) : (
+                                                <Plus
+                                                    aria-hidden="true"
+                                                    size={14}
+                                                />
+                                            )}
+                                            {showReplyChoices
+                                                ? 'Remove choices'
+                                                : 'Add reply choices'}
+                                        </button>
+                                        {reply.errors.buttons && (
+                                            <p className="text-xs text-destructive">
+                                                {reply.errors.buttons}
+                                            </p>
+                                        )}
+                                    </div>
+                                    {showReplyChoices && (
+                                        <fieldset className="space-y-2 rounded-lg border border-dashed p-3">
+                                            <legend className="px-1 text-xs font-medium">
+                                                Quick reply options
+                                            </legend>
+                                            {reply.data.buttons.map(
+                                                (button, index) => (
+                                                    <div
+                                                        className="flex items-center gap-2"
+                                                        key={index}
+                                                    >
+                                                        <label
+                                                            className="sr-only"
+                                                            htmlFor={`reply-choice-${index}`}
+                                                        >
+                                                            Choice {index + 1}
+                                                        </label>
+                                                        <input
+                                                            className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                            id={`reply-choice-${index}`}
+                                                            maxLength={20}
+                                                            onChange={(event) =>
+                                                                reply.setData(
+                                                                    'buttons',
+                                                                    reply.data.buttons.map(
+                                                                        (
+                                                                            choice,
+                                                                            choiceIndex,
+                                                                        ) =>
+                                                                            choiceIndex ===
+                                                                            index
+                                                                                ? event
+                                                                                      .target
+                                                                                      .value
+                                                                                : choice,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            value={button}
+                                                        />
+                                                        <button
+                                                            aria-label={`Remove choice ${index + 1}`}
+                                                            className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border hover:bg-muted"
+                                                            onClick={() =>
+                                                                reply.setData(
+                                                                    'buttons',
+                                                                    reply.data.buttons.filter(
+                                                                        (
+                                                                            _,
+                                                                            choiceIndex,
+                                                                        ) =>
+                                                                            choiceIndex !==
+                                                                            index,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            type="button"
+                                                        >
+                                                            <X
+                                                                aria-hidden="true"
+                                                                size={14}
+                                                            />
+                                                        </button>
+                                                    </div>
+                                                ),
+                                            )}
+                                            {reply.data.buttons.length < 3 && (
+                                                <button
+                                                    className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-xs text-primary hover:bg-muted"
+                                                    onClick={() =>
+                                                        reply.setData(
+                                                            'buttons',
+                                                            [
+                                                                ...reply.data
+                                                                    .buttons,
+                                                                '',
+                                                            ],
+                                                        )
+                                                    }
+                                                    type="button"
+                                                >
+                                                    <Plus
+                                                        aria-hidden="true"
+                                                        size={13}
+                                                    />
+                                                    Add option
+                                                </button>
+                                            )}
+                                            <p className="text-xs text-muted-foreground">
+                                                Customers can choose an option
+                                                or reply in their own words. Up
+                                                to three choices.
+                                            </p>
+                                        </fieldset>
+                                    )}
                                     <div className="flex items-center justify-between gap-3">
                                         <p className="text-xs text-muted-foreground">
                                             Replies require recorded consent and
@@ -308,7 +465,11 @@ export default function InboxConversationPage({
                                             className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50"
                                             disabled={
                                                 reply.processing ||
-                                                reply.data.body.trim() === ''
+                                                reply.data.body.trim() === '' ||
+                                                reply.data.buttons.some(
+                                                    (button) =>
+                                                        button.trim() === '',
+                                                )
                                             }
                                             type="submit"
                                         >

@@ -19,6 +19,8 @@ class StoreConversationReplyRequest extends FormRequest
         return [
             'body' => ['required', 'string', 'min:1', 'max:4096'],
             'idempotency_key' => ['required', 'uuid'],
+            'buttons' => ['sometimes', 'array', 'min:1', 'max:3'],
+            'buttons.*' => ['required', 'string', 'min:1', 'max:20', 'distinct'],
         ];
     }
 }

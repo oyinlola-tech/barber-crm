@@ -26,6 +26,27 @@ test('staff can triage an inbox conversation on a mobile browser', async ({
     );
 
     await page.goto('/inbox');
+    await page.getByRole('link', { name: /Choices Customer/ }).click();
+    await expect(
+        page.getByRole('button', { name: 'Send reply' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Add reply choices' }).click();
+    await expect(page.getByRole('textbox', { name: 'Choice 1' })).toHaveValue(
+        'Loved it',
+    );
+    await expect(page.getByRole('textbox', { name: 'Choice 2' })).toHaveValue(
+        'It was okay',
+    );
+    await expect(page.getByRole('textbox', { name: 'Choice 3' })).toHaveValue(
+        'I have feedback',
+    );
+    await expect(
+        page.getByText(
+            'Customers can choose an option or reply in their own words.',
+        ),
+    ).toBeVisible();
+
+    await page.goto('/inbox');
     await page.getByRole('link', { name: /Template Customer/ }).click();
     await expect(
         page.getByRole('heading', { name: 'Template Customer', exact: true }),
