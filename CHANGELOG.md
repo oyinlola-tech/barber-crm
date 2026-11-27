@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reject signed WhatsApp callbacks with malformed message/status collections before persistence.
+- Assign staff-entered review source and capture time server-side; reject spoofed provider provenance and backdated timestamps.
 - Fix deployment rollback to snapshot the app and web images actually running before a rebuild; `make rollback` now selects that prior release instead of the just-deployed images.
 - Enable Laravel session payload encryption by default and in the environment template.
 - Cancel a customer's pending and queued follow-ups when archiving them, record the count in the audit entry, and keep those messages cancelled if the customer is later restored.
