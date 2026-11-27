@@ -566,6 +566,47 @@ it('records provider failure after sent but never regresses delivered or failed 
         ->and($deliveredMessage->fresh()->status)->toBe('delivered');
 });
 
+it('ignores a failure callback timestamped before the recorded sent status', function (): void {
+    $business = Business::factory()->create();
+    $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
+    $conversation = Conversation::query()->create([
+        'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp', 'status' => 'open',
+    ]);
+    $sentAt = now()->subMinute()->startOfSecond();
+    $message = Message::query()->create([
+        'business_id' => $business->getKey(), 'conversation_id' => $conversation->getKey(),
+        'provider_message_id' => 'wamid.stale-failure', 'direction' => 'outbound', 'type' => 'template',
+        'status' => 'sent', 'sent_at' => $sentAt,
+    ]);
+    WhatsAppConnection::query()->create([
+        'business_id' => $business->getKey(), 'phone_number_id' => 'phone-number-1', 'access_token' => 'secret-token', 'status' => 'connected',
+    ]);
+    $event = WebhookEvent::query()->create([
+        'business_id' => $business->getKey(), 'provider' => 'whatsapp', 'event_id' => 'status:stale-failure-before-sent',
+        'event_type' => 'status', 'payload' => [
+            'kind' => 'status', 'phone_number_id' => 'phone-number-1', 'provider_message_id' => 'wamid.stale-failure',
+            'status' => 'failed', 'timestamp' => $sentAt->subMinute()->timestamp, 'error_code' => '131026',
+        ], 'status' => 'received',
+    ]);
+
+    (new ProcessWhatsAppWebhookJob((int) $event->getKey()))->handle(
+        app(PhoneNumberNormalizer::class),
+        app(RecordConsentCommand::class),
+        app(CancelCustomerFollowUpsCommand::class),
+        app(GetWhatsAppMessagingSettingsQuery::class),
+    );
+
+    expect($message->fresh()->status)->toBe('sent')
+        ->and($message->fresh()->failed_at)->toBeNull()
+        ->and($event->fresh()->status)->toBe('processed');
+    $this->assertDatabaseHas('message_events', [
+        'webhook_event_id' => $event->getKey(),
+        'message_id' => $message->getKey(),
+        'status' => 'failed',
+        'provider_error_code' => '131026',
+    ]);
+});
+
 it('holds early delivery callbacks until the accepted outbound message record arrives', function (): void {
     $business = Business::factory()->create();
     $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
