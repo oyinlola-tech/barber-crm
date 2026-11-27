@@ -28,11 +28,29 @@ test('owner can save business contact details from a mobile browser', async ({
     await page
         .getByLabel('Business email')
         .fill('contact@browser-test-barbershop.example');
+    await page.getByLabel('Business address').fill('12 Main Street, Lagos');
+    await page
+        .getByLabel('Public review link')
+        .fill('https://reviews.example.test/browser-barbershop');
+    await page
+        .getByLabel('Business description')
+        .fill('A friendly local barbershop.');
+    await page.getByLabel('Business logo').setInputFiles({
+        name: 'barbershop.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=',
+            'base64',
+        ),
+    });
     await page.getByRole('button', { name: 'Save business details' }).click();
     await expect(
         page.getByRole('status').filter({
             hasText: 'Business details saved.',
         }),
+    ).toBeVisible();
+    await expect(
+        page.getByRole('img', { name: 'Current business logo' }),
     ).toBeVisible();
 
     await page.reload();
@@ -41,6 +59,26 @@ test('owner can save business contact details from a mobile browser', async ({
     );
     await expect(page.getByLabel('Business email')).toHaveValue(
         'contact@browser-test-barbershop.example',
+    );
+    await expect(page.getByLabel('Business address')).toHaveValue(
+        '12 Main Street, Lagos',
+    );
+    await expect(page.getByLabel('Public review link')).toHaveValue(
+        'https://reviews.example.test/browser-barbershop',
+    );
+    await expect(page.getByLabel('Business description')).toHaveValue(
+        'A friendly local barbershop.',
+    );
+    await expect(
+        page.getByRole('img', { name: 'Current business logo' }),
+    ).toBeVisible();
+    await page.getByLabel('Remove current logo').check();
+    await page.getByRole('button', { name: 'Save business details' }).click();
+    await expect(
+        page.getByRole('img', { name: 'Current business logo' }),
+    ).toHaveCount(0);
+    expect((await page.request.get('/settings/business/logo')).status()).toBe(
+        404,
     );
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
