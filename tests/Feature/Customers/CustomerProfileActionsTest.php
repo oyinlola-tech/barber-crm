@@ -1,6 +1,7 @@
 <?php
 
 use App\Dtos\Customers\CreateCustomerDto;
+use App\Jobs\WhatsApp\ProcessWhatsAppWebhookJob;
 use App\Models\AuditLog;
 use App\Models\Business;
 use App\Models\Conversation;
@@ -14,6 +15,7 @@ use App\Models\Role;
 use App\Models\ScheduledMessage;
 use App\Models\User;
 use App\Models\Visit;
+use App\Models\WebhookEvent;
 use App\Services\Customers\Commands\AddCustomerNoteCommand;
 use App\Services\Customers\Commands\AnonymizeCustomerCommand;
 use App\Services\Customers\Commands\ArchiveCustomerCommand;
@@ -510,12 +512,26 @@ it('anonymizes a customer and preserves retained history without retaining messa
         'business_id' => $business->getKey(), 'conversation_id' => $conversation->getKey(),
         'created_by' => $user->getKey(), 'body' => 'Customer shared a private health detail',
     ]);
+    $webhookEvent = WebhookEvent::query()->create([
+        'business_id' => $business->getKey(),
+        'provider' => 'whatsapp',
+        'event_id' => 'message:wamid.privacy-pending',
+        'event_type' => 'message',
+        'payload' => [
+            'kind' => 'message',
+            'from' => '2348031234567',
+            'body' => 'Private content in an unprocessed webhook',
+            'phone_number_id' => 'barbershop-phone-id',
+        ],
+        'status' => 'received',
+    ]);
     ScheduledMessage::query()->create([
         'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp', 'idempotency_key' => 'pvt-1',
         'status' => 'pending', 'scheduled_at' => now()->addDay(),
     ]);
 
     $this->actingAs($user)->post(route('customers.anonymize', $customer))->assertRedirect(route('customers.index'));
+    app()->call([new ProcessWhatsAppWebhookJob((int) $webhookEvent->getKey()), 'handle']);
 
     expect($customer->refresh()->status)->toBe('anonymized')
         ->and($customer->first_name)->toBe('Deleted')
@@ -524,6 +540,8 @@ it('anonymizes a customer and preserves retained history without retaining messa
         ->and($customer->consents()->count())->toBe(1)
         ->and($customer->noteEntries()->count())->toBe(0)
         ->and($message->refresh()->body)->toBeNull()
+        ->and($webhookEvent->refresh()->payload)->toBe(['redacted' => true])
+        ->and($webhookEvent->status)->toBe('processed')
         ->and($conversationNote->refresh()->body)->toBe('[redacted: customer anonymized]')
         ->and(ScheduledMessage::query()->where('customer_id', $customer->getKey())->value('status'))->toBe('cancelled')
         ->and(AuditLog::query()->where('auditable_id', $customer->getKey())->where('auditable_type', Customer::class)->where('action', 'customer.created')->value('after'))->toBeNull();

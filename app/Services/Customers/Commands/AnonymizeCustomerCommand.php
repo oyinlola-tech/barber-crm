@@ -7,6 +7,7 @@ use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Models\Customer;
 use App\Models\ScheduledMessage;
 use App\Models\User;
+use App\Models\WebhookEvent;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,6 +25,27 @@ class AnonymizeCustomerCommand
         abort_unless($actor->hasBusinessPermission($businessId, 'customers.anonymize'), 403);
 
         return DB::transaction(function () use ($businessId, $customerId, $userId): Customer {
+            $customer = $this->customers->findForBusiness($businessId, $customerId);
+            $rawPhone = ltrim((string) $customer->phone, '+');
+            WebhookEvent::query()
+                ->where('business_id', $businessId)
+                ->where('provider', 'whatsapp')
+                ->where('event_type', 'message')
+                ->where('status', 'received')
+                ->where(function ($query) use ($customer, $rawPhone): void {
+                    $query->where('payload->from', $rawPhone)
+                        ->orWhere('payload->from', $customer->phone);
+                })
+                ->lockForUpdate()
+                ->get()
+                ->each(function (WebhookEvent $event): void {
+                    $event->forceFill([
+                        'payload' => ['redacted' => true],
+                        'status' => 'processed',
+                        'processed_at' => now(),
+                    ])->save();
+                });
+
             $scheduled = ScheduledMessage::query()
                 ->where('business_id', $businessId)
                 ->where('customer_id', $customerId)
@@ -43,7 +65,6 @@ class AnonymizeCustomerCommand
                 ]);
             }
 
-            $customer = $this->customers->findForBusiness($businessId, $customerId);
             $customer->newQuery()->whereKey($customer->getKey())->lockForUpdate()->firstOrFail();
 
             $replacementPhone = '+999'.$customer->getKey();
