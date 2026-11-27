@@ -12,6 +12,7 @@ use App\Models\Review;
 use App\Models\Role;
 use App\Models\StaffProfile;
 use App\Models\User;
+use App\Models\WebhookEvent;
 use App\Models\WhatsAppConnection;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
@@ -175,6 +176,15 @@ $business->members()->attach($owner, [
     'status' => 'active',
     'joined_at' => now(),
 ]);
+$staleCallback = WebhookEvent::query()->create([
+    'business_id' => $business->getKey(),
+    'provider' => 'whatsapp',
+    'event_id' => 'status:browser-stale-callback',
+    'event_type' => 'status',
+    'payload' => ['redacted' => true],
+    'status' => 'awaiting_message',
+]);
+$staleCallback->forceFill(['updated_at' => now()->subMinutes(20)])->saveQuietly();
 
 foreach ([
     ['Browser Messaging Owner', 'crm.messaging-owner@example.test', ['browser-messaging-recovery-code']],
