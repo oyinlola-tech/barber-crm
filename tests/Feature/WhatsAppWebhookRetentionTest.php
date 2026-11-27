@@ -2,7 +2,10 @@
 
 use App\Configs\WhatsAppConfig;
 use App\Jobs\WhatsApp\ProcessWhatsAppWebhookJob;
+use App\Models\Business;
+use App\Models\MessageEvent;
 use App\Models\WebhookEvent;
+use App\Services\Webhooks\Commands\RedactExpiredWebhookPayloadsCommand;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
@@ -61,6 +64,38 @@ it('redacts only expired terminal WhatsApp webhook payloads and retains deduplic
         ->and($recent->fresh()->payload)->toBe(['kind' => 'message', 'body' => 'Recent customer text'])
         ->and($pending->fresh()->payload)->toBe(['kind' => 'message', 'body' => 'Pending customer text']);
     $this->assertDatabaseHas('webhook_events', ['id' => $expired->getKey(), 'event_id' => 'message:wamid.expired']);
+
+    Carbon::setTestNow();
+});
+
+it('redacts expired unresolved callback payloads while retaining callback data for reconciliation', function (): void {
+    Carbon::setTestNow('2026-11-26 12:00:00');
+    config(['whatsapp.webhook_payload_retention_days' => 30]);
+    $business = Business::factory()->create();
+    $event = WebhookEvent::query()->create([
+        'business_id' => $business->getKey(),
+        'provider' => 'whatsapp',
+        'event_id' => 'status:wamid.never-arrived',
+        'event_type' => 'status',
+        'payload' => ['kind' => 'status', 'provider_message_id' => 'wamid.never-arrived'],
+        'status' => 'awaiting_message',
+    ]);
+    $event->forceFill(['updated_at' => now()->subDays(31)])->saveQuietly();
+    $messageEvent = MessageEvent::query()->create([
+        'business_id' => $business->getKey(),
+        'webhook_event_id' => $event->getKey(),
+        'provider_message_id' => 'wamid.never-arrived',
+        'event_type' => 'message.status',
+        'status' => 'delivered',
+        'occurred_at' => now()->subDays(31),
+    ]);
+
+    $redacted = app(RedactExpiredWebhookPayloadsCommand::class)->execute();
+
+    expect($redacted)->toBe(1)
+        ->and($event->fresh()->payload)->toBe(['redacted' => true])
+        ->and($event->fresh()->status)->toBe('awaiting_message')
+        ->and($messageEvent->fresh()->provider_message_id)->toBe('wamid.never-arrived');
 
     Carbon::setTestNow();
 });

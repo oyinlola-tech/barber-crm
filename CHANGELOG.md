@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Redact expired unresolved WhatsApp status webhook payloads while retaining deduplication tombstones and minimal callback records for reconciliation.
 - Honor upcoming customer return dates across visit and inactive-customer reminder scheduling, pre-delivery eligibility checks, recurring chains, and pending/queued reminder cancellation. Experience and review messages are preserved.
 - Reconcile Meta template availability from complete provider snapshots; disable missing, rejected, or newly rebound provider templates, and abort synchronization on failed or repeated-cursor pagination.
 - Disable linked automation rules and cancel their pending or queued sends when a WhatsApp template is rejected, removed, rebound, or disabled by staff.
