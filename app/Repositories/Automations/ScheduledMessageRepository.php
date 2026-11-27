@@ -56,6 +56,20 @@ class ScheduledMessageRepository
         return ScheduledMessage::query()->where('business_id', $businessId)->findOrFail($scheduledMessageId);
     }
 
+    /** @return list<int> */
+    public function sentMessagesNeedingFollowUpReconciliation(int $limit = 100): array
+    {
+        return ScheduledMessage::query()
+            ->where('status', ScheduledMessageStatus::Sent->value)
+            ->whereNotNull('sent_at')
+            ->whereNull('follow_up_reconciled_at')
+            ->orderBy('id')
+            ->limit(min(max($limit, 1), 500))
+            ->pluck('id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
+    }
+
     public function lockForBusiness(int $businessId, int $scheduledMessageId): ScheduledMessage
     {
         return ScheduledMessage::query()->where('business_id', $businessId)

@@ -16,6 +16,10 @@ Schedule::command('automations:recover-stalled-messages')
     ->everyFiveMinutes()
     ->withoutOverlapping(10);
 
+Schedule::command('automations:recover-sent-follow-ups')
+    ->everyMinute()
+    ->withoutOverlapping(2);
+
 Schedule::command('automations:schedule-inactive-customers')
     ->hourly()
     ->withoutOverlapping(55);

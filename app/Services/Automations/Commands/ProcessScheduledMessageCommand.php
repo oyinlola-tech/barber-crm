@@ -30,7 +30,7 @@ class ProcessScheduledMessageCommand
         public MessagingProviderInterface $messaging,
         public CustomerCanReceiveMessageQuery $consent,
         public SendWindowCalculator $sendWindow,
-        public ScheduleFollowUpCommand $scheduleFollowUp,
+        private readonly ScheduleNextFollowUpAfterSentMessageCommand $scheduleNextFollowUp,
         public WhatsAppConfig $whatsAppConfiguration,
         public ConversationRepositoryInterface $conversations,
         public WhatsAppTemplateDataMapper $templateData,
@@ -178,8 +178,21 @@ class ProcessScheduledMessageCommand
         /** @var list<array<string, mixed>> $components */
         $components = $context['components'];
 
-        if (! $this->consent->execute($scheduledMessage->business_id, $customer->getKey(), $scheduledMessage->channel)
-            || ! $this->isStillEligibleForTrigger($scheduledMessage, $customer, $rule)) {
+        $hasConsent = $this->consent->execute($scheduledMessage->business_id, $customer->getKey(), $scheduledMessage->channel);
+        $currentCustomer = Customer::query()
+            ->where('business_id', $scheduledMessage->business_id)
+            ->find($customer->getKey());
+        $currentRule = AutomationRule::query()
+            ->where('business_id', $scheduledMessage->business_id)
+            ->find($rule->getKey());
+
+        if ($currentCustomer === null
+            || $currentCustomer->status !== 'active'
+            || $currentCustomer->archived_at !== null
+            || $currentRule === null
+            || ! $currentRule->is_enabled
+            || ! $hasConsent
+            || ! $this->isStillEligibleForTrigger($scheduledMessage, $currentCustomer, $currentRule)) {
             DB::transaction(function () use ($scheduledMessage): void {
                 $locked = ScheduledMessage::query()->lockForUpdate()->findOrFail($scheduledMessage->getKey());
                 if ($locked->status === ScheduledMessageStatus::Sending->value) {
@@ -189,6 +202,9 @@ class ProcessScheduledMessageCommand
 
             return;
         }
+
+        $customer = $currentCustomer;
+        $rule = $currentRule;
 
         try {
             $response = $this->messaging->sendTemplate(
@@ -241,7 +257,7 @@ class ProcessScheduledMessageCommand
             $conversation->update(['last_message_at' => now()]);
         });
 
-        $this->scheduleNextFollowUp($scheduledMessage);
+        $this->scheduleNextFollowUp->execute((int) $scheduledMessage->getKey());
     }
 
     private function handleProviderRejection(ScheduledMessage $scheduledMessage, RequestException $exception): void
@@ -296,68 +312,6 @@ class ProcessScheduledMessageCommand
             'last_error' => $reason,
             'claimed_at' => null,
         ]);
-    }
-
-    private function scheduleNextFollowUp(ScheduledMessage $scheduledMessage): void
-    {
-        $payload = $scheduledMessage->payload ?? [];
-        $currentStep = (int) ($payload['follow_up_number'] ?? 1);
-        $visitId = (int) ($payload['visit_id'] ?? 0);
-        $trigger = $payload['trigger'] ?? null;
-        $rule = $scheduledMessage->automation_rule_id === null
-            ? null
-            : AutomationRule::query()->where('business_id', $scheduledMessage->business_id)->find($scheduledMessage->automation_rule_id);
-        if ($rule === null || ! $rule->is_enabled || ($visitId < 1 && $trigger !== 'customer_inactive')) {
-            return;
-        }
-
-        if ($scheduledMessage->sent_at !== null && $scheduledMessage->conversation_id !== null) {
-            $conversation = Conversation::query()->where('business_id', $scheduledMessage->business_id)->find($scheduledMessage->conversation_id);
-            if ($conversation?->last_customer_message_at !== null && $conversation->last_customer_message_at->greaterThanOrEqualTo($scheduledMessage->sent_at)) {
-                return;
-            }
-        }
-
-        $settings = $rule->settings ?? [];
-        $maxFollowUps = max(1, min((int) ($settings['max_follow_ups'] ?? 1), 20));
-        $intervalMinutes = (int) ($settings['repeat_interval_minutes'] ?? 0);
-        if ($currentStep >= $maxFollowUps || $intervalMinutes < 1) {
-            return;
-        }
-
-        if (! $this->consent->execute($scheduledMessage->business_id, $scheduledMessage->customer_id, $scheduledMessage->channel)) {
-            return;
-        }
-
-        $nextPayload = ['follow_up_number' => $currentStep + 1, 'visit_id' => $visitId > 0 ? $visitId : null, 'trigger' => $trigger ?? $rule->trigger];
-        if ($trigger === 'customer_inactive') {
-            $anchor = $payload['inactivity_anchor'] ?? null;
-            if (! is_string($anchor)) {
-                return;
-            }
-            $nextPayload['inactivity_anchor'] = $anchor;
-        }
-
-        $visitRevision = (int) ($payload['visit_revision'] ?? 1);
-        $idempotencyKey = $visitRevision === 1
-            ? 'visit:'.$visitId.':rule:'.$rule->getKey().':step:'.($currentStep + 1)
-            : 'visit:'.$visitId.':revision:'.$visitRevision.':rule:'.$rule->getKey().':step:'.($currentStep + 1);
-        if ($trigger === 'customer_inactive') {
-            $cycle = 0;
-            if (preg_match('/cycle:(\d+)/', $scheduledMessage->idempotency_key, $matches) === 1) {
-                $cycle = (int) $matches[1];
-            }
-            $idempotencyKey = 'inactive:customer:'.$scheduledMessage->customer_id.':rule:'.$rule->getKey().':visit:'.CarbonImmutable::parse((string) $payload['inactivity_anchor'])->utc()->format('YmdHis').':cycle:'.$cycle.':step:'.($currentStep + 1);
-        }
-
-        $this->scheduleFollowUp->execute(
-            $scheduledMessage->business_id,
-            $scheduledMessage->customer_id,
-            $rule->getKey(),
-            now('UTC')->addMinutes($intervalMinutes),
-            $nextPayload,
-            $idempotencyKey,
-        );
     }
 
     private function isStillEligibleForTrigger(ScheduledMessage $scheduledMessage, Customer $customer, AutomationRule $rule): bool

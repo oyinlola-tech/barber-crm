@@ -67,6 +67,7 @@ it('sends a claimed message once even when its job is delivered twice', function
     $command->execute($scheduledMessage->getKey());
 
     expect($scheduledMessage->fresh()->status)->toBe('sent');
+    expect($scheduledMessage->fresh()->follow_up_reconciled_at)->not->toBeNull();
     $this->assertDatabaseCount('messages', 1);
 });
 
@@ -133,7 +134,68 @@ it('cancels a claimed follow-up when the customer replies before provider dispat
         ->and(Message::query()->where('direction', 'outbound')->count())->toBe(0);
 });
 
-it('cancels inactive-customer sends when the customer states a return date after scheduling', function (): void {
+it('cancels a visit follow-up when the customer is archived during the claim window', function (): void {
+    $this->travelTo(now('Africa/Lagos')->setTime(10, 0)->utc());
+    config(['whatsapp.api_version' => 'v99.0']);
+    $business = Business::factory()->create();
+    $customer = Customer::factory()->create(['business_id' => $business->getKey(), 'phone' => '+2348012345678']);
+    $visit = Visit::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $customer->getKey(),
+        'visited_at' => now()->subDay(),
+    ]);
+    $template = MessageTemplate::query()->create([
+        'business_id' => $business->getKey(), 'provider_template_id' => 'archive-race-template', 'name' => 'visit_follow_up',
+        'language' => 'en', 'category' => 'utility', 'purpose' => 'thank_you', 'status' => 'synchronized',
+        'provider_status' => 'APPROVED', 'is_enabled' => true, 'components' => [['type' => 'BODY', 'text' => 'Thank you']], 'variable_map' => [],
+    ]);
+    $rule = AutomationRule::query()->create([
+        'business_id' => $business->getKey(), 'name' => 'Visit follow up', 'trigger' => 'visit_completed',
+        'action' => 'send_template', 'delay_minutes' => 10, 'is_enabled' => true,
+        'settings' => ['template_id' => $template->getKey(), 'max_follow_ups' => 1],
+    ]);
+    CustomerConsent::query()->create([
+        'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp',
+        'granted' => true, 'source' => 'test', 'recorded_at' => now(),
+    ]);
+    WhatsAppConnection::query()->create([
+        'business_id' => $business->getKey(), 'phone_number_id' => 'phone-number-1',
+        'business_account_id' => 'business-account-1', 'access_token' => 'encrypted-token', 'status' => 'connected',
+    ]);
+    $scheduled = ScheduledMessage::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $customer->getKey(),
+        'automation_rule_id' => $rule->getKey(),
+        'channel' => 'whatsapp',
+        'idempotency_key' => 'visit:'.$visit->getKey().':rule:'.$rule->getKey().':step:1',
+        'payload' => ['template_id' => $template->getKey(), 'template_name' => $template->name, 'language' => 'en', 'trigger' => 'visit_completed', 'visit_id' => $visit->getKey()],
+        'status' => 'queued',
+        'scheduled_at' => now(),
+    ]);
+
+    $consent = Mockery::mock(CustomerCanReceiveMessageQuery::class);
+    $consentCalls = 0;
+    $consent->shouldReceive('execute')->twice()->andReturnUsing(function () use (&$consentCalls, $customer): bool {
+        $consentCalls++;
+        if ($consentCalls === 2) {
+            $customer->update(['status' => 'archived', 'archived_at' => now()]);
+        }
+
+        return true;
+    });
+    app()->instance(CustomerCanReceiveMessageQuery::class, $consent);
+    $messaging = Mockery::mock(MessagingProviderInterface::class);
+    $messaging->shouldNotReceive('sendTemplate');
+    app()->instance(MessagingProviderInterface::class, $messaging);
+
+    app(ProcessScheduledMessageCommand::class)->execute((int) $scheduled->getKey());
+
+    expect($scheduled->fresh()->status)->toBe('cancelled')
+        ->and(Message::query()->where('direction', 'outbound')->count())->toBe(0);
+});
+
+it('cancels inactive-customer sends when the customer states a return date during the claim window', function (): void {
+    $this->travelTo(now('Africa/Lagos')->setTime(10, 0)->utc());
     config(['whatsapp.api_version' => 'v99.0']);
     $business = Business::factory()->create();
     $customer = Customer::factory()->create(['business_id' => $business->getKey(), 'phone' => '+2348012345678']);
@@ -156,10 +218,20 @@ it('cancels inactive-customer sends when the customer states a return date after
         'status' => 'queued',
         'scheduled_at' => now(),
     ]);
+    $consent = Mockery::mock(CustomerCanReceiveMessageQuery::class);
+    $consentCalls = 0;
+    $consent->shouldReceive('execute')->twice()->andReturnUsing(function () use (&$consentCalls, $customer): bool {
+        $consentCalls++;
+        if ($consentCalls === 2) {
+            $customer->update(['intended_return_date' => now('Africa/Lagos')->addDays(5)->toDateString()]);
+        }
+
+        return true;
+    });
+    app()->instance(CustomerCanReceiveMessageQuery::class, $consent);
     $messaging = Mockery::mock(MessagingProviderInterface::class);
     $messaging->shouldNotReceive('sendTemplate');
     app()->instance(MessagingProviderInterface::class, $messaging);
-    $customer->update(['intended_return_date' => now('Africa/Lagos')->addDays(5)->toDateString()]);
 
     app(ProcessScheduledMessageCommand::class)->execute($scheduled->getKey());
 

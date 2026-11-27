@@ -21,6 +21,7 @@ scheduler service.
 | --- | --- | --- |
 | Every minute | `automations:dispatch-due-messages` | Claims and queues up to 100 due messages. |
 | Every five minutes | `automations:recover-stalled-messages` | Requeues safe pre-send claims and flags potentially sent messages for reconciliation. |
+| Every minute | `automations:recover-sent-follow-ups` | Schedules or closes follow-up work left incomplete after an outbound message was persisted as sent. |
 | Hourly | `automations:schedule-inactive-customers` | Schedules eligible inactive-customer follow-ups, subject to current rule/consent settings. |
 | Every minute | `operations:record-heartbeat` | Records the scheduler heartbeat and enqueues a worker heartbeat probe. |
 | Every minute | `webhooks:reconcile-delivery-statuses` | Reconciles delivery callbacks received before the matching outbound message record, up to 200 per run. |
@@ -42,9 +43,9 @@ docker compose restart scheduler
 ```
 
 The Operations health page shows the latest scheduler heartbeat. Heartbeats
-older than three minutes are unhealthy. `/ready` is a separate web readiness
-probe and checks database connectivity only; it does not establish that the
-scheduler is running.
+older than three minutes are unhealthy. `/ready` also requires fresh scheduler
+and queue-worker heartbeats, so it returns HTTP 503 when either is missing or
+older than three minutes.
 
 If scheduled work stops, inspect scheduler logs and health first, then verify
 the database and queue services. Check that `schedule:work` is active and that
@@ -53,6 +54,15 @@ deployment if the service still runs old code. Do not invoke a scheduled
 command repeatedly as a substitute for understanding its idempotency and
 effects. For message dispatch, inspect the persisted scheduled-message status
 before any manual action.
+
+The sent-follow-up recovery task handles the gap after a successful provider
+acceptance has been persisted but before the next configured follow-up is
+scheduled. The source message and follow-up marker are locked and updated in
+one database transaction; the next scheduled message uses its deterministic
+idempotency key. Recovery rechecks customer status, consent, rule state, visit
+recency and customer replies. Historical sent messages are marked complete by
+the additive migration so deployment does not initiate new follow-ups for old
+traffic.
 
 ## Verification boundary
 

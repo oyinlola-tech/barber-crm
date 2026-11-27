@@ -61,6 +61,11 @@ resend. For a growing queue, first check worker status, database connectivity,
 recent application deploys and provider error logs. Do not delete rows from
 `jobs` or `failed_jobs` to make health counts look better.
 
+The scheduler also runs `automations:recover-sent-follow-ups` every minute.
+This recovers only the next follow-up workflow after an already-persisted sent
+message; it never resends that WhatsApp message. Stable idempotency keys and a
+transactional reconciliation marker make repeated runs safe.
+
 ## Verification boundary
 
 Compose configuration, worker command settings, operational heartbeat logic,
