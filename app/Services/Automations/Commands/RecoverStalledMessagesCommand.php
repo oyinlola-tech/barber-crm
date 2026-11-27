@@ -82,10 +82,43 @@ class RecoverStalledMessagesCommand
                 $this->notifications->execute((int) $message->business_id, (int) $message->getKey(), 'message');
             }
 
+            $manualTextSending = Message::query()
+                ->where('direction', 'outbound')
+                ->where('type', 'text')
+                ->where('status', MessageStatus::Pending->value)
+                ->where('created_at', '<', $cutoff)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($manualTextSending as $message) {
+                $message->forceFill([
+                    'status' => MessageStatus::DeliveryUncertain->value,
+                    'failed_at' => now(),
+                    'provider_error_code' => 'manual_text_dispatch_stalled',
+                ])->save();
+                MessageEvent::query()->create([
+                    'business_id' => $message->business_id,
+                    'message_id' => $message->getKey(),
+                    'event_type' => 'message.send_uncertain',
+                    'status' => MessageStatus::DeliveryUncertain->value,
+                    'occurred_at' => now(),
+                ]);
+                $this->audit->execute(
+                    (int) $message->business_id,
+                    null,
+                    'message.manual_text_reconciliation_required',
+                    Message::class,
+                    (int) $message->getKey(),
+                    ['status' => MessageStatus::Pending->value],
+                    ['status' => MessageStatus::DeliveryUncertain->value],
+                );
+                $this->notifications->execute((int) $message->business_id, (int) $message->getKey(), 'message');
+            }
+
             return [
                 'requeued' => $stalledProcessing,
                 'reconciliation_required' => $stalledSendingMessages->count(),
-                'manual_delivery_uncertain' => $manualSending->count(),
+                'manual_delivery_uncertain' => $manualSending->count() + $manualTextSending->count(),
             ];
         });
     }

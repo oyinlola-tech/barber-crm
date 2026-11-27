@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\CustomerConsent;
 use App\Models\Message;
 use App\Models\MessageTemplate;
+use App\Models\Role;
 use App\Models\ScheduledMessage;
 use App\Models\User;
 use App\Services\Automations\Commands\RecoverStalledMessagesCommand;
@@ -21,9 +22,17 @@ it('marks a manual template dispatch as uncertain when its request process stall
     $owner = User::factory()->create();
     $viewer = User::factory()->create();
     $inactive = User::factory()->create();
+    $messagesOnly = User::factory()->create();
+    Role::query()->create([
+        'business_id' => $business->getKey(),
+        'name' => 'Message history auditor',
+        'slug' => 'message_history_auditor',
+        'permissions' => ['messages.view'],
+    ]);
     $business->members()->attach($owner, ['role' => 'owner', 'status' => 'active', 'joined_at' => now()]);
     $business->members()->attach($viewer, ['role' => 'manager', 'status' => 'active', 'joined_at' => now()]);
     $business->members()->attach($inactive, ['role' => 'owner', 'status' => 'suspended', 'joined_at' => now()]);
+    $business->members()->attach($messagesOnly, ['role' => 'message_history_auditor', 'status' => 'active', 'joined_at' => now()]);
     $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
     $conversation = Conversation::query()->create([
         'business_id' => $business->getKey(),
@@ -58,12 +67,47 @@ it('marks a manual template dispatch as uncertain when its request process stall
     expect($owner->notifications()->count())->toBe(1)
         ->and($viewer->notifications()->count())->toBe(1)
         ->and($inactive->notifications()->count())->toBe(0)
+        ->and($messagesOnly->notifications()->count())->toBe(0)
         ->and($owner->notifications()->firstOrFail()->data)->toBe([
             'title' => 'WhatsApp delivery needs review',
-            'message' => 'A scheduled message has an uncertain delivery outcome. Check message history before retrying.',
-            'url' => '/messages/scheduled',
+            'message' => 'A WhatsApp message has an uncertain delivery outcome. Check its history before retrying.',
+            'url' => '/inbox/'.$conversation->getKey(),
         ]);
     expect(app(RecoverStalledMessagesCommand::class)->execute()['manual_delivery_uncertain'])->toBe(0)
+        ->and($owner->notifications()->count())->toBe(1);
+});
+
+it('marks a crashed free-form reply uncertain and notifies staff with the inbox link', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $owner = User::factory()->create();
+    $business->members()->attach($owner, ['role' => 'owner', 'status' => 'active', 'joined_at' => now()]);
+    $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
+    $conversation = Conversation::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $customer->getKey(),
+        'channel' => 'whatsapp',
+        'status' => 'open',
+    ]);
+    $message = Message::query()->create([
+        'business_id' => $business->getKey(),
+        'conversation_id' => $conversation->getKey(),
+        'direction' => 'outbound',
+        'type' => 'text',
+        'status' => 'pending',
+        'body' => 'Reply whose provider result was lost after the process crashed.',
+    ]);
+    $message->forceFill(['created_at' => now()->subMinutes(20)])->save();
+
+    expect(app(RecoverStalledMessagesCommand::class)->execute()['manual_delivery_uncertain'])->toBe(1)
+        ->and($message->fresh()->status)->toBe('delivery_uncertain');
+    $this->assertDatabaseHas('audit_logs', [
+        'business_id' => $business->getKey(),
+        'auditable_id' => $message->getKey(),
+        'action' => 'message.manual_text_reconciliation_required',
+    ]);
+    expect($owner->notifications()->firstOrFail()->data['url'])->toBe('/inbox/'.$conversation->getKey())
+        ->and(app(RecoverStalledMessagesCommand::class)->execute()['manual_delivery_uncertain'])->toBe(0)
         ->and($owner->notifications()->count())->toBe(1);
 });
 
@@ -116,7 +160,7 @@ it('notifies authorized staff when a scheduled provider send becomes uncertain',
         ->and($viewer->notifications()->count())->toBe(0);
 });
 
-it('leaves recent or non-template manual messages unchanged during recovery', function (): void {
+it('leaves recent manual messages unchanged during recovery', function (): void {
     $business = Business::factory()->create();
     $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
     $conversation = Conversation::query()->create([
@@ -140,8 +184,6 @@ it('leaves recent or non-template manual messages unchanged during recovery', fu
         'type' => 'text',
         'status' => 'pending',
     ]);
-    $textMessage->forceFill(['created_at' => now()->subMinutes(20)])->save();
-
     $result = app(RecoverStalledMessagesCommand::class)->execute();
 
     expect($result['manual_delivery_uncertain'])->toBe(0)

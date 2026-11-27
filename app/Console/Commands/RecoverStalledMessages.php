@@ -14,7 +14,7 @@ class RecoverStalledMessages extends Command
     public function handle(RecoverStalledMessagesCommand $command): int
     {
         $result = $command->execute();
-        $this->info("Requeued {$result['requeued']} safe pre-send claims; marked {$result['reconciliation_required']} automated sends and {$result['manual_delivery_uncertain']} manual template sends for reconciliation.");
+        $this->info("Requeued {$result['requeued']} safe pre-send claims; marked {$result['reconciliation_required']} automated sends and {$result['manual_delivery_uncertain']} manual sends for reconciliation.");
 
         return self::SUCCESS;
     }

@@ -6,7 +6,7 @@ use Illuminate\Notifications\Notification;
 
 class MessageDeliveryUncertainNotification extends Notification
 {
-    public function __construct(string $id)
+    public function __construct(string $id, private readonly string $url)
     {
         $this->id = $id;
     }
@@ -22,8 +22,8 @@ class MessageDeliveryUncertainNotification extends Notification
     {
         return [
             'title' => 'WhatsApp delivery needs review',
-            'message' => 'A scheduled message has an uncertain delivery outcome. Check message history before retrying.',
-            'url' => '/messages/scheduled',
+            'message' => 'A WhatsApp message has an uncertain delivery outcome. Check its history before retrying.',
+            'url' => $this->url,
         ];
     }
 }

@@ -30,9 +30,14 @@ class NotifyStaffOfUncertainMessageCommand
             return;
         }
 
+        $url = $resourceType === 'message' && $message instanceof Message
+            ? '/inbox/'.$message->conversation_id
+            : '/messages/scheduled';
+        $requiredPermission = $resourceType === 'message' ? 'conversations.view' : 'messages.view';
+
         $business->members()->wherePivot('status', 'active')->get()
-            ->filter(fn ($member): bool => $member->hasBusinessPermission($businessId, 'messages.view'))
-            ->each(function ($member) use ($businessId, $resourceType, $messageId): void {
+            ->filter(fn ($member): bool => $member->hasBusinessPermission($businessId, $requiredPermission))
+            ->each(function ($member) use ($businessId, $resourceType, $messageId, $url): void {
                 $notificationId = Uuid::uuid5(Uuid::NAMESPACE_URL, implode(':', [
                     'uncertain-message',
                     $businessId,
@@ -45,7 +50,7 @@ class NotifyStaffOfUncertainMessageCommand
                     return;
                 }
 
-                $member->notify(new MessageDeliveryUncertainNotification($notificationId));
+                $member->notify(new MessageDeliveryUncertainNotification($notificationId, $url));
             });
     }
 }
