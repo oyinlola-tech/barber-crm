@@ -13,7 +13,7 @@ export default function TwoFactorChallengePage() {
     }
 
     return (
-        <main className="flex min-h-screen items-center justify-center px-5 py-12">
+        <main className="flex items-center justify-center px-5 py-12">
             <Head title="Two-factor verification" />
             <section className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm sm:p-10">
                 <h1 className="text-2xl font-semibold tracking-tight">

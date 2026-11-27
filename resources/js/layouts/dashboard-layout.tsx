@@ -88,9 +88,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     className="flex h-16 items-center gap-3 border-b px-5"
                     href="/dashboard"
                 >
-                    <span className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground">
-                        <Scissors aria-hidden="true" size={18} />
-                    </span>
+                    <img
+                        alt=""
+                        aria-hidden="true"
+                        className="size-9 rounded-xl"
+                        height={36}
+                        src="/brand/barber-crm-mark.svg"
+                        width={36}
+                    />
                     <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">
                             {page.props.currentBusiness?.name ?? 'Barber CRM'}
@@ -161,7 +166,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             className="flex min-w-0 items-center gap-2 font-semibold"
                             href="/dashboard"
                         >
-                            <Scissors aria-hidden="true" size={18} />
+                            <img
+                                alt=""
+                                aria-hidden="true"
+                                className="size-8 shrink-0 rounded-lg"
+                                height={32}
+                                src="/brand/barber-crm-mark.svg"
+                                width={32}
+                            />
                             <span className="truncate">
                                 {page.props.currentBusiness?.name ??
                                     'Barber CRM'}

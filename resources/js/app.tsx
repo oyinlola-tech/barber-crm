@@ -3,6 +3,7 @@ import type { ResolvedComponent } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 import type { ComponentType, ReactNode } from 'react';
 import DashboardLayout from '@/layouts/dashboard-layout';
+import AuthLayout from '@/layouts/auth-layout';
 
 const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx');
 
@@ -17,17 +18,13 @@ void createInertiaApp({
 
         const page = await loadPage();
         const component = page.default as ResolvedComponent;
-        const standalonePages = new Set([
-            'auth/login',
-            'auth/forgot-password',
-            'auth/reset-password',
-            'auth/two-factor-challenge',
-            'auth/confirm-password',
-            'auth/verify-email',
-            'staff/accept-invitation',
-        ]);
-
-        if (!standalonePages.has(name) && component.layout === undefined) {
+        const isAuthPage =
+            name.startsWith('auth/') || name === 'staff/accept-invitation';
+        if (isAuthPage && component.layout === undefined) {
+            component.layout = (content: ReactNode): ReactNode => (
+                <AuthLayout>{content}</AuthLayout>
+            );
+        } else if (component.layout === undefined) {
             component.layout = (content: ReactNode): ReactNode => (
                 <DashboardLayout>{content}</DashboardLayout>
             );

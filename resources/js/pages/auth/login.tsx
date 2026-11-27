@@ -11,22 +11,9 @@ export default function LoginPage() {
     }
 
     return (
-        <main className="flex min-h-screen items-center justify-center px-5 py-12">
+        <main className="flex items-center justify-center px-5 py-12">
             <Head title="Sign in" />
             <section className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm sm:p-10">
-                <div className="mb-8 flex items-center gap-3">
-                    <div className="grid size-11 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">
-                        B
-                    </div>
-                    <div>
-                        <p className="font-semibold tracking-tight">
-                            Barber CRM
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                            Your shop, in good order.
-                        </p>
-                    </div>
-                </div>
                 <div className="mb-7 space-y-2">
                     <h1 className="text-2xl font-semibold tracking-tight">
                         Welcome back

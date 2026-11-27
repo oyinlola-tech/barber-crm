@@ -31,7 +31,7 @@ export default function AcceptStaffInvitationPage() {
     }
 
     return (
-        <main className="grid min-h-screen place-items-center bg-muted/30 p-4">
+        <main className="grid place-items-center p-4">
             <Head title="Accept staff invitation" />
             <section className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-sm sm:p-8">
                 <p className="text-sm text-muted-foreground">

@@ -87,3 +87,27 @@ input {
     background: var(--accent);
     color: var(--accent-foreground);
 }
+
+@keyframes barber-pole-drift {
+    from {
+        background-position: 0 0;
+    }
+    to {
+        background-position: 0 52px;
+    }
+}
+
+.auth-pole-stripes {
+    animation: barber-pole-drift 5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

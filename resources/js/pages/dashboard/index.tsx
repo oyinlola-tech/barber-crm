@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { MessageCircle, Scissors, Users } from 'lucide-react';
+import { ArrowUpRight, MessageCircle, Scissors, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 type RecentCustomer = {
@@ -125,6 +125,71 @@ export default function DashboardPage({
                         )}
                     </div>
                 </header>
+
+                <section className="relative mt-6 overflow-hidden rounded-3xl bg-[#202522] px-6 py-8 text-white shadow-xl shadow-black/10 sm:px-9 sm:py-10">
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -right-16 -top-32 size-96 rounded-full border border-white/10"
+                    />
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -right-4 -top-20 size-72 rounded-full border border-white/10"
+                    />
+                    <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                        <div className="max-w-2xl">
+                            <p className="text-sm font-medium text-[#b9d3ad]">
+                                Your shop, in good order
+                            </p>
+                            <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+                                Make every visit the start of the next one.
+                            </h2>
+                            <p className="mt-3 max-w-xl text-sm leading-6 text-white/65 sm:text-base">
+                                Keep customer details close, record completed
+                                visits, and follow up with care through
+                                WhatsApp.
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                            <Link
+                                className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#dfe9d8] px-4 text-sm font-semibold text-[#202522] transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                                href="/customers"
+                            >
+                                View customers{' '}
+                                <ArrowUpRight aria-hidden="true" size={16} />
+                            </Link>
+                            <Link
+                                className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/20 px-4 text-sm font-medium text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                                href="/inbox"
+                            >
+                                Open inbox{' '}
+                                <MessageCircle aria-hidden="true" size={16} />
+                            </Link>
+                        </div>
+                    </div>
+                    <div className="relative mt-8 flex flex-wrap gap-x-8 gap-y-3 border-t border-white/10 pt-5 text-sm text-white/70">
+                        <span>
+                            <strong className="text-white">
+                                {analytics.customer_count.toLocaleString()}
+                            </strong>{' '}
+                            customers
+                        </span>
+                        <span>
+                            <strong className="text-white">
+                                {analytics.pending_follow_up_count.toLocaleString()}
+                            </strong>{' '}
+                            follow-ups pending
+                        </span>
+                        <span className="inline-flex items-center gap-2">
+                            <span
+                                className={`size-2 rounded-full ${analytics.whatsapp_connected ? 'bg-[#b9d3ad]' : 'bg-amber-300'}`}
+                            />
+                            WhatsApp{' '}
+                            {analytics.whatsapp_connected
+                                ? 'connected'
+                                : 'setup needed'}
+                        </span>
+                    </div>
+                </section>
 
                 <section
                     aria-label="CRM statistics"
