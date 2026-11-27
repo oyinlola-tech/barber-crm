@@ -54,6 +54,11 @@ test('an authenticated staff member opens the dashboard and customer list', asyn
         page.getByRole('heading', { name: 'Customers', exact: true }),
     ).toBeVisible();
     await expect(
+        page.getByRole('table', {
+            name: 'Customer records with contact information and completed visit counts',
+        }),
+    ).toBeVisible();
+    await expect(
         page.getByText('Add a customer', { exact: true }),
     ).toBeVisible();
     await page.locator('summary').filter({ hasText: 'Add a customer' }).click();

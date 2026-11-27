@@ -11,6 +11,7 @@ test('staff can triage an inbox conversation on a mobile browser', async ({
     await expect(page).toHaveURL(/dashboard/);
 
     await page.goto('/inbox');
+    await expect(page.getByRole('status')).toHaveText('1 unread message');
     await page.getByRole('link', { name: /Inbox Customer/ }).click();
     await expect(
         page.getByRole('heading', { name: 'Inbox Customer', exact: true }),
@@ -71,11 +72,17 @@ test('staff can triage an inbox conversation on a mobile browser', async ({
     await expect(page.getByRole('button', { name: 'Mark read' })).toHaveCount(
         0,
     );
-
     await page.getByRole('button', { name: 'Close conversation' }).click();
     await expect(
         page.getByRole('button', { name: 'Reopen conversation' }),
     ).toBeVisible();
+
+    await page.goto('/inbox?status=closed');
+    await expect(
+        page.getByRole('link', { name: /Inbox Customer/ }),
+    ).toBeVisible();
+    await expect(page.getByRole('status')).toHaveCount(0);
+
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(390);
