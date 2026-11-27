@@ -111,6 +111,12 @@ class WhatsAppWebhookController extends Controller
                         'from' => is_string($message['from'] ?? null) ? $message['from'] : null,
                         'type' => is_string($message['type'] ?? null) ? $message['type'] : 'unknown',
                         'body' => $messageBody,
+                        'interactive_reply_id' => is_string(data_get($message, 'interactive.button_reply.id'))
+                            ? data_get($message, 'interactive.button_reply.id')
+                            : (is_string(data_get($message, 'interactive.list_reply.id')) ? data_get($message, 'interactive.list_reply.id') : null),
+                        'interactive_reply_title' => is_string(data_get($message, 'interactive.button_reply.title'))
+                            ? data_get($message, 'interactive.button_reply.title')
+                            : (is_string(data_get($message, 'interactive.list_reply.title')) ? data_get($message, 'interactive.list_reply.title') : null),
                         'timestamp' => is_string($message['timestamp'] ?? null) && ctype_digit($message['timestamp']) ? (int) $message['timestamp'] : null,
                     ];
 

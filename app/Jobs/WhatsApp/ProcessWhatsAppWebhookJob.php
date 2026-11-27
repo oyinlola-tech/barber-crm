@@ -162,6 +162,10 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
         }
 
         $occurredAt = $this->timestamp($payload['timestamp'] ?? null);
+        $interactivePayload = array_filter([
+            'interactive_reply_id' => is_string($payload['interactive_reply_id'] ?? null) ? $payload['interactive_reply_id'] : null,
+            'interactive_reply_title' => is_string($payload['interactive_reply_title'] ?? null) ? $payload['interactive_reply_title'] : null,
+        ], static fn (mixed $value): bool => is_string($value));
         $message = Message::query()->firstOrCreate([
             'business_id' => $event->business_id,
             'provider_message_id' => $providerMessageId,
@@ -171,7 +175,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             'type' => is_string($payload['type'] ?? null) ? $payload['type'] : 'unknown',
             'status' => 'received',
             'body' => is_string($payload['body'] ?? null) ? $payload['body'] : null,
-            'payload' => null,
+            'payload' => $interactivePayload === [] ? null : $interactivePayload,
             'sent_at' => $occurredAt,
         ]);
 
