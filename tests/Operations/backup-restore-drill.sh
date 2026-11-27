@@ -82,7 +82,7 @@ compose() {
 compose up -d postgres >/dev/null
 ready=0
 for attempt in $(seq 1 40); do
-    if compose exec -T postgres pg_isready -U "$DRILL_USER" -d "$DRILL_DATABASE" >/dev/null 2>&1; then
+    if compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$DRILL_USER" -d "$DRILL_DATABASE" -Atc 'SELECT 1' >/dev/null 2>&1; then
         ready=1
         break
     fi
