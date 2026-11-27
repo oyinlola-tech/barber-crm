@@ -63,6 +63,22 @@ secret recovery, disaster recovery objectives, or restore performance at the
 barbershop's eventual database size. Schedule and record periodic restore
 drills before production use.
 
+Run the repeatable end-to-end recovery check from a checkout with Docker Compose
+available:
+
+```sh
+docker build --target runtime --tag barber-crm-app:latest .
+bash tests/Operations/backup-restore-drill.sh
+```
+
+The check starts a unique PostgreSQL 17 Compose project without persistent
+volumes, verifies artifact mode and encryption marker, restores a known row,
+refuses to overwrite an existing restore database, and rejects tampered
+ciphertext before database creation. It forces one restore failure after target
+creation and verifies that only the new target is removed while the source row
+remains. It removes only that uniquely named project and its temporary files.
+This does not inspect or alter the configured application database.
+
 Do not remove historical appointment-related migrations or tables as part of a
 restore. Their applied state and business data have not been inspected. Any
 schema cleanup requires a reviewed backup and additive migration plan.
