@@ -41,9 +41,12 @@ class RecordReviewCommand
             }
 
             $review = $this->reviews->createForBusiness($businessId, [
-                ...$attributes,
-                'reviewed_at' => $attributes['reviewed_at'] ?? now(),
-                'source' => $attributes['source'] ?? 'internal',
+                'customer_id' => $customer->getKey(),
+                'visit_id' => $attributes['visit_id'] ?? null,
+                'rating' => $attributes['rating'],
+                'body' => $attributes['body'] ?? null,
+                'reviewed_at' => now(),
+                'source' => 'internal',
             ]);
             $this->cancelCustomerFollowUps->execute(
                 $businessId,

@@ -25,8 +25,10 @@ class StoreReviewRequest extends FormRequest
             'visit_id' => ['nullable', 'integer', Rule::exists('visits', 'id')->where('business_id', $businessId)],
             'rating' => ['required', 'integer', 'between:1,5'],
             'body' => ['nullable', 'string', 'max:5000'],
-            'source' => ['sometimes', 'string', 'max:80'],
-            'reviewed_at' => ['sometimes', 'date', 'before_or_equal:now'],
+            // Provenance and capture time are assigned by the trusted workflow.
+            // This screen records staff-entered feedback, never provider events.
+            'source' => ['prohibited'],
+            'reviewed_at' => ['prohibited'],
         ];
     }
 }

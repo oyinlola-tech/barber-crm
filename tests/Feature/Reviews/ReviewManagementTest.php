@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\Review;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Reviews\Commands\RecordReviewCommand;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -40,6 +41,32 @@ it('updates customer feedback through CQRS with a minimal audit record', functio
     $audit = AuditLog::query()->where('action', 'review.updated')->firstOrFail();
     expect($audit->before)->toBe(['rating' => 2])
         ->and($audit->after)->toBe(['rating' => 4, 'body_changed' => true]);
+});
+
+it('rejects client-supplied review provenance and dates, and assigns trusted internal values', function (): void {
+    $business = Business::factory()->create();
+    $user = reviewManager($business, ['reviews.view', 'reviews.create', 'customers.view']);
+    $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
+    $pastDate = now()->subYear()->toISOString();
+
+    $this->actingAs($user)->post('/reviews', [
+        'customer_id' => $customer->getKey(),
+        'rating' => 5,
+        'source' => 'whatsapp',
+        'reviewed_at' => $pastDate,
+    ])->assertSessionHasErrors(['source', 'reviewed_at']);
+
+    $this->assertDatabaseCount('reviews', 0);
+
+    $review = app(RecordReviewCommand::class)->execute((int) $business->getKey(), (int) $user->getKey(), [
+        'customer_id' => $customer->getKey(),
+        'rating' => 5,
+        'source' => 'whatsapp',
+        'reviewed_at' => $pastDate,
+    ]);
+
+    expect($review->source)->toBe('internal')
+        ->and($review->reviewed_at->timestamp)->toBe(now()->timestamp);
 });
 
 it('enforces review edit permission and single-business scope', function (): void {

@@ -108,6 +108,26 @@ it('rejects a correctly signed malformed JSON body', function (): void {
     $this->assertDatabaseCount('webhook_events', 0);
 });
 
+it('rejects a signed webhook when a present message or status collection is not an array', function (string $collection): void {
+    Config::set('whatsapp.app_secret', 'test-app-secret');
+    $payload = ['entry' => [[
+        'id' => 'business-account-1',
+        'changes' => [['value' => [
+            'metadata' => ['phone_number_id' => 'phone-number-1'],
+            $collection => 'malformed-event-collection',
+        ]]],
+    ]]];
+    $body = json_encode($payload, JSON_THROW_ON_ERROR);
+    $signature = 'sha256='.hash_hmac('sha256', $body, 'test-app-secret');
+
+    $this->call('POST', route('webhooks.whatsapp.receive'), [], [], [], [
+        'CONTENT_TYPE' => 'application/json',
+        'HTTP_X_HUB_SIGNATURE_256' => $signature,
+    ], $body)->assertUnprocessable();
+
+    $this->assertDatabaseCount('webhook_events', 0);
+})->with(['messages', 'statuses']);
+
 it('does not queue a webhook addressed to a different WhatsApp business account', function (): void {
     Queue::fake([ProcessWhatsAppWebhookJob::class]);
     Config::set('whatsapp.app_secret', 'test-app-secret');

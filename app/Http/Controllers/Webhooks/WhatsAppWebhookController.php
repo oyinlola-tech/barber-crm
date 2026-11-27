@@ -77,6 +77,11 @@ class WhatsAppWebhookController extends Controller
                     return response()->json(['message' => 'Webhook phone number metadata is missing.'], 422);
                 }
 
+                if ((array_key_exists('messages', $value) && ! is_array($value['messages']))
+                    || (array_key_exists('statuses', $value) && ! is_array($value['statuses']))) {
+                    return response()->json(['message' => 'Webhook message and delivery event collections must be arrays.'], 422);
+                }
+
                 $connection = WhatsAppConnection::query()
                     ->where('phone_number_id', $phoneNumberId)
                     ->first();
@@ -86,7 +91,7 @@ class WhatsAppWebhookController extends Controller
                     && is_string($connection->business_account_id)
                     && hash_equals($connection->business_account_id, $accountId);
 
-                foreach (is_array($value['messages'] ?? null) ? $value['messages'] : [] as $message) {
+                foreach ($value['messages'] ?? [] as $message) {
                     if (! is_array($message) || ! is_string($message['id'] ?? null) || $message['id'] === '') {
                         return response()->json(['message' => 'Webhook message event is invalid.'], 422);
                     }
@@ -112,7 +117,7 @@ class WhatsAppWebhookController extends Controller
                     $pending[] = [$normalized, 'message:'.$message['id'], $connectionMatches ? $connection : null];
                 }
 
-                foreach (is_array($value['statuses'] ?? null) ? $value['statuses'] : [] as $status) {
+                foreach ($value['statuses'] ?? [] as $status) {
                     if (! is_array($status)
                         || ! is_string($status['id'] ?? null)
                         || $status['id'] === ''
