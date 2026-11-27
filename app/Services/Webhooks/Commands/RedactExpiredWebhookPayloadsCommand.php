@@ -16,6 +16,17 @@ class RedactExpiredWebhookPayloadsCommand
         $cutoff = Carbon::now()->subDays($this->configuration->webhookPayloadRetentionDays());
         $redacted = 0;
 
+        $redacted += WebhookEvent::query()
+            ->where('provider', 'whatsapp')
+            ->where('status', 'received')
+            ->where('updated_at', '<=', $cutoff)
+            ->update([
+                'payload' => json_encode(['redacted' => true]),
+                'status' => 'failed',
+                'processed_at' => now(),
+                'updated_at' => now(),
+            ]);
+
         WebhookEvent::query()
             ->where('provider', 'whatsapp')
             ->whereIn('status', ['processed', 'unmatched_connection', 'unmatched_message', 'failed'])

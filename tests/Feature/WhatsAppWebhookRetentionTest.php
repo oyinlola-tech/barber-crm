@@ -56,13 +56,24 @@ it('redacts only expired terminal WhatsApp webhook payloads and retains deduplic
         'payload' => ['kind' => 'message', 'body' => 'Pending customer text'],
         'status' => 'received',
     ]);
+    $stalled = WebhookEvent::query()->create([
+        'provider' => 'whatsapp',
+        'event_id' => 'message:wamid.stalled',
+        'event_type' => 'message',
+        'payload' => ['kind' => 'message', 'from' => '2348031234567', 'body' => 'Stalled customer content'],
+        'status' => 'received',
+    ]);
+    $stalled->forceFill(['updated_at' => now()->subDays(31)])->saveQuietly();
 
     expect(app(WhatsAppConfig::class)->webhookPayloadRetentionDays())->toBe(30);
     Artisan::call('webhooks:redact-expired-payloads');
 
     expect($expired->fresh()->payload)->toBe(['redacted' => true])
         ->and($recent->fresh()->payload)->toBe(['kind' => 'message', 'body' => 'Recent customer text'])
-        ->and($pending->fresh()->payload)->toBe(['kind' => 'message', 'body' => 'Pending customer text']);
+        ->and($pending->fresh()->payload)->toBe(['kind' => 'message', 'body' => 'Pending customer text'])
+        ->and($stalled->fresh()->payload)->toBe(['redacted' => true])
+        ->and($stalled->fresh()->status)->toBe('failed')
+        ->and($stalled->fresh()->processed_at)->not->toBeNull();
     $this->assertDatabaseHas('webhook_events', ['id' => $expired->getKey(), 'event_id' => 'message:wamid.expired']);
 
     Carbon::setTestNow();
