@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Rotate remembered-device tokens after password reset or change, expose password changes in account security, and revoke other database sessions on a password change.
+- Validate customer import rows before reserving their normalized phone numbers so malformed rows do not suppress valid later records.
+- Use a fresh authenticator code in the custom-role browser workflow so Playwright retries do not reuse a consumed recovery code.
 - Reject signed WhatsApp callbacks with malformed message/status collections before persistence.
 - Assign staff-entered review source and capture time server-side; reject spoofed provider provenance and backdated timestamps.
 - Fix deployment rollback to snapshot the app and web images actually running before a rebuild; `make rollback` now selects that prior release instead of the just-deployed images.
