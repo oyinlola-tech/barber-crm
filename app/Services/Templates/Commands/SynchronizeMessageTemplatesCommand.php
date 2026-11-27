@@ -36,6 +36,7 @@ class SynchronizeMessageTemplatesCommand
 
         return DB::transaction(function () use ($businessId, $userId, $providerTemplates): int {
             $synchronizedCount = 0;
+            $providerIds = [];
             foreach ($providerTemplates as $providerTemplate) {
                 $providerId = $providerTemplate['id'] ?? null;
                 $name = $providerTemplate['name'] ?? null;
@@ -46,27 +47,36 @@ class SynchronizeMessageTemplatesCommand
                     continue;
                 }
 
+                $providerIds[] = $providerId;
                 $template = MessageTemplate::query()
                     ->where('business_id', $businessId)
-                    ->where(function ($query) use ($providerId, $name, $language): void {
-                        $query->where('provider_template_id', $providerId)
-                            ->orWhere(function ($query) use ($name, $language): void {
-                                $query->whereIn('status', ['submitted', 'submission_uncertain', 'synchronized'])
-                                    ->where('name', $name)
-                                    ->where('language', $language);
-                            });
-                    })
+                    ->where('provider_template_id', $providerId)
                     ->lockForUpdate()
-                    ->first();
+                    ->first()
+                    ?? MessageTemplate::query()
+                        ->where('business_id', $businessId)
+                        ->whereIn('status', ['submitted', 'submission_uncertain', 'synchronized', 'unavailable'])
+                        ->where('name', $name)
+                        ->where('language', $language)
+                        ->lockForUpdate()
+                        ->first();
 
                 $existingStatus = $template?->status;
+                $providerIdentityChanged = $template !== null
+                    && $template->provider_template_id !== null
+                    && $template->provider_template_id !== $providerId;
                 $attributes = [
                     'provider_template_id' => $providerId,
                     'provider_status' => strtoupper($status),
-                    'status' => $existingStatus === 'submission_uncertain' ? 'synchronized' : ($existingStatus ?? 'synchronized'),
+                    'status' => in_array($existingStatus, ['submission_uncertain', 'unavailable'], true)
+                        ? 'synchronized'
+                        : ($existingStatus ?? 'synchronized'),
                     'category' => is_string($providerTemplate['category'] ?? null) ? strtolower($providerTemplate['category']) : $template?->category,
                     'components' => is_array($providerTemplate['components'] ?? null) ? $providerTemplate['components'] : [],
-                    'is_enabled' => strtoupper($status) === 'APPROVED' ? (bool) $template?->is_enabled : false,
+                    'is_enabled' => strtoupper($status) === 'APPROVED'
+                        && ! $providerIdentityChanged
+                            ? (bool) $template?->is_enabled
+                            : false,
                 ];
 
                 if ($template === null) {
@@ -85,7 +95,26 @@ class SynchronizeMessageTemplatesCommand
                 $synchronizedCount++;
             }
 
-            $this->audit->execute($businessId, $userId, 'message_templates.synchronized', MessageTemplate::class, null, null, ['count' => $synchronizedCount]);
+            $missingTemplates = MessageTemplate::query()
+                ->where('business_id', $businessId)
+                ->whereNotNull('provider_template_id')
+                ->whereIn('status', ['synchronized', 'unavailable'])
+                ->when($providerIds !== [], fn ($query) => $query->whereNotIn('provider_template_id', array_unique($providerIds)))
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($missingTemplates as $missingTemplate) {
+                $missingTemplate->update([
+                    'status' => 'unavailable',
+                    'provider_status' => 'DELETED',
+                    'is_enabled' => false,
+                ]);
+            }
+
+            $this->audit->execute($businessId, $userId, 'message_templates.synchronized', MessageTemplate::class, null, null, [
+                'count' => $synchronizedCount,
+                'unavailable' => $missingTemplates->count(),
+            ]);
 
             return $synchronizedCount;
         });

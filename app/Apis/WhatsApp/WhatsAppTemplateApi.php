@@ -40,8 +40,11 @@ class WhatsAppTemplateApi
             }
 
             $nextAfter = data_get($response, 'paging.cursors.after');
-            if (! is_string($nextAfter) || $nextAfter === '' || $nextAfter === $after) {
+            if (! is_string($nextAfter) || $nextAfter === '') {
                 return $templates;
+            }
+            if ($nextAfter === $after) {
+                throw new RuntimeException('Meta returned a repeated message template pagination cursor.');
             }
 
             $after = $nextAfter;
