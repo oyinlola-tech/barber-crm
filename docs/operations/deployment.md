@@ -20,6 +20,11 @@ TLS/edge controls are intentionally configured.
    on secure requests. Tune HSTS with `SECURITY_HSTS_MAX_AGE` and
    `SECURITY_HSTS_INCLUDE_SUBDOMAINS`; use subdomain coverage only when every
    subdomain is HTTPS-ready. HSTS is not a replacement for TLS configuration.
+   Database-backed Laravel sessions are encrypted at rest by default through
+   `SESSION_ENCRYPT=true`; retain this setting in production.
+   Enabling encryption for an existing deployment makes older plaintext
+   session rows unreadable, so users may need to sign in again after rollout;
+   customer and business records are unaffected.
 2. Build the application image, start only PostgreSQL, and verify which
    configured database and persistent volume it will use. Do not remove or
    recreate volumes to make this check pass:

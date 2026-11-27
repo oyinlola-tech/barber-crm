@@ -58,6 +58,7 @@ it('documents configurable application runtime controls in the environment templ
         ->toContain('AUTOMATION_MINIMUM_CUSTOMER_MESSAGE_INTERVAL_HOURS=72')
         ->not->toContain('SESSION_SECURE_COOKIE=false')
         ->toContain('SESSION_HTTP_ONLY=true')
+        ->toContain('SESSION_ENCRYPT=true')
         ->toContain('SESSION_SAME_SITE=lax')
         ->not->toContain("AUTOMATION_MANUAL_RETRY_LIMIT=2\nAUTOMATION_MANUAL_RETRY_LIMIT=2");
 
@@ -65,6 +66,10 @@ it('documents configurable application runtime controls in the environment templ
 
     expect($deploymentInstructions)->toBeString()
         ->toContain('SESSION_SECURE_COOKIE=true');
+});
+
+it('encrypts stored session payloads by default', function (): void {
+    expect(config('session.encrypt'))->toBeTrue();
 });
 
 it('enforces secure session cookies in production even when an insecure override is present', function (): void {
