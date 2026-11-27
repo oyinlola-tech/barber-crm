@@ -72,10 +72,21 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             if (($payload['kind'] ?? null) === 'message') {
                 $this->processInboundMessage($event, $payload, $phoneNumbers, $recordConsent, $cancelCustomerFollowUps, $messagingSettings->execute((int) $event->business_id), $notifyStaff);
             } elseif (($payload['kind'] ?? null) === 'status') {
-                if (! $this->processDeliveryStatus($event, $payload, $applyDeliveryStatus)) {
+                $statusProcessed = $this->processDeliveryStatus($event, $payload, $applyDeliveryStatus);
+                if ($statusProcessed === false) {
                     $event->update(['status' => 'awaiting_message']);
 
                     return false;
+                }
+
+                if ($statusProcessed === null) {
+                    $event->update([
+                        'status' => 'failed',
+                        'payload' => ['kind' => 'status', 'unsupported_status' => true],
+                        'processed_at' => now(),
+                    ]);
+
+                    return true;
                 }
             }
 
@@ -195,7 +206,7 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
     }
 
     /** @param array<string, mixed> $payload */
-    private function processDeliveryStatus(WebhookEvent $event, array $payload, ApplyWhatsAppDeliveryStatusCommand $applyDeliveryStatus): bool
+    private function processDeliveryStatus(WebhookEvent $event, array $payload, ApplyWhatsAppDeliveryStatusCommand $applyDeliveryStatus): ?bool
     {
         $providerMessageId = $payload['provider_message_id'] ?? null;
         $providerStatus = $payload['status'] ?? null;
@@ -212,6 +223,10 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             default => null,
         };
 
+        if ($mappedStatus === null) {
+            return null;
+        }
+
         MessageEvent::query()->firstOrCreate([
             'webhook_event_id' => $event->getKey(),
         ], [
@@ -222,10 +237,6 @@ class ProcessWhatsAppWebhookJob implements ShouldQueue
             'provider_error_code' => is_string($payload['error_code'] ?? null) ? $payload['error_code'] : null,
             'occurred_at' => $occurredAt,
         ]);
-
-        if ($mappedStatus === null) {
-            return true;
-        }
 
         $messageEvent = MessageEvent::query()->where('webhook_event_id', $event->getKey())->firstOrFail();
 

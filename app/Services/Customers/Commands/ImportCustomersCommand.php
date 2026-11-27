@@ -45,13 +45,6 @@ class ImportCustomersCommand
                 continue;
             }
 
-            if (isset($seenPhones[$phone])) {
-                $issues[] = ['row' => $rowNumber, 'reason' => 'Duplicate normalized phone number within this file; no record was changed.'];
-
-                continue;
-            }
-            $seenPhones[$phone] = true;
-
             $attributes = [
                 'first_name' => $input['first_name'] ?? null,
                 'last_name' => $input['last_name'] ?? null,
@@ -74,6 +67,13 @@ class ImportCustomersCommand
 
                 continue;
             }
+
+            if (isset($seenPhones[$phone])) {
+                $issues[] = ['row' => $rowNumber, 'reason' => 'Duplicate normalized phone number within this file; no record was changed.'];
+
+                continue;
+            }
+            $seenPhones[$phone] = true;
 
             try {
                 $wasCreated = DB::transaction(function () use ($businessId, $userId, $attributes): bool {

@@ -121,7 +121,9 @@ class WhatsAppWebhookController extends Controller
                     if (! is_array($status)
                         || ! is_string($status['id'] ?? null)
                         || $status['id'] === ''
-                        || ! is_string($status['status'] ?? null)) {
+                        || ! is_string($status['status'] ?? null)
+                        || $status['status'] === ''
+                        || mb_strlen($status['status']) > 64) {
                         return response()->json(['message' => 'Webhook delivery event is invalid.'], 422);
                     }
 

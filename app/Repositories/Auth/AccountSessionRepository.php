@@ -31,6 +31,11 @@ class AccountSessionRepository
             ->delete();
     }
 
+    public function revokeAllSessions(int $userId): int
+    {
+        return DB::table('sessions')->where('user_id', $userId)->delete();
+    }
+
     public function revokeSession(int $userId, string $sessionId, string $currentSessionId): bool
     {
         return DB::table('sessions')
