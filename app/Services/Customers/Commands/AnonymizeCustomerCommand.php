@@ -53,10 +53,20 @@ class AnonymizeCustomerCommand
                     $message->forceFill(['status' => 'cancelled', 'body' => null, 'payload' => null, 'last_error' => 'Customer record anonymized.'])->save();
                 });
 
+            $conversationIds = DB::table('conversations')
+                ->where('business_id', $businessId)
+                ->where('customer_id', $customer->getKey())
+                ->select('id');
+
             DB::table('messages')
                 ->where('business_id', $businessId)
-                ->whereIn('conversation_id', DB::table('conversations')->select('id')->where('business_id', $businessId)->where('customer_id', $customer->getKey()))
+                ->whereIn('conversation_id', $conversationIds)
                 ->update(['body' => null, 'payload' => null, 'updated_at' => now()]);
+
+            DB::table('conversation_notes')
+                ->where('business_id', $businessId)
+                ->whereIn('conversation_id', $conversationIds)
+                ->update(['body' => '[redacted: customer anonymized]', 'updated_at' => now()]);
 
             DB::table('reviews')
                 ->where('business_id', $businessId)

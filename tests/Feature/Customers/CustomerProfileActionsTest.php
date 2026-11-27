@@ -4,6 +4,7 @@ use App\Dtos\Customers\CreateCustomerDto;
 use App\Models\AuditLog;
 use App\Models\Business;
 use App\Models\Conversation;
+use App\Models\ConversationNote;
 use App\Models\Customer;
 use App\Models\CustomerConsent;
 use App\Models\CustomerTag;
@@ -395,6 +396,10 @@ it('anonymizes a customer and preserves retained history without retaining messa
     $message = Message::query()->create([
         'business_id' => $business->getKey(), 'conversation_id' => $conversation->getKey(), 'direction' => 'inbound', 'type' => 'text', 'status' => 'received', 'body' => 'My personal detail',
     ]);
+    $conversationNote = ConversationNote::query()->create([
+        'business_id' => $business->getKey(), 'conversation_id' => $conversation->getKey(),
+        'created_by' => $user->getKey(), 'body' => 'Customer shared a private health detail',
+    ]);
     ScheduledMessage::query()->create([
         'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp', 'idempotency_key' => 'pvt-1',
         'status' => 'pending', 'scheduled_at' => now()->addDay(),
@@ -409,6 +414,7 @@ it('anonymizes a customer and preserves retained history without retaining messa
         ->and($customer->consents()->count())->toBe(1)
         ->and($customer->noteEntries()->count())->toBe(0)
         ->and($message->refresh()->body)->toBeNull()
+        ->and($conversationNote->refresh()->body)->toBe('[redacted: customer anonymized]')
         ->and(ScheduledMessage::query()->where('customer_id', $customer->getKey())->value('status'))->toBe('cancelled')
         ->and(AuditLog::query()->where('auditable_id', $customer->getKey())->where('auditable_type', Customer::class)->where('action', 'customer.created')->value('after'))->toBeNull();
 });

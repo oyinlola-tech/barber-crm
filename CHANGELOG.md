@@ -7,6 +7,7 @@
 - Keep audit-log CSV exports aligned with the action filter currently applied to the displayed records.
 - Show role actions only when the actor can manage that role, and restrict delegated permissions to the actor's own authority.
 - Document Meta dashboard webhook configuration, callback verification, signature validation, and troubleshooting.
+- Redact internal conversation notes when an authorized customer anonymization workflow runs.
 - Enforce actor permissions in customer CQRS mutations and exports; derive note access from the user and reject protected customer update fields.
 - Enforce business settings and WhatsApp connect/disconnect permissions inside CQRS commands, rejecting protected business profile attributes.
 - Reserve the `owner` role slug against custom role creation and renaming to prevent privilege escalation through the ownership permission shortcut.
