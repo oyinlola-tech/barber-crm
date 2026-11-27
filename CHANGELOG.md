@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Enable Laravel session payload encryption by default and in the environment template.
+- Cancel a customer's pending and queued follow-ups when archiving them, record the count in the audit entry, and keep those messages cancelled if the customer is later restored.
 - Report stale unresolved WhatsApp delivery callbacks on the owner health page using a configurable threshold.
 - Redact expired unresolved WhatsApp status webhook payloads while retaining deduplication tombstones and minimal callback records for reconciliation.
 - Honor upcoming customer return dates across visit and inactive-customer reminder scheduling, pre-delivery eligibility checks, recurring chains, and pending/queued reminder cancellation. Experience and review messages are preserved.

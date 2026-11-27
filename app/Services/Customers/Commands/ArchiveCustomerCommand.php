@@ -6,12 +6,17 @@ use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Models\Customer;
 use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
+use App\Services\Automations\Commands\CancelCustomerFollowUpsCommand;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ArchiveCustomerCommand
 {
-    public function __construct(public CustomerRepositoryInterface $customers, public RecordAuditLogCommand $audit) {}
+    public function __construct(
+        public CustomerRepositoryInterface $customers,
+        public RecordAuditLogCommand $audit,
+        private readonly CancelCustomerFollowUpsCommand $cancelFollowUps,
+    ) {}
 
     public function execute(int $businessId, int $customerId, int $userId): Customer
     {
@@ -24,7 +29,15 @@ class ArchiveCustomerCommand
                 throw ValidationException::withMessages(['customer' => 'Only an active customer can be archived.']);
             }
             $customer->forceFill(['status' => 'archived', 'archived_at' => now()])->save();
-            $this->audit->execute($businessId, $userId, 'customer.archived', Customer::class, $customer->getKey(), null, ['status' => 'archived']);
+            $cancelledMessages = $this->cancelFollowUps->execute(
+                $businessId,
+                (int) $customer->getKey(),
+                reason: 'Cancelled because the customer was archived.',
+            );
+            $this->audit->execute($businessId, $userId, 'customer.archived', Customer::class, $customer->getKey(), null, [
+                'status' => 'archived',
+                'cancelled_follow_ups' => $cancelledMessages,
+            ]);
 
             return $customer->refresh();
         });

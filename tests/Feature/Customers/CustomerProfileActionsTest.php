@@ -263,6 +263,16 @@ it('lists archived customers and restores them through the authorized profile wo
     $user = customerActionsOwner();
     $activeCustomer = Customer::factory()->create(['business_id' => $business->getKey()]);
     $archivedCustomer = Customer::factory()->create(['business_id' => $business->getKey()]);
+    $scheduledMessages = collect(['pending', 'queued', 'sending', 'reconciliation_required'])
+        ->mapWithKeys(fn (string $status): array => [$status => ScheduledMessage::query()->create([
+            'business_id' => $business->getKey(),
+            'customer_id' => $archivedCustomer->getKey(),
+            'channel' => 'whatsapp',
+            'idempotency_key' => 'archive-test:'.$status,
+            'payload' => [],
+            'status' => $status,
+            'scheduled_at' => now()->addDay(),
+        ])]);
     $business->members()->attach($user, ['role' => 'owner', 'status' => 'active', 'joined_at' => now()]);
 
     $this->actingAs($user)
@@ -270,7 +280,21 @@ it('lists archived customers and restores them through the authorized profile wo
         ->assertRedirect(route('customers.index'));
 
     expect($archivedCustomer->refresh()->status)->toBe('archived')
-        ->and($archivedCustomer->archived_at)->not->toBeNull();
+        ->and($archivedCustomer->archived_at)->not->toBeNull()
+        ->and($scheduledMessages['pending']->fresh()->status)->toBe('cancelled')
+        ->and($scheduledMessages['queued']->fresh()->status)->toBe('cancelled')
+        ->and($scheduledMessages['sending']->fresh()->status)->toBe('sending')
+        ->and($scheduledMessages['reconciliation_required']->fresh()->status)->toBe('reconciliation_required');
+    $archiveAudit = AuditLog::query()->where('business_id', $business->getKey())
+        ->where('action', 'customer.archived')
+        ->where('auditable_id', $archivedCustomer->getKey())
+        ->firstOrFail();
+    expect($archiveAudit->after['cancelled_follow_ups'])->toBe(2);
+    $this->assertDatabaseHas('audit_logs', [
+        'business_id' => $business->getKey(),
+        'action' => 'customer.archived',
+        'auditable_id' => $archivedCustomer->getKey(),
+    ]);
     $this->delete(route('customers.destroy', $archivedCustomer))->assertForbidden();
 
     $this->get(route('customers.index', ['status' => 'archived']))
@@ -290,7 +314,9 @@ it('lists archived customers and restores them through the authorized profile wo
         ->assertRedirect(route('customers.show', $archivedCustomer));
 
     expect($archivedCustomer->refresh()->status)->toBe('active')
-        ->and($archivedCustomer->archived_at)->toBeNull();
+        ->and($archivedCustomer->archived_at)->toBeNull()
+        ->and($scheduledMessages['pending']->fresh()->status)->toBe('cancelled')
+        ->and($scheduledMessages['queued']->fresh()->status)->toBe('cancelled');
     $this->post(route('customers.restore', $archivedCustomer))->assertForbidden();
 
     $this->get(route('customers.index'))

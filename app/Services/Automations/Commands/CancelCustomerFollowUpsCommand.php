@@ -9,8 +9,13 @@ use Illuminate\Support\Facades\DB;
 
 class CancelCustomerFollowUpsCommand
 {
-    public function execute(int $businessId, int $customerId, ?int $exceptRuleId = null, ?string $onlyTemplatePurpose = null): int
-    {
+    public function execute(
+        int $businessId,
+        int $customerId,
+        ?int $exceptRuleId = null,
+        ?string $onlyTemplatePurpose = null,
+        string $reason = 'Cancelled because a customer activity superseded the follow-up.',
+    ): int {
         $templateIds = $onlyTemplatePurpose === null
             ? []
             : MessageTemplate::query()
@@ -20,7 +25,7 @@ class CancelCustomerFollowUpsCommand
                 ->map(static fn ($id): int => (int) $id)
                 ->all();
 
-        return DB::transaction(function () use ($businessId, $customerId, $exceptRuleId, $onlyTemplatePurpose, $templateIds): int {
+        return DB::transaction(function () use ($businessId, $customerId, $exceptRuleId, $onlyTemplatePurpose, $templateIds, $reason): int {
             $messages = ScheduledMessage::query()
                 ->where('business_id', $businessId)
                 ->where('customer_id', $customerId)
@@ -41,7 +46,7 @@ class CancelCustomerFollowUpsCommand
 
             return $messages->update([
                 'status' => 'cancelled',
-                'last_error' => 'Cancelled because a customer activity superseded the follow-up.',
+                'last_error' => $reason,
                 'claimed_at' => null,
                 'updated_at' => now(),
             ]);
