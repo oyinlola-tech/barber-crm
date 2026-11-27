@@ -200,3 +200,25 @@ it('creates, updates, and deletes a custom role through the authorized HTTP work
             'roles.created', 'roles.updated', 'roles.deleted',
         ])->count())->toBe(3);
 });
+
+it('allows delegating customer note permission and reserves built-in role slugs', function (): void {
+    [$business, $owner] = lifecycleBusiness();
+
+    $this->actingAs($owner)->post(route('roles.store'), [
+        'name' => 'Notes assistant',
+        'permissions' => ['customers.note'],
+    ])->assertRedirect(route('roles.index'));
+    $notesRole = Role::query()->where('business_id', $business->getKey())->where('slug', 'notes-assistant')->firstOrFail();
+    expect($notesRole->permissions)->toBe(['customers.note']);
+
+    $this->actingAs($owner)->post(route('roles.store'), [
+        'name' => 'Manager',
+        'permissions' => ['customers.view'],
+    ])->assertSessionHasErrors('name');
+    $this->actingAs($owner)->put(route('roles.update', $notesRole), [
+        'name' => 'Viewer',
+        'permissions' => ['customers.note'],
+    ])->assertSessionHasErrors('name');
+
+    expect($notesRole->fresh()->slug)->toBe('notes-assistant');
+});

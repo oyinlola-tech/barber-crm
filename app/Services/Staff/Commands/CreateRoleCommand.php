@@ -20,8 +20,8 @@ class CreateRoleCommand
         $this->assertDelegable($actor, (int) $business->getKey(), $permissions);
         $slug = Str::slug($name);
 
-        if ($slug === BusinessRole::Owner->value) {
-            throw ValidationException::withMessages(['name' => 'The ownership role is reserved.']);
+        if (in_array($slug, array_column(BusinessRole::cases(), 'value'), true)) {
+            throw ValidationException::withMessages(['name' => 'Built-in role names are reserved.']);
         }
 
         if ($slug === '' || Role::query()->where('business_id', $business->getKey())->where('slug', $slug)->exists()) {
