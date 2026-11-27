@@ -7,6 +7,7 @@
 - Keep audit-log CSV exports aligned with the action filter currently applied to the displayed records.
 - Show role actions only when the actor can manage that role, and restrict delegated permissions to the actor's own authority.
 - Document Meta dashboard webhook configuration, callback verification, signature validation, and troubleshooting.
+- Link WhatsApp setup guidance to Meta's current Cloud API and approved-template references.
 - Redact internal conversation notes when an authorized customer anonymization workflow runs.
 - Ignore stale failed-delivery callbacks that predate the recorded sent timestamp while retaining their audit event.
 - Compare corrected visit times in the barbershop timezone so lifecycle regression coverage is stable at UTC date boundaries.

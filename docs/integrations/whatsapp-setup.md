@@ -17,7 +17,8 @@ The token must be allowed to read the business account and its phone numbers, an
 - [WhatsApp Business Management API guides](https://developers.facebook.com/docs/whatsapp/business-management-api/guides/)
 - [Manage WhatsApp Business Account phone numbers](https://developers.facebook.com/docs/graph-api/reference/whats-app-business-account/phone_numbers/)
 - [WhatsApp Business Account object](https://developers.facebook.com/docs/graph-api/reference/whats-app-business-account/)
-- [WhatsApp Cloud API overview](https://developers.facebook.com/docs/whatsapp/cloud-api/overview/)
+- [WhatsApp Business Platform overview](https://developers.facebook.com/documentation/business-messaging/whatsapp/overview/)
+- [WhatsApp Business Account message templates](https://developers.facebook.com/docs/graph-api/reference/whats-app-business-account/message_templates/)
 
 Meta's dashboard activation, token issuance, account verification, webhook subscription and template approval remain external setup requirements. Automated tests use HTTP fakes; they do not prove live Meta access or message delivery.
 
