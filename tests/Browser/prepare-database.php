@@ -202,6 +202,7 @@ foreach ([
     ['Browser Audit Owner', 'crm.audit-owner@example.test', ['browser-audit-recovery-code']],
     ['Browser Invitation Owner', 'crm.invitation-owner@example.test', ['browser-invitation-owner-recovery-code']],
     ['Browser Business Settings Owner', 'crm.business-settings-owner@example.test', ['browser-business-settings-recovery-code']],
+    ['Browser Roles Owner', 'crm.role-manager@example.test', ['browser-roles-owner-recovery-code']],
 ] as [$name, $email, $recoveryCode]) {
     $specializedOwner = User::query()->create([
         'name' => $name,
