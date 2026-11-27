@@ -93,6 +93,9 @@ jobs:
             - name: Audit Composer dependencies
               run: composer audit --locked
 
+            - name: Build frontend for rendered PHP tests
+              run: pnpm build
+
             - name: Run PHP tests
               run: php artisan test --compact
 
@@ -107,9 +110,6 @@ jobs:
 
             - name: Check formatting
               run: pnpm format:check
-
-            - name: Build frontend
-              run: pnpm build
 
             - name: Build PHP runtime image for recovery drill
               run: docker build --target runtime --tag barber-crm-app:latest .
