@@ -2,6 +2,7 @@
 
 namespace App\Validators\Customers;
 
+use App\Models\Customer;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ImportCustomersRequest extends FormRequest
@@ -10,7 +11,11 @@ class ImportCustomersRequest extends FormRequest
     {
         $businessId = (int) $this->attributes->get('currentBusiness')?->getKey();
 
-        return $this->user()?->hasBusinessPermission($businessId, 'customers.import') ?? false;
+        $user = $this->user();
+
+        return $user !== null
+            && $user->hasBusinessPermission($businessId, 'customers.import')
+            && $user->can('viewAny', Customer::class);
     }
 
     public function rules(): array

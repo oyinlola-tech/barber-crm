@@ -3,6 +3,7 @@
 namespace App\Validators\Customers;
 
 use App\Dtos\Customers\CreateCustomerDto;
+use App\Models\Customer;
 use App\Utils\PhoneNumberNormalizer;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -11,7 +12,7 @@ class StoreCustomerRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return $this->user()?->can('create', Customer::class) ?? false;
     }
 
     public function rules(): array

@@ -197,6 +197,43 @@ it('does not allow import callers to grant themselves customer-note access', fun
         ->and(Customer::query()->where('business_id', $business->getKey())->exists())->toBeFalse();
 });
 
+it('rejects customer creation before duplicate-phone validation for users without create permission', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $user = User::factory()->create();
+    $business->members()->attach($user, ['role' => 'barber', 'status' => 'active', 'joined_at' => now()]);
+    $existing = Customer::factory()->create(['business_id' => $business->getKey(), 'phone' => '+2348031234567']);
+
+    $this->actingAs($user)->post(route('customers.store'), [
+        'first_name' => 'Unauthorized',
+        'phone' => '+2348031234567',
+    ])->assertForbidden()->assertSessionDoesntHaveErrors();
+
+    expect(Customer::query()->where('business_id', $business->getKey())->count())->toBe(1)
+        ->and($existing->refresh()->phone)->toBe('+2348031234567');
+});
+
+it('denies a user with import permission but no customer-list access before processing the upload', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $user = User::factory()->create();
+    Role::query()->create([
+        'business_id' => $business->getKey(),
+        'slug' => 'import-only-route-test',
+        'name' => 'Import only',
+        'permissions' => ['customers.import'],
+    ]);
+    $business->members()->attach($user, ['role' => 'import-only-route-test', 'status' => 'active', 'joined_at' => now()]);
+
+    $this->actingAs($user)->post(route('customers.import'), [
+        'file' => UploadedFile::fake()->createWithContent('customers.csv', "first_name,last_name,phone,email\nImported,Customer,+2348031234567,imported@example.test\n"),
+    ])->assertForbidden()->assertSessionDoesntHaveErrors();
+
+    expect(Customer::query()->where('business_id', $business->getKey())->where('phone', '+2348031234567')->exists())->toBeFalse();
+
+    $this->get(route('customers.index'))->assertForbidden();
+});
+
 it('prevents customer commands from changing protected fields or notes without note permission', function (): void {
     $this->seed(BusinessRoleSeeder::class);
     $business = Business::factory()->create();
@@ -370,6 +407,13 @@ it('imports only new normalized phone numbers and reports duplicates without ove
     $this->actingAs($user)->post(route('customers.import'), [
         'file' => UploadedFile::fake()->createWithContent('customers.csv', $csv),
     ])->assertRedirect(route('customers.index'));
+
+    $this->get(route('customers.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('customers/index')
+            ->where('importResult.created', 1)
+            ->where('importResult.skipped', 2));
 
     expect(Customer::query()->where('business_id', $business->getKey())->count())->toBe(2)
         ->and($existing->refresh()->first_name)->toBe('Original')
