@@ -214,6 +214,70 @@ it('restores a voided visit only when the actor has the dedicated permission', f
         ->and(AuditLog::query()->where('action', 'visit.restored')->exists())->toBeTrue();
 });
 
+it('reschedules a new follow-up generation when a voided completed visit is restored', function (): void {
+    [$business, $user, $customer] = visitLifecycleSetup();
+    CustomerConsent::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $customer->getKey(),
+        'channel' => 'whatsapp',
+        'granted' => true,
+        'source' => 'in_person',
+        'recorded_at' => now(),
+    ]);
+    $template = MessageTemplate::query()->create([
+        'business_id' => $business->getKey(),
+        'provider_template_id' => 'provider-template',
+        'name' => 'visit_follow_up',
+        'language' => 'en',
+        'category' => 'utility',
+        'purpose' => 'thank_you',
+        'status' => 'synchronized',
+        'provider_status' => 'APPROVED',
+        'is_enabled' => true,
+        'components' => [['type' => 'BODY', 'text' => 'Thanks for visiting.']],
+        'variable_map' => [],
+    ]);
+    $rule = AutomationRule::query()->create([
+        'business_id' => $business->getKey(),
+        'name' => 'Visit follow up',
+        'trigger' => 'visit_completed',
+        'action' => 'send_template',
+        'delay_minutes' => 60,
+        'is_enabled' => true,
+        'settings' => ['template_id' => $template->getKey()],
+    ]);
+    $visit = Visit::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $customer->getKey(),
+        'recorded_by' => $user->getKey(),
+        'visited_at' => now()->subDay(),
+    ]);
+    ScheduledMessage::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $customer->getKey(),
+        'automation_rule_id' => $rule->getKey(),
+        'channel' => 'whatsapp',
+        'idempotency_key' => 'visit:'.$visit->getKey().':rule:'.$rule->getKey().':step:1',
+        'payload' => ['visit_id' => $visit->getKey(), 'visit_revision' => 1],
+        'status' => 'pending',
+        'scheduled_at' => now()->addHour(),
+    ]);
+
+    $this->actingAs($user)->delete(route('visits.destroy', $visit))->assertRedirect();
+    $cancelled = ScheduledMessage::query()->where('business_id', $business->getKey())->firstOrFail();
+    expect($cancelled->status)->toBe('cancelled');
+
+    $this->actingAs($user)->post(route('visits.restore', $visit))->assertRedirect();
+    $restored = ScheduledMessage::query()
+        ->where('business_id', $business->getKey())
+        ->where('idempotency_key', 'visit:'.$visit->getKey().':revision:2:rule:'.$rule->getKey().':step:1')
+        ->firstOrFail();
+    expect($visit->fresh()->automation_revision)->toBe(2)
+        ->and($cancelled->refresh()->status)->toBe('cancelled')
+        ->and($restored->status)->toBe('pending')
+        ->and(ScheduledMessage::query()->where('business_id', $business->getKey())->count())->toBe(2);
+});
+
 it('rejects visit corrections from staff without the update permission', function (): void {
     [$business, $user, $customer] = visitLifecycleSetup('viewer');
     $visit = Visit::query()->create([

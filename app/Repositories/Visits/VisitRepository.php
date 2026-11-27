@@ -81,6 +81,7 @@ class VisitRepository implements VisitRepositoryInterface
     {
         $visit = Visit::withTrashed()->where('business_id', $businessId)->lockForUpdate()->findOrFail($visitId);
         $visit->restore();
+        $visit->increment('automation_revision');
 
         return $visit->refresh();
     }
