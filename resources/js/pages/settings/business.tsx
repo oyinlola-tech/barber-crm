@@ -12,6 +12,10 @@ type BusinessProfile = {
     currency: string;
     phone: string | null;
     email: string | null;
+    description: string | null;
+    address: string | null;
+    public_review_url: string | null;
+    logo_url: string | null;
 };
 
 export default function BusinessSettings({
@@ -27,8 +31,13 @@ export default function BusinessSettings({
         name: business.name,
         phone: business.phone ?? '',
         email: business.email ?? '',
+        description: business.description ?? '',
+        address: business.address ?? '',
+        public_review_url: business.public_review_url ?? '',
         timezone: business.timezone,
         currency: business.currency,
+        logo: null as File | null,
+        remove_logo: false,
     });
 
     function submit(event: FormEvent<HTMLFormElement>) {
@@ -92,6 +101,101 @@ export default function BusinessSettings({
                             onChange={(value) => form.setData('email', value)}
                             type="email"
                         />
+                        <Field
+                            label="Business address"
+                            value={form.data.address}
+                            error={form.errors.address}
+                            disabled={!canUpdate}
+                            onChange={(value) => form.setData('address', value)}
+                        />
+                        <Field
+                            label="Public review link"
+                            value={form.data.public_review_url}
+                            error={form.errors.public_review_url}
+                            disabled={!canUpdate}
+                            onChange={(value) =>
+                                form.setData('public_review_url', value)
+                            }
+                            type="url"
+                        />
+                        <label className="grid gap-1.5 text-sm font-medium sm:col-span-2">
+                            Business description
+                            <textarea
+                                className="min-h-24 rounded-lg border bg-background px-3 py-2 font-normal disabled:opacity-60"
+                                disabled={!canUpdate}
+                                maxLength={2000}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'description',
+                                        event.target.value,
+                                    )
+                                }
+                                value={form.data.description}
+                            />
+                            {form.errors.description && (
+                                <span className="text-xs font-normal text-destructive">
+                                    {form.errors.description}
+                                </span>
+                            )}
+                        </label>
+                        <div className="grid gap-2 text-sm sm:col-span-2">
+                            <label className="grid gap-1.5 font-medium">
+                                Business logo
+                                <input
+                                    accept="image/jpeg,image/png,image/webp"
+                                    className="rounded-lg border bg-background p-2 font-normal disabled:opacity-60"
+                                    disabled={!canUpdate}
+                                    onChange={(event) => {
+                                        form.setData(
+                                            'logo',
+                                            event.target.files?.[0] ?? null,
+                                        );
+                                        if (event.target.files?.[0]) {
+                                            form.setData('remove_logo', false);
+                                        }
+                                    }}
+                                    type="file"
+                                />
+                                <span className="text-xs font-normal text-muted-foreground">
+                                    JPG, PNG or WebP, up to 2 MB.
+                                </span>
+                                {form.errors.logo && (
+                                    <span className="text-xs font-normal text-destructive">
+                                        {form.errors.logo}
+                                    </span>
+                                )}
+                            </label>
+                            {business.logo_url && (
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <img
+                                        alt="Current business logo"
+                                        className="size-16 rounded-lg border object-contain"
+                                        src={business.logo_url}
+                                    />
+                                    {canUpdate && (
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <input
+                                                checked={form.data.remove_logo}
+                                                onChange={(event) => {
+                                                    form.setData(
+                                                        'remove_logo',
+                                                        event.target.checked,
+                                                    );
+                                                    if (event.target.checked) {
+                                                        form.setData(
+                                                            'logo',
+                                                            null,
+                                                        );
+                                                    }
+                                                }}
+                                                type="checkbox"
+                                            />
+                                            Remove current logo
+                                        </label>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                         <Field
                             label="Time zone"
                             value={form.data.timezone}
