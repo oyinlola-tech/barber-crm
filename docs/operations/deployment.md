@@ -77,12 +77,13 @@ TLS/edge controls are intentionally configured.
    up to 120 seconds by default. If web health fails or a background service is
    stopped, deployment automatically restores the prior stable images and
    rechecks the web service, queue worker, and scheduler. It returns a failure
-   code so the attempted release is not mistaken for a successful deploy. Only
-   after these checks pass does deploy save the running pair as
-   `previous-stable`; `make rollback` automatically restores that last
-   successfully deployed pair. If recovery cannot be verified, inspect the
-   emitted service logs. On a fresh host, no prior version exists until the
-   first deployment passes its checks.
+   code so the attempted release is not mistaken for a successful deploy.
+   Before Compose rebuilds the `current` tags, deploy saves the running app and
+   web image IDs as `previous-stable`. `make rollback` automatically restores
+   that pre-deployment pair. If recovery cannot be verified, inspect the emitted
+   service logs. The first deployment has no previous release to restore; a
+   rollback pair becomes available after a later deployment snapshots the
+   running release.
 5. Provision the initial owner interactively with
    `docker compose exec app php artisan app:provision-owner`.
 6. Confirm `https://your-host/ready` through the intended TLS proxy and check
@@ -107,9 +108,10 @@ Restart long-lived workers after deploying new code with
 procedure and preserve persistent volumes. Do not publish the PostgreSQL port.
 
 Run `make rollback` to restore the previous stable app and web images. It takes
-no version argument and automatically selects the pair saved by the last
-successful deployment. It restarts the queue worker and scheduler with those images,
-and verifies both are running before reporting success. A service startup or
+no version argument and automatically selects the app/web pair captured from
+the running release before the most recent rebuild. It restarts the queue worker
+and scheduler with those images and verifies both are running before reporting
+success. A service startup or
 worker/scheduler check failure is reported with service logs. Rollback leaves
 PostgreSQL, migrations, customer data, and volumes untouched. Database
 migrations must remain backward-compatible with the previous release; do not
