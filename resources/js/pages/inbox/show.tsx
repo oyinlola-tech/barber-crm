@@ -72,13 +72,14 @@ export default function InboxConversationPage({
     templateSendBlocked,
     freeFormReplyBlocked,
 }: InboxConversationProps) {
-    const reply = useForm({ body: '' });
+    const reply = useForm({ body: '', idempotency_key: '' });
     const note = useForm({ body: '' });
     const assignment = useForm({
         assignee_id: conversation.assigned_to?.toString() ?? '',
     });
     const templateReply = useForm({ template_id: '', idempotency_key: '' });
     const templateRequestKey = useRef<string | null>(null);
+    const replyRequest = useRef<{ body: string; key: string } | null>(null);
 
     useEffect(() => {
         const interval = window.setInterval(() => {
@@ -107,8 +108,21 @@ export default function InboxConversationPage({
 
     function sendReply(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
+        if (replyRequest.current?.body !== reply.data.body) {
+            replyRequest.current = {
+                body: reply.data.body,
+                key: crypto.randomUUID(),
+            };
+        }
+        reply.transform((data) => ({
+            ...data,
+            idempotency_key: replyRequest.current?.key ?? data.idempotency_key,
+        }));
         reply.post(`/inbox/${conversation.id}/reply`, {
-            onSuccess: () => reply.reset(),
+            onSuccess: () => {
+                reply.reset();
+                replyRequest.current = null;
+            },
         });
     }
 

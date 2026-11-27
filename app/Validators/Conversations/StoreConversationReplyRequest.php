@@ -16,6 +16,9 @@ class StoreConversationReplyRequest extends FormRequest
     /** @return array<string, list<string>> */
     public function rules(): array
     {
-        return ['body' => ['required', 'string', 'min:1', 'max:4096']];
+        return [
+            'body' => ['required', 'string', 'min:1', 'max:4096'],
+            'idempotency_key' => ['required', 'uuid'],
+        ];
     }
 }

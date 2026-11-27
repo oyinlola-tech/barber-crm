@@ -135,7 +135,7 @@ it('sends a free-form reply only with consent and within the customer service wi
     [$user, , , $conversation] = makeInboxConversation();
     Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.outbound']]], 200)]);
 
-    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'Thanks for reaching out.'])
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'Thanks for reaching out.', 'idempotency_key' => '8a9f6ac6-d2a4-4c02-93c8-b3ce3e4355e7'])
         ->assertRedirect();
 
     $this->assertDatabaseHas('messages', [
@@ -149,11 +149,30 @@ it('sends a free-form reply only with consent and within the customer service wi
         && $request->hasHeader('Authorization', 'Bearer test-access-token'));
 });
 
+it('reuses successful free-form replies for the same idempotency key and rejects key reuse', function (): void {
+    [$user, , , $conversation] = makeInboxConversation();
+    Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.outbound.once']]], 200)]);
+    $payload = [
+        'body' => 'Thanks for reaching out.',
+        'idempotency_key' => 'bfaec48f-965d-4bce-94b8-a697d6d2a8c7',
+    ];
+
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', $payload)->assertRedirect();
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', $payload)->assertRedirect();
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', [
+        ...$payload,
+        'body' => 'A different reply.',
+    ])->assertSessionHasErrors('idempotency_key');
+
+    Http::assertSentCount(1);
+    $this->assertDatabaseCount('messages', 2);
+});
+
 it('blocks another free-form reply after uncertain provider acceptance until a new customer message arrives', function (): void {
     [$user, , , $conversation] = makeInboxConversation();
     Http::fake(['graph.facebook.com/*' => Http::response(['error' => ['message' => 'Temporary provider error']], 500)]);
 
-    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'Please let us know if you need help.'])
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'Please let us know if you need help.', 'idempotency_key' => '3a0dbcb7-0c61-4aef-9d20-5984538db411'])
         ->assertRedirect();
 
     $this->assertDatabaseHas('messages', [
@@ -171,7 +190,7 @@ it('blocks another free-form reply after uncertain provider acceptance until a n
     $this->actingAs($user)->get('/inbox/'.$conversation->getKey())->assertInertia(fn (Assert $page) => $page
         ->where('freeFormReplyBlocked', true)
         ->where('canReply', false));
-    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'A duplicate reply.'])
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'A duplicate reply.', 'idempotency_key' => '62fcbf79-3ed8-4dde-878d-3f550b6b1ae9'])
         ->assertSessionHasErrors('body');
 
     $this->assertDatabaseCount('messages', 2);
@@ -193,7 +212,7 @@ it('blocks a second free-form reply while the previous provider request is still
     $this->actingAs($user)->get('/inbox/'.$conversation->getKey())->assertInertia(fn (Assert $page) => $page
         ->where('freeFormReplyBlocked', true)
         ->where('canReply', false));
-    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'A duplicate reply.'])
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'A duplicate reply.', 'idempotency_key' => 'e36d5c1b-f11a-44d1-94b2-338095a0f27b'])
         ->assertSessionHasErrors('body');
 
     $this->assertDatabaseCount('messages', 2);
@@ -206,7 +225,7 @@ it('records a definite failure when the saved WhatsApp token cannot be decrypted
     DB::table('whatsapp_connections')->where('id', $connection->getKey())->update(['access_token' => 'invalid-encrypted-token']);
     Http::fake();
 
-    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'Please let us know if you need help.'])
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'Please let us know if you need help.', 'idempotency_key' => '7a6246b0-83c6-45e6-aacf-20f98b36a0de'])
         ->assertRedirect()
         ->assertSessionHas('status', 'WhatsApp did not send the reply. Check the connection and message status before trying again.');
 
@@ -328,7 +347,7 @@ it('rejects manual replies without active consent or after the service window cl
     [$user, , , $conversation] = makeInboxConversation(withConsent: false);
     Http::fake();
 
-    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'A reply'])
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'A reply', 'idempotency_key' => '58548aa4-59b9-46d1-9fdd-0e137f350f45'])
         ->assertSessionHasErrors('body');
     Http::assertNothingSent();
 
@@ -341,7 +360,7 @@ it('rejects manual replies without active consent or after the service window cl
         'recorded_at' => now(),
     ]);
     $conversation->messages()->where('direction', 'inbound')->update(['sent_at' => now()->subHours(25)]);
-    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'A reply'])
+    $this->actingAs($user)->post('/inbox/'.$conversation->getKey().'/reply', ['body' => 'A reply', 'idempotency_key' => 'ebc3ba8e-c835-439a-9ff3-d136783facd4'])
         ->assertSessionHasErrors('body');
     Http::assertNothingSent();
 });

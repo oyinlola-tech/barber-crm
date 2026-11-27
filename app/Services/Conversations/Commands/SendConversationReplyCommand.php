@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\WhatsAppConnection;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\DB;
@@ -24,51 +25,81 @@ class SendConversationReplyCommand
         public RecordAuditLogCommand $audit,
     ) {}
 
-    public function execute(int $businessId, int $conversationId, int $actorId, string $body): Message
+    public function execute(int $businessId, int $conversationId, int $actorId, string $body, string $idempotencyKey): Message
     {
         $actor = User::query()->findOrFail($actorId);
         abort_unless($actor->hasBusinessPermission($businessId, 'conversations.reply'), 403);
 
-        $message = DB::transaction(function () use ($businessId, $conversationId, $body): Message {
-            $conversation = Conversation::query()
+        try {
+            $context = DB::transaction(function () use ($businessId, $conversationId, $body, $idempotencyKey): array {
+                $existing = Message::query()
+                    ->where('business_id', $businessId)
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->first();
+                if ($existing !== null) {
+                    $this->assertSameRequest($existing, $conversationId, $body);
+
+                    return ['message' => $existing, 'should_send' => false];
+                }
+
+                $conversation = Conversation::query()
+                    ->where('business_id', $businessId)
+                    ->with('customer')
+                    ->lockForUpdate()
+                    ->findOrFail($conversationId);
+                $connection = WhatsAppConnection::query()
+                    ->where('business_id', $businessId)
+                    ->where('status', 'connected')
+                    ->first();
+                if ($connection === null) {
+                    throw ValidationException::withMessages(['body' => 'WhatsApp is not connected.']);
+                }
+
+                $this->assertEligibleForFreeFormReply($businessId, $conversation);
+                $uncertainReply = $conversation->messages()
+                    ->where('direction', 'outbound')
+                    ->where('type', 'text')
+                    ->whereIn('status', ['pending', 'processing', 'delivery_uncertain'])
+                    ->latest('created_at')
+                    ->first();
+                $latestInbound = $conversation->messages()
+                    ->where('direction', 'inbound')
+                    ->whereNotNull('sent_at')
+                    ->latest('sent_at')
+                    ->first();
+
+                if ($uncertainReply !== null && ($latestInbound?->sent_at === null || $latestInbound->sent_at->lessThanOrEqualTo($uncertainReply->created_at))) {
+                    throw ValidationException::withMessages(['body' => 'A previous reply has uncertain delivery. Wait for reconciliation or a new customer message before sending again.']);
+                }
+
+                return ['message' => Message::query()->create([
+                    'business_id' => $businessId,
+                    'conversation_id' => $conversation->getKey(),
+                    'idempotency_key' => $idempotencyKey,
+                    'direction' => 'outbound',
+                    'type' => 'text',
+                    'status' => 'pending',
+                    'body' => trim($body),
+                ]), 'should_send' => true];
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            $existing = Message::query()
                 ->where('business_id', $businessId)
-                ->with('customer')
-                ->lockForUpdate()
-                ->findOrFail($conversationId);
-            $connection = WhatsAppConnection::query()
-                ->where('business_id', $businessId)
-                ->where('status', 'connected')
+                ->where('idempotency_key', $idempotencyKey)
                 ->first();
-            if ($connection === null) {
-                throw ValidationException::withMessages(['body' => 'WhatsApp is not connected.']);
+            if ($existing === null) {
+                throw $exception;
             }
+            $this->assertSameRequest($existing, $conversationId, $body);
 
-            $this->assertEligibleForFreeFormReply($businessId, $conversation);
-            $uncertainReply = $conversation->messages()
-                ->where('direction', 'outbound')
-                ->where('type', 'text')
-                ->whereIn('status', ['pending', 'processing', 'delivery_uncertain'])
-                ->latest('created_at')
-                ->first();
-            $latestInbound = $conversation->messages()
-                ->where('direction', 'inbound')
-                ->whereNotNull('sent_at')
-                ->latest('sent_at')
-                ->first();
+            return $existing;
+        }
 
-            if ($uncertainReply !== null && ($latestInbound?->sent_at === null || $latestInbound->sent_at->lessThanOrEqualTo($uncertainReply->created_at))) {
-                throw ValidationException::withMessages(['body' => 'A previous reply has uncertain delivery. Wait for reconciliation or a new customer message before sending again.']);
-            }
-
-            return Message::query()->create([
-                'business_id' => $businessId,
-                'conversation_id' => $conversation->getKey(),
-                'direction' => 'outbound',
-                'type' => 'text',
-                'status' => 'pending',
-                'body' => trim($body),
-            ]);
-        });
+        /** @var Message $message */
+        $message = $context['message'];
+        if (! $context['should_send']) {
+            return $message;
+        }
 
         $conversation = Conversation::query()->where('business_id', $businessId)->with('customer')->findOrFail($conversationId);
         $connection = WhatsAppConnection::query()
@@ -127,6 +158,15 @@ class SendConversationReplyCommand
             $this->audit->execute($businessId, $actorId, $status >= 500 ? 'message.send_uncertain' : 'message.send_failed', Message::class, (int) $message->getKey(), null, ['status' => $status >= 500 ? 'delivery_uncertain' : 'failed']);
 
             return $message->refresh();
+        }
+    }
+
+    private function assertSameRequest(Message $message, int $conversationId, string $body): void
+    {
+        if ((int) $message->conversation_id !== $conversationId
+            || $message->type !== 'text'
+            || trim((string) $message->body) !== trim($body)) {
+            throw ValidationException::withMessages(['idempotency_key' => 'This request key has already been used for a different message.']);
         }
     }
 
