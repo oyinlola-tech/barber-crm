@@ -41,7 +41,7 @@ Run `php artisan queue:work --tries=5 --timeout=60` as a supervised worker. Run 
 
 ## WhatsApp setup status
 
-Configure the Graph API version, app secret, webhook verification token, and webhook URL through secret-managed environment settings. Configure the WhatsApp Business phone-number ID, business account ID, and access token in the protected integration settings. Meta business verification, template approval, webhook subscription, and live delivery are external dependencies and have not been verified in this repository.
+Configure the Graph API version, app secret, webhook verification token, and webhook URL through secret-managed environment settings. Configure the WhatsApp Business phone-number ID, business account ID, and access token in the protected integration settings. Follow the [WhatsApp connection guide](docs/integrations/whatsapp-setup.md) and [webhook setup guide](docs/integrations/webhook-setup.md). Meta business verification, template approval, webhook subscription, and live delivery are external dependencies and have not been verified in this repository.
 
 ## Verification
 
