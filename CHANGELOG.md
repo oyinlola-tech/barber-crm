@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Make manual free-form inbox replies idempotent across retries and reject request-key reuse for a different conversation or body.
+- Exclude private customer notes from customer update audit metadata.
+- Create a new revision and reschedule eligible follow-ups when restoring a voided completed visit.
+- Add `customers.note` to the delegable permission catalogue and reserve every built-in role slug from custom role creation and rename.
+- Wait for a successful SQL query before starting the encrypted backup/restore drill, avoiding a PostgreSQL initialization race in CI.
 - Rotate remembered-device tokens after password reset or change, expose password changes in account security, and revoke other database sessions on a password change.
 - Validate customer import rows before reserving their normalized phone numbers so malformed rows do not suppress valid later records.
 - Use a fresh authenticator code in the custom-role browser workflow so Playwright retries do not reuse a consumed recovery code.
