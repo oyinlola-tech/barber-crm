@@ -5,10 +5,13 @@ namespace App\Listeners\Automations;
 use App\Enums\AutomationTrigger;
 use App\Events\Visits\VisitCompleted;
 use App\Models\AutomationRule;
+use App\Models\Customer;
+use App\Models\MessageTemplate;
 use App\Models\Visit;
 use App\Services\Automations\Commands\CancelCustomerFollowUpsCommand;
 use App\Services\Automations\Commands\ScheduleFollowUpCommand;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
+use App\Services\Customers\Queries\CustomerHasUpcomingReturnDateQuery;
 
 class ScheduleFollowUpAfterVisit
 {
@@ -16,6 +19,7 @@ class ScheduleFollowUpAfterVisit
         public ScheduleFollowUpCommand $scheduleFollowUp,
         public CancelCustomerFollowUpsCommand $cancelCustomerFollowUps,
         public CustomerCanReceiveMessageQuery $consent,
+        private readonly CustomerHasUpcomingReturnDateQuery $upcomingReturnDate,
     ) {}
 
     public function handle(VisitCompleted $event): void
@@ -36,10 +40,24 @@ class ScheduleFollowUpAfterVisit
             ->where('trigger', AutomationTrigger::VisitCompleted->value)
             ->where('is_enabled', true)
             ->get();
+        $customer = Customer::query()
+            ->where('business_id', $visit->business_id)
+            ->find($visit->customer_id);
 
         foreach ($rules as $rule) {
             $settings = $rule->settings ?? [];
             if (! is_numeric($settings['template_id'] ?? null)) {
+                continue;
+            }
+
+            $templatePurpose = MessageTemplate::query()
+                ->where('business_id', $visit->business_id)
+                ->whereKey((int) $settings['template_id'])
+                ->value('purpose');
+            if (is_string($templatePurpose)
+                && in_array($templatePurpose, config('automation.return_reminder_template_purposes', []), true)
+                && $customer !== null
+                && $this->upcomingReturnDate->execute((int) $visit->business_id, $customer)) {
                 continue;
             }
 

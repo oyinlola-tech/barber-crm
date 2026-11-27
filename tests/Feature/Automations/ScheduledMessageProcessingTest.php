@@ -237,3 +237,55 @@ it('cancels inactive-customer sends when the customer states a return date durin
 
     expect($scheduled->fresh()->status)->toBe('cancelled');
 });
+
+it('suppresses visit-triggered return reminders when a future return date is recorded', function (): void {
+    $this->travelTo(now('Africa/Lagos')->setTime(10, 0)->utc());
+    config(['whatsapp.api_version' => 'v99.0']);
+    $business = Business::factory()->create(['timezone' => 'Africa/Lagos']);
+    $customer = Customer::factory()->create([
+        'business_id' => $business->getKey(),
+        'phone' => '+2348012345678',
+        'intended_return_date' => now('Africa/Lagos')->addDays(5)->toDateString(),
+    ]);
+    $visit = Visit::query()->create([
+        'business_id' => $business->getKey(),
+        'customer_id' => $customer->getKey(),
+        'visited_at' => now('UTC')->subDays(3),
+    ]);
+    $template = MessageTemplate::query()->create([
+        'business_id' => $business->getKey(), 'provider_template_id' => 'template-return-intention',
+        'name' => 'return_intention', 'language' => 'en', 'category' => 'marketing',
+        'purpose' => 'return_intention', 'status' => 'synchronized', 'provider_status' => 'APPROVED',
+        'is_enabled' => true, 'components' => [['type' => 'BODY', 'text' => 'When will you return?']], 'variable_map' => [],
+    ]);
+    $rule = AutomationRule::query()->create([
+        'business_id' => $business->getKey(), 'name' => 'Ask return intention', 'trigger' => 'visit_completed',
+        'action' => 'send_template', 'delay_minutes' => 0, 'is_enabled' => true,
+        'settings' => ['template_id' => $template->getKey(), 'max_follow_ups' => 1],
+    ]);
+    WhatsAppConnection::query()->create([
+        'business_id' => $business->getKey(), 'phone_number_id' => 'phone-number-1',
+        'business_account_id' => 'business-account-1', 'access_token' => 'encrypted-token', 'status' => 'connected',
+    ]);
+    CustomerConsent::query()->create([
+        'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp',
+        'granted' => true, 'source' => 'test', 'recorded_at' => now(),
+    ]);
+    $scheduled = ScheduledMessage::query()->create([
+        'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(),
+        'automation_rule_id' => $rule->getKey(), 'channel' => 'whatsapp', 'idempotency_key' => 'visit-return-intention',
+        'payload' => [
+            'template_id' => $template->getKey(), 'template_name' => $template->name,
+            'language' => $template->language, 'trigger' => 'visit_completed', 'visit_id' => $visit->getKey(),
+        ],
+        'status' => 'queued', 'scheduled_at' => now(),
+    ]);
+    $messaging = Mockery::mock(MessagingProviderInterface::class);
+    $messaging->shouldNotReceive('sendTemplate');
+    app()->instance(MessagingProviderInterface::class, $messaging);
+
+    app(ProcessScheduledMessageCommand::class)->execute((int) $scheduled->getKey());
+
+    expect($scheduled->fresh()->status)->toBe('cancelled')
+        ->and(Message::query()->where('direction', 'outbound')->count())->toBe(0);
+});

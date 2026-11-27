@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\CustomerConsent;
 use App\Models\CustomerTag;
 use App\Models\Message;
+use App\Models\MessageTemplate;
 use App\Models\Role;
 use App\Models\ScheduledMessage;
 use App\Models\User;
@@ -387,12 +388,51 @@ it('stores a customer-reported return date without creating a booking', function
     $business->members()->attach($user, ['role' => 'owner', 'status' => 'active', 'joined_at' => now()]);
     $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
     $returnDate = now()->addDays(14)->toDateString();
+    $returnTemplate = MessageTemplate::query()->create([
+        'business_id' => $business->getKey(), 'name' => 'return_intention', 'language' => 'en',
+        'category' => 'marketing', 'purpose' => 'return_intention', 'status' => 'synchronized',
+        'provider_status' => 'APPROVED', 'is_enabled' => true, 'components' => [], 'variable_map' => [],
+    ]);
+    $retentionTemplate = MessageTemplate::query()->create([
+        'business_id' => $business->getKey(), 'name' => 'retention_reminder', 'language' => 'en',
+        'category' => 'marketing', 'purpose' => 'retention', 'status' => 'synchronized',
+        'provider_status' => 'APPROVED', 'is_enabled' => true, 'components' => [], 'variable_map' => [],
+    ]);
+    $experienceTemplate = MessageTemplate::query()->create([
+        'business_id' => $business->getKey(), 'name' => 'experience_check', 'language' => 'en',
+        'category' => 'utility', 'purpose' => 'experience', 'status' => 'synchronized',
+        'provider_status' => 'APPROVED', 'is_enabled' => true, 'components' => [], 'variable_map' => [],
+    ]);
+    $returnReminder = ScheduledMessage::query()->create([
+        'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp',
+        'idempotency_key' => 'return-intention-pending', 'payload' => ['template_id' => $returnTemplate->getKey()],
+        'status' => 'pending', 'scheduled_at' => now()->addDay(),
+    ]);
+    $retentionReminder = ScheduledMessage::query()->create([
+        'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp',
+        'idempotency_key' => 'retention-reminder-queued', 'payload' => ['template_id' => $retentionTemplate->getKey()],
+        'status' => 'queued', 'scheduled_at' => now()->addDay(),
+    ]);
+    $inFlightReminder = ScheduledMessage::query()->create([
+        'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp',
+        'idempotency_key' => 'retention-reminder-sending', 'payload' => ['template_id' => $retentionTemplate->getKey()],
+        'status' => 'sending', 'scheduled_at' => now(),
+    ]);
+    $experienceFollowUp = ScheduledMessage::query()->create([
+        'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp',
+        'idempotency_key' => 'experience-follow-up-pending', 'payload' => ['template_id' => $experienceTemplate->getKey()],
+        'status' => 'pending', 'scheduled_at' => now()->addDay(),
+    ]);
 
     $this->actingAs($user)->patch(route('customers.update', $customer), [
         'intended_return_date' => $returnDate,
     ])->assertRedirect(route('customers.show', $customer));
 
-    expect($customer->refresh()->intended_return_date->toDateString())->toBe($returnDate);
+    expect($customer->refresh()->intended_return_date->toDateString())->toBe($returnDate)
+        ->and($returnReminder->fresh()->status)->toBe('cancelled')
+        ->and($retentionReminder->fresh()->status)->toBe('cancelled')
+        ->and($inFlightReminder->fresh()->status)->toBe('sending')
+        ->and($experienceFollowUp->fresh()->status)->toBe('pending');
     $this->assertDatabaseMissing('appointments', ['customer_id' => $customer->getKey()]);
 });
 

@@ -6,12 +6,19 @@ use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Models\Customer;
 use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
+use App\Services\Automations\Commands\CancelCustomerReturnReminderMessagesCommand;
+use App\Services\Customers\Queries\CustomerHasUpcomingReturnDateQuery;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class UpdateCustomerCommand
 {
-    public function __construct(public CustomerRepositoryInterface $customers, public RecordAuditLogCommand $audit) {}
+    public function __construct(
+        public CustomerRepositoryInterface $customers,
+        public RecordAuditLogCommand $audit,
+        private readonly CustomerHasUpcomingReturnDateQuery $upcomingReturnDate,
+        private readonly CancelCustomerReturnReminderMessagesCommand $cancelReturnReminders,
+    ) {}
 
     /** @param array<string, mixed> $attributes */
     public function execute(int $businessId, int $customerId, int $userId, array $attributes): Customer
@@ -30,8 +37,16 @@ class UpdateCustomerCommand
         return DB::transaction(function () use ($businessId, $customerId, $userId, $attributes): Customer {
             $customer = $this->customers->findForBusiness($businessId, $customerId);
             $before = $customer->only(['first_name', 'last_name', 'phone', 'email', 'date_of_birth', 'notes']);
+            if (array_key_exists('intended_return_date', $attributes)) {
+                $before['intended_return_date'] = $customer->getAttribute('intended_return_date')?->format('Y-m-d');
+            }
             $customer = $this->customers->updateForBusiness($businessId, $customerId, $attributes);
-            $this->audit->execute($businessId, $userId, 'customer.updated', Customer::class, $customer->getKey(), $before, $customer->only(array_keys($before)));
+            $after = $customer->only(array_keys($before));
+            if (array_key_exists('intended_return_date', $attributes)
+                && $this->upcomingReturnDate->execute($businessId, $customer)) {
+                $after['cancelled_return_reminders'] = $this->cancelReturnReminders->execute($businessId, $customerId);
+            }
+            $this->audit->execute($businessId, $userId, 'customer.updated', Customer::class, $customer->getKey(), $before, $after);
 
             return $customer;
         });

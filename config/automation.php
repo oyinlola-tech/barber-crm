@@ -10,4 +10,5 @@ return [
     'retry_backoff_seconds' => [60, 300, 900, 3600],
     'default_sending_hours' => ['start' => '09:00', 'end' => '18:00'],
     'allowed_template_variables' => ['customer_name', 'business_name', 'last_visit_date', 'business_phone', 'review_link'],
+    'return_reminder_template_purposes' => ['return_intention', 'retention', 'reengagement'],
 ];

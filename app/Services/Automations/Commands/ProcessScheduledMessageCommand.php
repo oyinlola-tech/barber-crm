@@ -17,6 +17,7 @@ use App\Models\ScheduledMessage;
 use App\Models\WhatsAppConnection;
 use App\Services\Automations\SendWindowCalculator;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
+use App\Services\Customers\Queries\CustomerHasUpcomingReturnDateQuery;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -34,6 +35,7 @@ class ProcessScheduledMessageCommand
         public WhatsAppConfig $whatsAppConfiguration,
         public ConversationRepositoryInterface $conversations,
         public WhatsAppTemplateDataMapper $templateData,
+        private readonly CustomerHasUpcomingReturnDateQuery $upcomingReturnDate,
     ) {}
 
     public function execute(int $scheduledMessageId): void
@@ -317,6 +319,16 @@ class ProcessScheduledMessageCommand
     private function isStillEligibleForTrigger(ScheduledMessage $scheduledMessage, Customer $customer, AutomationRule $rule): bool
     {
         $payload = $scheduledMessage->payload ?? [];
+        $templatePurpose = MessageTemplate::query()
+            ->where('business_id', $scheduledMessage->business_id)
+            ->whereKey($payload['template_id'] ?? 0)
+            ->value('purpose');
+        if (is_string($templatePurpose)
+            && in_array($templatePurpose, config('automation.return_reminder_template_purposes', []), true)
+            && $this->upcomingReturnDate->execute((int) $scheduledMessage->business_id, $customer)) {
+            return false;
+        }
+
         if (array_key_exists('last_customer_message_id', $payload)) {
             $expectedMessageId = $payload['last_customer_message_id'];
             $latestMessageId = $this->conversations->latestInboundMessageIdForCustomer(

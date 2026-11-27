@@ -7,6 +7,7 @@ use App\Models\AutomationRule;
 use App\Models\Business;
 use App\Models\Customer;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
+use App\Services\Customers\Queries\CustomerHasUpcomingReturnDateQuery;
 use Carbon\CarbonImmutable;
 
 class ScheduleInactiveCustomerFollowUpsCommand
@@ -14,6 +15,7 @@ class ScheduleInactiveCustomerFollowUpsCommand
     public function __construct(
         private readonly ScheduleFollowUpCommand $scheduleFollowUp,
         private readonly CustomerCanReceiveMessageQuery $consent,
+        private readonly CustomerHasUpcomingReturnDateQuery $upcomingReturnDate,
     ) {}
 
     public function execute(int $limit = 100): int
@@ -73,7 +75,7 @@ class ScheduleInactiveCustomerFollowUpsCommand
                 ->limit($maximum - $scheduledCount)
                 ->get()
                 ->each(function (Customer $customer) use ($rule, $settings, $business, &$scheduledCount): void {
-                    if (! $this->isReturnDateEligible($customer, $business)
+                    if ($this->upcomingReturnDate->execute((int) $business->getKey(), $customer)
                         || ! $this->consent->execute((int) $rule->business_id, (int) $customer->getKey(), 'whatsapp')
                         || $this->hasRecentCustomerReply($customer, (int) $rule->business_id)) {
                         return;
@@ -110,16 +112,6 @@ class ScheduleInactiveCustomerFollowUpsCommand
         }
 
         return $scheduledCount;
-    }
-
-    private function isReturnDateEligible(Customer $customer, Business $business): bool
-    {
-        $intendedReturnDate = $customer->intended_return_date;
-        if ($intendedReturnDate === null) {
-            return true;
-        }
-
-        return CarbonImmutable::parse($intendedReturnDate)->lt(now($business->timezone)->startOfDay());
     }
 
     private function hasRecentCustomerReply(Customer $customer, int $businessId): bool

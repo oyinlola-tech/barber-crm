@@ -7,8 +7,10 @@ use App\Models\AutomationRule;
 use App\Models\Business;
 use App\Models\Conversation;
 use App\Models\Customer;
+use App\Models\MessageTemplate;
 use App\Models\ScheduledMessage;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
+use App\Services\Customers\Queries\CustomerHasUpcomingReturnDateQuery;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -18,6 +20,7 @@ class ScheduleNextFollowUpAfterSentMessageCommand
     public function __construct(
         private readonly ScheduleFollowUpCommand $scheduleFollowUp,
         private readonly CustomerCanReceiveMessageQuery $consent,
+        private readonly CustomerHasUpcomingReturnDateQuery $upcomingReturnDate,
     ) {}
 
     public function execute(int $scheduledMessageId): bool
@@ -61,6 +64,16 @@ class ScheduleNextFollowUpAfterSentMessageCommand
         }
 
         $payload = $message->payload ?? [];
+        $templatePurpose = MessageTemplate::query()
+            ->where('business_id', $message->business_id)
+            ->whereKey($payload['template_id'] ?? 0)
+            ->value('purpose');
+        if (is_string($templatePurpose)
+            && in_array($templatePurpose, config('automation.return_reminder_template_purposes', []), true)
+            && $this->upcomingReturnDate->execute((int) $message->business_id, $customer)) {
+            return false;
+        }
+
         $currentStep = (int) ($payload['follow_up_number'] ?? 1);
         $visitId = (int) ($payload['visit_id'] ?? 0);
         $trigger = $payload['trigger'] ?? $rule->trigger;
