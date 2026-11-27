@@ -5,7 +5,9 @@ test('owner can delete an unused local template draft on mobile', async ({
 }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/login');
-    await page.getByLabel('Email address').fill('crm.template-owner@example.test');
+    await page
+        .getByLabel('Email address')
+        .fill('crm.template-owner@example.test');
     await page.getByLabel('Password').fill('Browser-only owner password 9842!');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(/two-factor-challenge/);

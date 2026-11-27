@@ -92,6 +92,43 @@ $business->members()->attach($user, [
     'joined_at' => now(),
 ]);
 
+$customerImportRole = Role::query()->create([
+    'business_id' => $business->getKey(),
+    'name' => 'Customer import and export browser tester',
+    'slug' => 'customer_import_export_browser_tester',
+    'permissions' => ['dashboard.view', 'customers.view', 'customers.import', 'customers.export'],
+]);
+$customerImporter = User::query()->create([
+    'name' => 'Customer Importer',
+    'email' => 'crm.importer@example.test',
+    'password' => Hash::make('Browser-only importer password 9842!'),
+]);
+$customerImporter->forceFill(['email_verified_at' => now()])->save();
+$business->members()->attach($customerImporter, [
+    'role' => $customerImportRole->slug,
+    'status' => 'active',
+    'joined_at' => now(),
+]);
+
+foreach ([
+    ['Customer Lifecycle Browser User', 'crm.customer-lifecycle@example.test'],
+    ['Inbox Browser User', 'crm.inbox@example.test'],
+    ['Roles Browser User', 'crm.roles@example.test'],
+    ['Services Browser User', 'crm.services@example.test'],
+] as [$name, $email]) {
+    $browserUser = User::query()->create([
+        'name' => $name,
+        'email' => $email,
+        'password' => Hash::make('Browser-only password 9842!'),
+    ]);
+    $browserUser->forceFill(['email_verified_at' => now()])->save();
+    $business->members()->attach($browserUser, [
+        'role' => 'browser_tester',
+        'status' => 'active',
+        'joined_at' => now(),
+    ]);
+}
+
 $profileEditorRole = Role::query()->create([
     'business_id' => $business->getKey(),
     'name' => 'Profile editor without note access',

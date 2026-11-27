@@ -12,7 +12,9 @@ test('owner can revoke staff access and redact personal details on mobile', asyn
     await page
         .getByRole('button', { name: 'Use a recovery code instead' })
         .click();
-    await page.getByLabel('Recovery code').fill('browser-staff-owner-recovery-code');
+    await page
+        .getByLabel('Recovery code')
+        .fill('browser-staff-owner-recovery-code');
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page).toHaveURL(/dashboard/);
 

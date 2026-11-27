@@ -6,6 +6,10 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+html {
+    overflow-x: hidden;
+}
+
 @theme inline {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
     --color-background: var(--background);

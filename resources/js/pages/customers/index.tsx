@@ -349,7 +349,7 @@ export default function CustomersPage({
                             )}
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
+                        <div className="w-full max-w-full overflow-x-auto">
                             <table className="w-full min-w-[600px] text-left text-sm">
                                 <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
                                     <tr>

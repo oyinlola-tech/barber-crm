@@ -5,7 +5,7 @@ test('staff can triage an inbox conversation on a mobile browser', async ({
 }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/login');
-    await page.getByLabel('Email address').fill('crm.browser@example.test');
+    await page.getByLabel('Email address').fill('crm.inbox@example.test');
     await page.getByLabel('Password').fill('Browser-only password 9842!');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(/dashboard/);

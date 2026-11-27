@@ -29,7 +29,9 @@ test('an authenticated staff member opens the dashboard and customer list', asyn
 }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/login');
-    await page.getByLabel('Email address').fill('crm.browser@example.test');
+    await page
+        .getByLabel('Email address')
+        .fill('crm.customer-lifecycle@example.test');
     await page.getByLabel('Password').fill('Browser-only password 9842!');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
@@ -49,7 +51,7 @@ test('an authenticated staff member opens the dashboard and customer list', asyn
 
     await page.goto('/customers');
     await expect(
-        page.getByRole('heading', { name: 'Customers' }),
+        page.getByRole('heading', { name: 'Customers', exact: true }),
     ).toBeVisible();
     await expect(
         page.getByText('Add a customer', { exact: true }),
