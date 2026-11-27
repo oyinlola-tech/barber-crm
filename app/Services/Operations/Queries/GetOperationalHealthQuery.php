@@ -15,7 +15,7 @@ class GetOperationalHealthQuery
 {
     public function __construct(private readonly WhatsAppConfig $whatsAppConfig) {}
 
-    /** @return array{overall:string,checked_at:string,database:array{status:string},queue:array{driver:string,status:string,pending:int,failed:int,worker_heartbeat:?string},scheduler:array{status:string,last_heartbeat:?string},whatsapp:array{status:string},webhooks:array{status:string,unprocessed:int,failed_recent:int,last_received_at:?string}} */
+    /** @return array{overall:string,checked_at:string,database:array{status:string},queue:array{driver:string,status:string,pending:int,failed:int,worker_status:string,worker_heartbeat:?string},scheduler:array{status:string,last_heartbeat:?string},whatsapp:array{status:string},webhooks:array{status:string,unprocessed:int,failed_recent:int,last_received_at:?string}} */
     public function execute(int $businessId): array
     {
         $databaseStatus = $this->databaseStatus();
@@ -29,6 +29,7 @@ class GetOperationalHealthQuery
                     'status' => 'unknown',
                     'pending' => 0,
                     'failed' => 0,
+                    'worker_status' => 'unknown',
                     'worker_heartbeat' => null,
                 ],
                 'scheduler' => ['status' => 'unknown', 'last_heartbeat' => null],
@@ -68,6 +69,7 @@ class GetOperationalHealthQuery
                 'status' => $queue['status'],
                 'pending' => $queue['pending'],
                 'failed' => $queue['failed'],
+                'worker_status' => $worker['status'],
                 'worker_heartbeat' => $worker['last_heartbeat'],
             ],
             'scheduler' => $scheduler,

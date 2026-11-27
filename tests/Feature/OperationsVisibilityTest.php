@@ -116,11 +116,27 @@ it('shows operational health only to authorized staff and reports recorded heart
             ->where('health.whatsapp.status', 'degraded'));
 });
 
-it('returns a minimal readiness response without internal health details', function (): void {
+it('returns unavailable readiness when required operational heartbeats are missing', function (): void {
     $this->getJson('/ready')
-        ->assertOk()
-        ->assertExactJson(['status' => 'ready'])
+        ->assertServiceUnavailable()
+        ->assertExactJson(['status' => 'unavailable'])
         ->assertHeader('Cache-Control', 'no-store, private');
+});
+
+it('requires fresh scheduler and queue worker heartbeats for readiness', function (): void {
+    DB::table('operational_heartbeats')->insert([
+        ['component' => 'scheduler', 'last_seen_at' => now(), 'created_at' => now(), 'updated_at' => now()],
+        ['component' => 'queue_worker', 'last_seen_at' => now(), 'created_at' => now(), 'updated_at' => now()],
+    ]);
+
+    $this->getJson('/ready')->assertOk()->assertExactJson(['status' => 'ready']);
+
+    DB::table('operational_heartbeats')->where('component', 'scheduler')->update(['last_seen_at' => now()->subMinutes(4)]);
+    $this->getJson('/ready')->assertServiceUnavailable()->assertExactJson(['status' => 'unavailable']);
+
+    DB::table('operational_heartbeats')->where('component', 'scheduler')->update(['last_seen_at' => now()]);
+    DB::table('operational_heartbeats')->where('component', 'queue_worker')->update(['last_seen_at' => now()->subMinutes(4)]);
+    $this->getJson('/ready')->assertServiceUnavailable()->assertExactJson(['status' => 'unavailable']);
 });
 
 it('reports database failure without querying unavailable operational tables', function (): void {

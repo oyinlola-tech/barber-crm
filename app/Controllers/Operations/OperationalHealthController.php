@@ -27,7 +27,10 @@ class OperationalHealthController extends Controller
     {
         try {
             $health = $query->execute(0);
-            $ready = $health['database']['status'] === 'healthy';
+            $ready = $health['database']['status'] === 'healthy'
+                && $health['scheduler']['status'] === 'healthy'
+                && $health['queue']['worker_status'] === 'healthy'
+                && in_array($health['queue']['status'], ['healthy', 'degraded'], true);
         } catch (Throwable) {
             $ready = false;
         }

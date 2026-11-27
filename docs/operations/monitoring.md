@@ -3,10 +3,10 @@
 ## Health endpoints and operator view
 
 The Nginx container health check requests `http://127.0.0.1/ready`. The
-`/ready` endpoint checks whether Laravel can query the database and returns a
-readiness response. It does not verify the queue worker, scheduler, WhatsApp
-provider reachability, email delivery, backup availability or restore ability.
-It is not a full application-health assertion.
+`/ready` endpoint checks database connectivity and requires fresh scheduler and
+database-queue worker heartbeats (within three minutes). It returns only a
+minimal ready/unavailable status. It does not verify WhatsApp provider
+reachability, email delivery, backup availability or restore ability.
 
 Authenticated users with `system.health.view` can open **Operations → System
 health**. This view reports:
@@ -29,7 +29,10 @@ Webhook backlog and recent failed processing degrade webhook health.
 
 Heartbeats are written to PostgreSQL once per minute by the scheduler and by a
 probe handled by the queue worker. A last-seen time within three minutes is
-reported healthy. Keep host and database clocks synchronized.
+reported healthy. Missing or stale scheduler/worker heartbeats make `/ready`
+return HTTP 503. A queue with failed jobs can still be ready when both required
+heartbeats are fresh; the owner health view reports that queue as degraded.
+Keep host and database clocks synchronized.
 
 ## Host-level checks
 
