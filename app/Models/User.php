@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\BrandedPasswordResetNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -18,6 +19,12 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, TwoFactorAuthenticatable;
+
+    /** @param string $token */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new BrandedPasswordResetNotification($token));
+    }
 
     /** @return BelongsToMany<Business, $this, BusinessMember> */
     public function businesses(): BelongsToMany

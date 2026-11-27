@@ -16,11 +16,14 @@ class StaffInvitation extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: "Invitation to join {$this->businessName}");
+        return new Envelope(
+            subject: "Your secure invitation to {$this->businessName}",
+            tags: ['staff-invitation'],
+        );
     }
 
     public function content(): Content
     {
-        return new Content(markdown: 'mail.staff.invitation');
+        return new Content(view: 'mail.staff.invitation');
     }
 }

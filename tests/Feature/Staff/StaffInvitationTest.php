@@ -75,6 +75,19 @@ it('invites an employee and accepts a single-use expiring link without storing i
     ])->assertSessionHasErrors('token');
 });
 
+it('renders the branded staff invitation with a secure setup action and footer', function (): void {
+    config(['app.url' => 'https://crm.example.test', 'app.name' => 'Barber CRM']);
+    $mail = new StaffInvitationMail('https://crm.example.test/staff/invitation#one-time-token', 'Northside Barbers');
+    $html = $mail->render();
+
+    expect($html)
+        ->toContain('Northside Barbers')
+        ->toContain('Set up staff access')
+        ->toContain('only be used once')
+        ->toContain('Good service stays with you')
+        ->toContain('barber-crm-mark.svg');
+});
+
 it('rejects invitation delivery when mail is configured to log secrets', function (): void {
     [$owner] = staffInvitationOwner();
     config(['mail.default' => 'log']);

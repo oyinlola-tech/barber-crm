@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class VisitRecordedNotification extends Notification
@@ -12,7 +13,16 @@ class VisitRecordedNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'mail'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject('A completed customer visit was recorded')
+            ->view('mail.notifications.visit-recorded', [
+                'url' => rtrim((string) config('app.url'), '/').'/dashboard',
+            ]);
     }
 
     /** @return array{title:string,message:string,url:string} */
