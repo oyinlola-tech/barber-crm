@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-rg -q '"--max-time=3600"' "$PROJECT_ROOT/compose.yaml"
+grep -Eq '"--max-time=3600"' "$PROJECT_ROOT/compose.yaml"
 TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/barber-crm-deploy-test.XXXXXX")"
 trap 'rm -rf -- "$TEMP_DIR"' EXIT
 mkdir -p "$TEMP_DIR/bin"
@@ -109,11 +109,11 @@ export PATH="$TEMP_DIR/bin:$PATH"
 
 : > "$FAKE_DOCKER_LOG"
 "$PROJECT_ROOT/scripts/deploy.sh" >"$TEMP_DIR/deploy-output"
-rg -q 'tag sha256:old-app barber-crm-app:previous-stable' "$FAKE_DOCKER_LOG"
-rg -q 'tag sha256:old-web barber-crm-web:previous-stable' "$FAKE_DOCKER_LOG"
-! rg -q 'tag sha256:built-(app|web) barber-crm-(app|web):previous-stable' "$FAKE_DOCKER_LOG"
-rg -q 'Deployment is healthy. The pre-deployment stable release is saved' "$TEMP_DIR/deploy-output"
-rg -q 'compose up --build --detach app web queue scheduler' "$FAKE_DOCKER_LOG"
+grep -Eq 'tag sha256:old-app barber-crm-app:previous-stable' "$FAKE_DOCKER_LOG"
+grep -Eq 'tag sha256:old-web barber-crm-web:previous-stable' "$FAKE_DOCKER_LOG"
+! grep -Eq 'tag sha256:built-(app|web) barber-crm-(app|web):previous-stable' "$FAKE_DOCKER_LOG"
+grep -Eq 'Deployment is healthy. The pre-deployment stable release is saved' "$TEMP_DIR/deploy-output"
+grep -Eq 'compose up --build --detach app web queue scheduler' "$FAKE_DOCKER_LOG"
 
 # A first deployment has no running release to snapshot and should say so
 # without inventing a rollback image pair.
@@ -122,8 +122,8 @@ rg -q 'compose up --build --detach app web queue scheduler' "$FAKE_DOCKER_LOG"
 : > "$FAKE_PREVIOUS_WEB_IMAGE"
 export FAKE_NO_RUNNING=1
 "$PROJECT_ROOT/scripts/deploy.sh" >"$TEMP_DIR/deploy-output"
-rg -q 'No earlier stable release existed' "$TEMP_DIR/deploy-output"
-! rg -q 'tag .*barber-crm-(app|web):previous-stable' "$FAKE_DOCKER_LOG"
+grep -Eq 'No earlier stable release existed' "$TEMP_DIR/deploy-output"
+! grep -Eq 'tag .*barber-crm-(app|web):previous-stable' "$FAKE_DOCKER_LOG"
 unset FAKE_NO_RUNNING
 printf 'sha256:old-app\n' > "$FAKE_PREVIOUS_APP_IMAGE"
 printf 'sha256:old-web\n' > "$FAKE_PREVIOUS_WEB_IMAGE"
@@ -136,8 +136,8 @@ if "$PROJECT_ROOT/scripts/deploy.sh" >"$TEMP_DIR/deploy-output" 2>&1; then
     printf 'Deployment test expected rollback-image recording failure to fail.\n' >&2
     exit 1
 fi
-rg -q 'Deployment stopped: the currently running release could not be saved for rollback' "$TEMP_DIR/deploy-output"
-if rg -q 'compose up --build --detach app web queue scheduler' "$FAKE_DOCKER_LOG"; then
+grep -Eq 'Deployment stopped: the currently running release could not be saved for rollback' "$TEMP_DIR/deploy-output"
+if grep -Eq 'compose up --build --detach app web queue scheduler' "$FAKE_DOCKER_LOG"; then
     printf 'Deployment continued after saving the prior release failed.\n' >&2
     exit 1
 fi
@@ -151,9 +151,9 @@ if "$PROJECT_ROOT/scripts/deploy.sh" >"$TEMP_DIR/deploy-output" 2>&1; then
     printf 'Deployment test expected a stopped queue worker to fail verification.\n' >&2
     exit 1
 fi
-rg -q 'Deployment failed: the web service is healthy, but one or more background services are unavailable' "$TEMP_DIR/deploy-output"
-rg -q 'compose logs --tail=100 app web queue scheduler' "$FAKE_DOCKER_LOG"
-if rg -q '^Deployment is healthy\.' "$TEMP_DIR/deploy-output"; then
+grep -Eq 'Deployment failed: the web service is healthy, but one or more background services are unavailable' "$TEMP_DIR/deploy-output"
+grep -Eq 'compose logs --tail=100 app web queue scheduler' "$FAKE_DOCKER_LOG"
+if grep -Eq '^Deployment is healthy\.' "$TEMP_DIR/deploy-output"; then
     printf 'Deployment reported success despite a stopped background service.\n' >&2
     exit 1
 fi
@@ -170,23 +170,23 @@ if "$PROJECT_ROOT/scripts/deploy.sh" >"$TEMP_DIR/deploy-output" 2>&1; then
     printf 'Deployment test expected the failed release to return nonzero after recovery.\n' >&2
     exit 1
 fi
-rg -q 'Deployment failed: the web service is healthy, but one or more background services are unavailable' "$TEMP_DIR/deploy-output"
-rg -q 'The previous stable release is running again' "$TEMP_DIR/deploy-output"
-rg -q 'compose up --no-build --pull never --detach --force-recreate app web queue scheduler' "$FAKE_DOCKER_LOG"
-rg -q 'compose ps --status running -q queue' "$FAKE_DOCKER_LOG"
-rg -q 'compose ps --status running -q scheduler' "$FAKE_DOCKER_LOG"
+grep -Eq 'Deployment failed: the web service is healthy, but one or more background services are unavailable' "$TEMP_DIR/deploy-output"
+grep -Eq 'The previous stable release is running again' "$TEMP_DIR/deploy-output"
+grep -Eq 'compose up --no-build --pull never --detach --force-recreate app web queue scheduler' "$FAKE_DOCKER_LOG"
+grep -Eq 'compose ps --status running -q queue' "$FAKE_DOCKER_LOG"
+grep -Eq 'compose ps --status running -q scheduler' "$FAKE_DOCKER_LOG"
 unset FAKE_STOPPED_SERVICES FAKE_ENABLE_RECOVERY_STUB
 rm -f -- "$FAKE_RECOVERY_STARTED"
 
 : > "$FAKE_DOCKER_LOG"
 "$PROJECT_ROOT/scripts/rollback.sh"
-rg -q 'tag sha256:old-app barber-crm-app:current' "$FAKE_DOCKER_LOG"
-rg -q 'tag sha256:old-web barber-crm-web:current' "$FAKE_DOCKER_LOG"
-rg -q 'compose up --no-build --pull never --detach --force-recreate app web queue scheduler' "$FAKE_DOCKER_LOG"
-rg -q 'compose stop queue scheduler' "$FAKE_DOCKER_LOG"
-rg -q 'compose ps --status running -q queue' "$FAKE_DOCKER_LOG"
-rg -q 'compose ps --status running -q scheduler' "$FAKE_DOCKER_LOG"
-if rg -q 'compose (exec|run).*postgres|migrate:rollback|down --volumes|volume rm' "$FAKE_DOCKER_LOG"; then
+grep -Eq 'tag sha256:old-app barber-crm-app:current' "$FAKE_DOCKER_LOG"
+grep -Eq 'tag sha256:old-web barber-crm-web:current' "$FAKE_DOCKER_LOG"
+grep -Eq 'compose up --no-build --pull never --detach --force-recreate app web queue scheduler' "$FAKE_DOCKER_LOG"
+grep -Eq 'compose stop queue scheduler' "$FAKE_DOCKER_LOG"
+grep -Eq 'compose ps --status running -q queue' "$FAKE_DOCKER_LOG"
+grep -Eq 'compose ps --status running -q scheduler' "$FAKE_DOCKER_LOG"
+if grep -Eq 'compose (exec|run).*postgres|migrate:rollback|down --volumes|volume rm' "$FAKE_DOCKER_LOG"; then
     printf 'Rollback unexpectedly touched PostgreSQL, migrations, or volumes.\n' >&2
     exit 1
 fi
@@ -199,8 +199,8 @@ if "$PROJECT_ROOT/scripts/rollback.sh" >"$TEMP_DIR/rollback-output" 2>&1; then
     printf 'Rollback test expected a stopped queue worker to be reported.\n' >&2
     exit 1
 fi
-rg -q 'Rollback failed: the queue service is not running' "$TEMP_DIR/rollback-output"
-rg -q 'compose logs --tail=100 app web queue scheduler' "$FAKE_DOCKER_LOG"
+grep -Eq 'Rollback failed: the queue service is not running' "$TEMP_DIR/rollback-output"
+grep -Eq 'compose logs --tail=100 app web queue scheduler' "$FAKE_DOCKER_LOG"
 unset FAKE_STOPPED_SERVICES
 
 : > "$FAKE_DOCKER_LOG"
@@ -209,8 +209,8 @@ if "$PROJECT_ROOT/scripts/rollback.sh" >"$TEMP_DIR/rollback-output" 2>&1; then
     printf 'Rollback test expected Compose startup failure to be reported.\n' >&2
     exit 1
 fi
-rg -q 'Rollback failed: the application, web, queue, or scheduler service could not be started' "$TEMP_DIR/rollback-output"
-rg -q 'compose logs --tail=100 app web queue scheduler' "$FAKE_DOCKER_LOG"
+grep -Eq 'Rollback failed: the application, web, queue, or scheduler service could not be started' "$TEMP_DIR/rollback-output"
+grep -Eq 'compose logs --tail=100 app web queue scheduler' "$FAKE_DOCKER_LOG"
 unset FAKE_COMPOSE_UP_FAIL
 
 : > "$FAKE_DOCKER_LOG"
@@ -220,8 +220,8 @@ if "$PROJECT_ROOT/scripts/deploy.sh"; then
     printf 'Deployment test expected health failure and recovery.\n' >&2
     exit 1
 fi
-rg -q 'tag sha256:old-app barber-crm-app:current' "$FAKE_DOCKER_LOG"
-rg -q 'tag sha256:old-web barber-crm-web:current' "$FAKE_DOCKER_LOG"
+grep -Eq 'tag sha256:old-app barber-crm-app:current' "$FAKE_DOCKER_LOG"
+grep -Eq 'tag sha256:old-web barber-crm-web:current' "$FAKE_DOCKER_LOG"
 
 # Without a saved previous release, rollback should stop before changing any
 # containers or image tags.
@@ -240,7 +240,7 @@ if "$PROJECT_ROOT/scripts/rollback.sh"; then
     printf 'Rollback without a previous stable release should fail.\n' >&2
     exit 1
 fi
-if rg -q 'compose stop|compose up|tag ' "$FAKE_DOCKER_LOG"; then
+if grep -Eq 'compose stop|compose up|tag ' "$FAKE_DOCKER_LOG"; then
     printf 'Rollback changed deployment state without a previous stable release.\n' >&2
     exit 1
 fi
@@ -254,7 +254,7 @@ if "$PROJECT_ROOT/scripts/rollback.sh" >"$TEMP_DIR/rollback-output" 2>&1; then
     printf 'Rollback test expected an image-tag failure to be reported.\n' >&2
     exit 1
 fi
-rg -q 'Rollback failed: the saved stable image pair could not be selected' "$TEMP_DIR/rollback-output"
+grep -Eq 'Rollback failed: the saved stable image pair could not be selected' "$TEMP_DIR/rollback-output"
 unset FAKE_FAIL_TAG_TARGET
 
 printf 'Deployment and rollback script checks passed.\n'

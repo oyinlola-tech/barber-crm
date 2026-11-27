@@ -123,7 +123,7 @@ if RESTORE_DATABASE="$DRILL_RESTORE_DATABASE" \
     printf 'Restore unexpectedly accepted an existing database.\n' >&2
     exit 1
 fi
-rg -q 'already exists; refusing to modify it' "$DRILL_DIR/existing-target.log"
+grep -Eq 'already exists; refusing to modify it' "$DRILL_DIR/existing-target.log"
 
 cp -- "$backup_path" "$DRILL_DIR/tampered.dump.enc"
 printf '\001' | dd of="$DRILL_DIR/tampered.dump.enc" bs=1 seek=80 conv=notrunc status=none
@@ -133,7 +133,7 @@ if RESTORE_DATABASE="$DRILL_INVALID_DATABASE" \
     printf 'Restore unexpectedly accepted a tampered backup.\n' >&2
     exit 1
 fi
-rg -q 'Backup decryption, authentication, or archive validation failed' "$DRILL_DIR/tampered-backup.log"
+grep -Eq 'Backup decryption, authentication, or archive validation failed' "$DRILL_DIR/tampered-backup.log"
 invalid_database="$(compose exec -T postgres psql -U "$DRILL_USER" -d postgres -Atc \
     "SELECT 1 FROM pg_database WHERE datname='$DRILL_INVALID_DATABASE'")"
 if [[ -n "$invalid_database" ]]; then
