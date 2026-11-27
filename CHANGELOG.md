@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Reconcile Meta template availability from complete provider snapshots; disable missing, rejected, or newly rebound provider templates, and abort synchronization on failed or repeated-cursor pagination.
 - Reconcile sent-message follow-ups after interrupted workers using an additive migration, stable idempotency keys and eligibility rechecks; reject enabled repeating rules without a positive interval.
 - Require fresh database, scheduler and queue-worker health before advertising application readiness; document the explicit first-deploy database review and migration sequence.
 - Enforce customer creation and import permissions during request authorization, before validation or import processing.
