@@ -37,6 +37,7 @@ export default function AutomationsIndex({
         update: boolean;
         enable: boolean;
         disable: boolean;
+        delete: boolean;
     };
 }) {
     const form = useForm({
@@ -136,7 +137,7 @@ export default function AutomationsIndex({
                         enabled, Meta-approved template.
                     </p>
                 </header>
-                {capabilities.create && (
+                {(capabilities.create || capabilities.update) && (
                     <section className="mb-6 rounded-2xl border bg-card p-5">
                         <div className="flex items-center justify-between">
                             <h2 className="font-semibold">
@@ -299,6 +300,9 @@ export default function AutomationsIndex({
                                 className="w-fit rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
                                 disabled={
                                     form.processing ||
+                                    (editingRuleId === null
+                                        ? !capabilities.create
+                                        : !capabilities.update) ||
                                     eligibleTemplates.length === 0
                                 }
                             >
@@ -329,12 +333,19 @@ export default function AutomationsIndex({
                                         <p className="mt-1 text-sm text-muted-foreground">
                                             {rule.trigger.replaceAll('_', ' ')}{' '}
                                             · {rule.delay_minutes} minute delay
-                                            · template #
-                                            {rule.settings.template_id ??
-                                                'unset'}
+                                            · template{' '}
+                                            {templates.find(
+                                                (template) =>
+                                                    template.id ===
+                                                    rule.settings.template_id,
+                                            )?.name ??
+                                                (rule.settings.template_id
+                                                    ? 'unavailable'
+                                                    : 'unset')}
                                         </p>
                                     </div>
                                     {(capabilities.update ||
+                                        capabilities.delete ||
                                         (rule.is_enabled
                                             ? capabilities.disable
                                             : capabilities.enable)) && (
@@ -369,6 +380,25 @@ export default function AutomationsIndex({
                                                     {rule.is_enabled
                                                         ? 'Disable'
                                                         : 'Enable'}
+                                                </button>
+                                            )}
+                                            {capabilities.delete && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (
+                                                            window.confirm(
+                                                                `Delete “${rule.name}”? Pending follow-up messages for this rule will be cancelled.`,
+                                                            )
+                                                        ) {
+                                                            router.delete(
+                                                                `/automations/${rule.id}`,
+                                                            );
+                                                        }
+                                                    }}
+                                                    className="rounded-lg border border-destructive/30 px-3 py-2 text-sm text-destructive hover:bg-destructive/5"
+                                                >
+                                                    Delete
                                                 </button>
                                             )}
                                         </div>
