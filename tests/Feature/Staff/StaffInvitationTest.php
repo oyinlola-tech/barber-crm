@@ -84,7 +84,8 @@ it('renders the branded staff invitation with a secure setup action and footer',
         ->toContain('Northside Barbers')
         ->toContain('Set up staff access')
         ->toContain('only be used once')
-        ->toContain('Good service stays with you')
+        ->toContain('Good service')
+        ->toContain('deserves a return visit')
         ->toContain('barber-crm-mark.svg');
 });
 

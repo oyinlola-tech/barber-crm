@@ -24,7 +24,7 @@ export default defineConfig({
     ],
     webServer: {
         command:
-            'php tests/Browser/prepare-database.php && php artisan serve --host 127.0.0.1 --port 8000',
+            'php tests/Browser/prepare-database.php && cd public && php -S 127.0.0.1:8000 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php',
         url: 'http://127.0.0.1:8000/login',
         reuseExistingServer: !process.env.CI,
         timeout: 30_000,

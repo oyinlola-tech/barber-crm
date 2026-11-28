@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\WhatsAppMessageFeature;
 use App\Models\Business;
 use App\Models\User;
+use App\Services\Settings\Queries\GetWhatsAppMessageFeaturesQuery;
 use App\Services\Settings\Queries\GetWhatsAppMessagingSettingsQuery;
 use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -39,8 +41,12 @@ it('allows the owner to save normalized messaging keywords and audits the change
     $business = Business::factory()->create();
     $owner = attachMessagingSettingsOwner($business);
 
+    $features = WhatsAppMessageFeature::defaults();
+    $features[WhatsAppMessageFeature::Outbound->value] = false;
+    $features[WhatsAppMessageFeature::ReviewRequests->value] = false;
+
     $this->actingAs($owner)
-        ->put('/settings/messaging', ['opt_out_keywords' => [' no more ', 'STOP']])
+        ->put('/settings/messaging', ['opt_out_keywords' => [' no more ', 'STOP'], 'features' => $features])
         ->assertRedirect();
 
     expect(app(GetWhatsAppMessagingSettingsQuery::class)->execute((int) $business->getKey()))
@@ -55,6 +61,25 @@ it('allows the owner to save normalized messaging keywords and audits the change
         'business_id' => $business->getKey(),
         'user_id' => $owner->getKey(),
         'action' => 'business.messaging_settings_updated',
+    ]);
+    expect(app(GetWhatsAppMessageFeaturesQuery::class)->execute((int) $business->getKey()))
+        ->toMatchArray($features);
+});
+
+it('rejects customer messaging switches unless every known feature is a boolean', function (): void {
+    $this->seed(BusinessRoleSeeder::class);
+    $business = Business::factory()->create();
+    $owner = attachMessagingSettingsOwner($business);
+    $features = WhatsAppMessageFeature::defaults();
+    unset($features[WhatsAppMessageFeature::ManualReplies->value]);
+
+    $this->actingAs($owner)
+        ->put('/settings/messaging', ['opt_out_keywords' => ['STOP'], 'features' => $features])
+        ->assertSessionHasErrors('features.manual_replies');
+
+    $this->assertDatabaseMissing('business_settings', [
+        'business_id' => $business->getKey(),
+        'key' => 'whatsapp.message_features',
     ]);
 });
 

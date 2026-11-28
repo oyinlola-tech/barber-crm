@@ -1,5 +1,29 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { currentTotp } from './totp';
+
+async function completeOwnerTwoFactorChallenge(page: Page): Promise<void> {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        const waitForStableWindow = 1_500 - (Date.now() % 30_000);
+
+        if (waitForStableWindow > 0) {
+            await page.waitForTimeout(waitForStableWindow);
+        }
+
+        await page
+            .getByLabel('Authentication code')
+            .fill(currentTotp('JBSWY3DPEHPK3PXP'));
+        await page.getByRole('button', { name: 'Continue' }).click();
+
+        try {
+            await expect(page).toHaveURL(/dashboard/, { timeout: 6_000 });
+            return;
+        } catch (error) {
+            if (attempt === 2) {
+                throw error;
+            }
+        }
+    }
+}
 
 test('owner can create, update, and delete a custom role on mobile', async ({
     page,
@@ -12,11 +36,7 @@ test('owner can create, update, and delete a custom role on mobile', async ({
     await page.getByLabel('Password').fill('Browser-only owner password 9842!');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(/two-factor-challenge/);
-    await page
-        .getByLabel('Authentication code')
-        .fill(currentTotp('JBSWY3DPEHPK3PXP'));
-    await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page).toHaveURL(/dashboard/);
+    await completeOwnerTwoFactorChallenge(page);
 
     await page.goto('/roles');
     await page.getByLabel('Role name').fill('Retention coordinator');

@@ -22,7 +22,7 @@ test('authorized staff can manage catalog services from a mobile browser', async
     await expect(
         page.getByRole('heading', { level: 1, name: 'Service catalog' }),
     ).toBeVisible();
-    await page.getByText('Open navigation').click();
+    await page.getByRole('button', { name: 'Open more navigation' }).click();
     await expect(page.getByRole('link', { name: 'Services' })).toBeVisible();
 
     await page.getByLabel('Category name').fill('Haircuts');

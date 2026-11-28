@@ -89,12 +89,8 @@ test('an authenticated staff member opens the dashboard and customer list', asyn
             'Customer explicitly agreed to receive WhatsApp messages. Uncheck to record an opt-out.',
         ),
     ).toBeChecked();
-    await page
-        .getByLabel(
-            'Customer explicitly agreed to receive WhatsApp messages. Uncheck to record an opt-out.',
-        )
-        .uncheck();
-    await page.getByRole('button', { name: 'Record opt-out' }).click();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: 'Stop WhatsApp messages' }).click();
     await expect(page.getByText('Opted out')).toBeVisible();
     await expect(
         page.getByLabel(
@@ -116,6 +112,23 @@ test('an authenticated staff member opens the dashboard and customer list', asyn
     await page.getByRole('button', { name: 'Save tags' }).click();
     await expect(page.getByLabel('Tags')).toHaveValue('returning, low-fade');
 
+    const expectedReturnDate = new Date();
+    expectedReturnDate.setDate(expectedReturnDate.getDate() + 1);
+    await page
+        .getByLabel('Stated return date')
+        .fill(expectedReturnDate.toISOString().slice(0, 10));
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByText('Visit status:')).toContainText('expected');
+    await page.getByRole('button', { name: 'Mark arrived' }).click();
+    await expect(page.getByText('Visit status:')).toContainText('arrived');
+    await expect(
+        page
+            .getByRole('listitem')
+            .getByText(
+                'Recorded from the customer return-date attendance check.',
+            ),
+    ).toBeVisible();
+
     await page.getByLabel('Visit note').fill('First visit record');
     const visitDate = await page
         .getByLabel('Visit date and time')
@@ -135,22 +148,22 @@ test('an authenticated staff member opens the dashboard and customer list', asyn
         page.getByRole('listitem').getByText('First visit record'),
     ).toBeVisible();
 
-    await page.getByRole('button', { name: 'Correct visit' }).click();
+    await page.getByRole('button', { name: 'Correct visit' }).first().click();
     await page.getByLabel('Visit note').last().fill('Corrected visit record');
     await page.getByRole('button', { name: 'Save correction' }).click();
     await expect(
-        page.getByRole('button', { name: 'Correct visit' }),
+        page.getByRole('button', { name: 'Correct visit' }).first(),
     ).toBeVisible();
     await expect(
         page.getByRole('listitem').getByText('Corrected visit record'),
     ).toBeVisible();
 
     page.once('dialog', (dialog) => dialog.accept());
-    await page.getByRole('button', { name: 'Void visit' }).click();
+    await page.getByRole('button', { name: 'Void visit' }).first().click();
     await expect(page.getByText(/^Voided ·/)).toBeVisible();
-    await page.getByRole('button', { name: 'Restore visit' }).click();
+    await page.getByRole('button', { name: 'Restore visit' }).first().click();
     await expect(
-        page.getByRole('button', { name: 'Correct visit' }),
+        page.getByRole('button', { name: 'Correct visit' }).first(),
     ).toBeVisible();
 
     page.once('dialog', (dialog) => dialog.accept());

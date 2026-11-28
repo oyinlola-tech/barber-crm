@@ -201,6 +201,18 @@ it('creates, updates, and deletes a custom role through the authorized HTTP work
         ])->count())->toBe(3);
 });
 
+it('allows authorized custom roles to manage customer tags', function (): void {
+    [$business, $owner] = lifecycleBusiness();
+
+    $this->actingAs($owner)->post(route('roles.store'), [
+        'name' => 'Tag manager',
+        'permissions' => ['customers.tags.manage'],
+    ])->assertRedirect(route('roles.index'));
+
+    $role = Role::query()->where('business_id', $business->getKey())->where('slug', 'tag-manager')->firstOrFail();
+    expect($role->permissions)->toBe(['customers.tags.manage']);
+});
+
 it('allows delegating customer note permission and reserves built-in role slugs', function (): void {
     [$business, $owner] = lifecycleBusiness();
 

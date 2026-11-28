@@ -44,6 +44,7 @@ it('updates customer feedback through CQRS with a minimal audit record', functio
 });
 
 it('rejects client-supplied review provenance and dates, and assigns trusted internal values', function (): void {
+    $this->travelTo(now()->startOfSecond());
     $business = Business::factory()->create();
     $user = reviewManager($business, ['reviews.view', 'reviews.create', 'customers.view']);
     $customer = Customer::factory()->create(['business_id' => $business->getKey()]);

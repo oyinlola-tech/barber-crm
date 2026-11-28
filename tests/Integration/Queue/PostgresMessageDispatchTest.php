@@ -19,6 +19,7 @@ it('claims due messages across concurrent PostgreSQL dispatchers and recovers st
     }
 
     config(['automation.enabled' => true]);
+    config(['queue.default' => 'database']);
     $business = Business::factory()->create();
     $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
     $firstDueAt = now()->subMinutes(3);
@@ -32,11 +33,18 @@ it('claims due messages across concurrent PostgreSQL dispatchers and recovers st
 
     $launch = function (): array {
         $pipes = [];
+        $environment = getenv();
+        if (! is_array($environment)) {
+            throw new RuntimeException('Could not read the current test environment.');
+        }
+        $environment['AUTOMATIONS_ENABLED'] = 'true';
+        $environment['QUEUE_CONNECTION'] = 'database';
         $process = proc_open(
             [PHP_BINARY, base_path('artisan'), 'automations:dispatch-due-messages', '--limit=1'],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             base_path(),
+            $environment,
         );
 
         if (! is_resource($process)) {

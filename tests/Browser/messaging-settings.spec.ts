@@ -24,6 +24,12 @@ test('owner can update WhatsApp opt-out phrases on a mobile browser', async ({
     await expect(
         page.getByRole('heading', { name: 'WhatsApp messaging rules' }),
     ).toBeVisible();
+    const reviewRequests = page.getByRole('switch', {
+        name: 'Review requests',
+    });
+    await expect(reviewRequests).toHaveAttribute('aria-checked', 'true');
+    await reviewRequests.click();
+    await expect(reviewRequests).toHaveAttribute('aria-checked', 'false');
     const phrases = page.getByLabel('Additional customer opt-out phrases');
     await phrases.fill('NO MORE\nREMOVE ME');
     await page.getByRole('button', { name: 'Save messaging rules' }).click();
@@ -36,6 +42,7 @@ test('owner can update WhatsApp opt-out phrases on a mobile browser', async ({
 
     await page.reload();
     await expect(phrases).toHaveValue('NO MORE\nREMOVE ME');
+    await expect(reviewRequests).toHaveAttribute('aria-checked', 'false');
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(390);
