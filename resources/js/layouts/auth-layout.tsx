@@ -114,80 +114,74 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
                     </div>
                 </section>
             </div>
-            <footer className="relative isolate overflow-hidden bg-[#172235] px-5 py-10 text-white sm:px-8 sm:py-12 lg:px-12 lg:py-14 xl:px-16 xl:py-16">
+            <footer className="relative isolate min-h-[34rem] overflow-hidden bg-[#172235] px-5 py-12 text-white sm:min-h-[38rem] sm:px-8 sm:py-16 lg:min-h-[42rem] lg:px-12 lg:py-20 xl:px-16 xl:py-24">
                 <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute -right-28 -top-44 z-0 size-[34rem] rounded-full border border-white/10"
+                    className="pointer-events-none absolute -right-36 -top-44 z-0 size-[44rem] rounded-full border border-white/10"
                 />
                 <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute -right-12 -top-28 z-0 size-[26rem] rounded-full border border-white/[0.07]"
+                    className="pointer-events-none absolute -right-16 -top-28 z-0 size-[34rem] rounded-full border border-white/[0.07]"
                 />
-                <div className="relative z-10 grid gap-12 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)] xl:items-end">
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-2/3 bg-gradient-to-t from-black/30 via-black/10 to-transparent"
+                />
+                <div className="relative z-10 flex min-h-[27rem] flex-col justify-between gap-12 sm:min-h-[30rem] lg:min-h-[32rem]">
                     <div>
                         <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#f08378]">
                             <span className="size-1.5 rounded-full bg-[#f08378]" />
                             Private workspace · Secure staff access
                         </p>
-                        <p className="mt-6 max-w-5xl text-[clamp(3rem,9vw,8rem)] font-semibold leading-[0.86] tracking-[-0.075em]">
+                        <p className="mt-8 max-w-[14ch] text-[clamp(3.5rem,12vw,11.5rem)] font-semibold leading-[0.78] tracking-[-0.085em]">
                             Good service deserves a return visit
                             <span className="text-[#f08378]">.</span>
                         </p>
-                        <p className="mt-6 max-w-xl text-sm leading-6 text-white/60 sm:text-base sm:leading-7">
+                        <p className="mt-8 max-w-xl text-sm leading-6 text-white/60 sm:text-base sm:leading-7">
                             Keep every customer relationship thoughtful,
                             personal and easy for your team to follow through.
                         </p>
                     </div>
-                    <div className="grid gap-8 border-t border-white/15 pt-7 sm:grid-cols-2 xl:border-l xl:border-t-0 xl:pl-9 xl:pt-0">
-                        <div>
-                            <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
-                                Your workspace
-                            </h2>
-                            <div className="mt-4 flex items-center gap-3">
-                                <img
-                                    alt=""
-                                    aria-hidden="true"
-                                    className="size-10 rounded-xl"
-                                    height={40}
-                                    src="/brand/barber-crm-mark.svg"
-                                    width={40}
-                                />
-                                <span>
-                                    <span className="block text-sm font-semibold text-white">
-                                        Barber CRM
-                                    </span>
-                                    <span className="block text-xs text-white/50">
-                                        Customer relationships
-                                    </span>
+                    <div className="grid gap-8 border-t border-white/15 pt-7 sm:grid-cols-[1fr_auto] sm:items-end">
+                        <div className="flex items-center gap-3">
+                            <img
+                                alt=""
+                                aria-hidden="true"
+                                className="size-10 rounded-xl"
+                                height={40}
+                                src="/brand/barber-crm-mark.svg"
+                                width={40}
+                            />
+                            <span>
+                                <span className="block text-sm font-semibold text-white">
+                                    Barber CRM
                                 </span>
-                            </div>
+                                <span className="block text-xs text-white/50">
+                                    Customer relationships
+                                </span>
+                            </span>
                         </div>
-                        <div>
-                            <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
-                                Built around care
-                            </h2>
-                            <ul className="mt-4 space-y-3 text-sm text-white/75">
-                                <li className="flex items-center gap-2">
-                                    <ShieldCheck
-                                        aria-hidden="true"
-                                        className="text-[#f08378]"
-                                        size={16}
-                                    />
-                                    Authorized staff only
-                                </li>
-                                <li className="flex items-center gap-2">
-                                    <ArrowUpRight
-                                        aria-hidden="true"
-                                        className="text-[#f08378]"
-                                        size={16}
-                                    />
-                                    Thoughtful customer follow-up
-                                </li>
-                            </ul>
-                        </div>
+                        <ul className="grid gap-3 text-sm text-white/75 sm:grid-cols-2 sm:gap-6">
+                            <li className="flex items-center gap-2">
+                                <ShieldCheck
+                                    aria-hidden="true"
+                                    className="shrink-0 text-[#f08378]"
+                                    size={16}
+                                />
+                                Authorized staff only
+                            </li>
+                            <li className="flex items-center gap-2">
+                                <ArrowUpRight
+                                    aria-hidden="true"
+                                    className="shrink-0 text-[#f08378]"
+                                    size={16}
+                                />
+                                Thoughtful customer follow-up
+                            </li>
+                        </ul>
                     </div>
                 </div>
-                <div className="relative z-10 mt-12 flex flex-col gap-3 border-t border-white/15 pt-5 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative z-10 mt-10 flex flex-col gap-3 border-t border-white/15 pt-5 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between">
                     <span>Customer information stays protected.</span>
                     <span>© {new Date().getFullYear()} Barber CRM</span>
                 </div>
