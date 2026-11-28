@@ -1,10 +1,16 @@
 <?php
 
+use App\Dtos\Audit\DailyActivityDigestDto;
+use App\Mail\OwnerTemporaryAccess;
+use App\Mail\StaffInvitation;
 use App\Models\User;
 use App\Notifications\BrandedPasswordResetNotification;
 use App\Notifications\CustomerMessageReceivedNotification;
+use App\Notifications\CustomerReturnIntentionNotification;
+use App\Notifications\DailyActivityDigestNotification;
 use App\Notifications\MessageDeliveryUncertainNotification;
 use App\Notifications\ReviewRecordedNotification;
+use App\Notifications\StaffAccessChangedNotification;
 use App\Notifications\VisitRecordedNotification;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -81,4 +87,23 @@ it('renders a privacy-safe review alert with the shared footer', function (): vo
         ->toContain('A customer shared feedback.')
         ->toContain('Customer names, phone numbers, ratings, and feedback text are not included')
         ->toContain('GOOD SERVICE STAYS WITH PEOPLE');
+});
+
+it('renders onboarding and operations emails through the complete shared footer', function (): void {
+    config(['app.url' => 'https://crm.example.test', 'app.name' => 'Barber CRM']);
+    $user = User::factory()->create();
+    $emails = [
+        (new OwnerTemporaryAccess('Example Barbershop', 'single-use-password'))->render(),
+        (new StaffInvitation('https://crm.example.test/invite/token', 'Example Barbershop', 'temporary-password'))->render(),
+        (new CustomerReturnIntentionNotification(41, 'Amina Customer', '+2348012345678', '2026-12-02'))->toMail($user)->render(),
+        (new DailyActivityDigestNotification('digest-id', new DailyActivityDigestDto(1, 'Example Barbershop', '2026-11-28', ['customer.created' => 2], 2)))->toMail($user)->render(),
+        (new StaffAccessChangedNotification('access-id', 'Staff Member', 'A staff account was activated.', '/operations/audit'))->toMail($user)->render(),
+    ];
+
+    foreach ($emails as $html) {
+        expect($html)
+            ->toContain('GOOD SERVICE STAYS WITH PEOPLE')
+            ->toContain('Good service<br>deserves a return visit')
+            ->toContain('Authorized staff only');
+    }
 });
