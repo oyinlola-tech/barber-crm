@@ -41,8 +41,10 @@ type CustomerProfile = {
     consents: Array<{
         id: number;
         channel: string;
+        purpose: string | null;
         granted: boolean;
         source: string | null;
+        evidence_reference: string | null;
         recorded_at: string;
         revoked_at: string | null;
     }>;
@@ -98,11 +100,14 @@ export default function CustomerDetailsPage({
             latestWhatsAppConsent?.granted === true &&
             latestWhatsAppConsent.revoked_at === null,
         source: 'verbal',
+        purpose: 'customer_follow_up',
+        evidence_reference: '',
     });
     const stopMessaging = useForm({
         channel: 'whatsapp',
         granted: false,
         source: 'staff_dashboard_stop_messages',
+        purpose: 'customer_follow_up',
     });
     const visit = useForm({
         customer_id: customer.id,
@@ -576,15 +581,26 @@ export default function CustomerDetailsPage({
                                         : 'No consent recorded'}
                                 </p>
                                 {latestWhatsAppConsent && (
-                                    <p className="mt-1 text-xs text-muted-foreground">
-                                        Recorded{' '}
-                                        {new Date(
-                                            latestWhatsAppConsent.recorded_at,
-                                        ).toLocaleString()}{' '}
-                                        ·{' '}
-                                        {latestWhatsAppConsent.source ??
-                                            'source not recorded'}
-                                    </p>
+                                    <>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Recorded{' '}
+                                            {new Date(
+                                                latestWhatsAppConsent.recorded_at,
+                                            ).toLocaleString()}{' '}
+                                            ·{' '}
+                                            {latestWhatsAppConsent.source ??
+                                                'source not recorded'}
+                                        </p>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Purpose:{' '}
+                                            {latestWhatsAppConsent.purpose ===
+                                            'customer_follow_up'
+                                                ? 'Customer follow-up and retention messages'
+                                                : 'Not recorded on this legacy consent'}
+                                            {latestWhatsAppConsent.evidence_reference &&
+                                                ` · Evidence reference: ${latestWhatsAppConsent.evidence_reference}`}
+                                        </p>
+                                    </>
                                 )}
                                 <p className="mt-2 text-xs text-muted-foreground">
                                     Only record consent after the customer has
@@ -651,6 +667,46 @@ export default function CustomerDetailsPage({
                                             </option>
                                         </select>
                                     </label>
+                                    {consent.data.granted && (
+                                        <>
+                                            <label className="grid gap-1.5 text-sm font-medium">
+                                                Consent purpose
+                                                <select
+                                                    className="h-10 rounded-lg border bg-background px-3"
+                                                    onChange={(event) =>
+                                                        consent.setData(
+                                                            'purpose',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                    value={consent.data.purpose}
+                                                >
+                                                    <option value="customer_follow_up">
+                                                        Customer follow-up and
+                                                        retention messages
+                                                    </option>
+                                                </select>
+                                            </label>
+                                            <label className="grid gap-1.5 text-sm font-medium">
+                                                Evidence reference (optional)
+                                                <input
+                                                    className="h-10 rounded-lg border bg-background px-3 font-normal"
+                                                    maxLength={255}
+                                                    onChange={(event) =>
+                                                        consent.setData(
+                                                            'evidence_reference',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                    placeholder="Receipt, form, or other reference"
+                                                    value={
+                                                        consent.data
+                                                            .evidence_reference
+                                                    }
+                                                />
+                                            </label>
+                                        </>
+                                    )}
                                     <label className="flex items-start gap-2 text-sm">
                                         <input
                                             checked={consent.data.granted}
