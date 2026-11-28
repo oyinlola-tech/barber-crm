@@ -8,8 +8,6 @@ export default function AcceptStaffInvitationPage() {
     const [invalid, setInvalid] = useState(false);
     const form = useForm({
         token: '',
-        password: '',
-        password_confirmation: '',
     });
 
     useEffect(() => {
@@ -38,10 +36,12 @@ export default function AcceptStaffInvitationPage() {
                     Barber CRM · Staff access
                 </p>
                 <h1 className="mt-2 text-2xl font-semibold">
-                    Set your password
+                    Activate your account
                 </h1>
                 <p className="mt-2 text-sm text-muted-foreground">
-                    Choose a strong password to activate your staff account.
+                    Confirm this one-time link to activate your account. Then
+                    sign in with the temporary password from your invitation
+                    email and choose a new password.
                 </p>
                 {invalid ? (
                     <p className="mt-6 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -53,40 +53,6 @@ export default function AcceptStaffInvitationPage() {
                         className="mt-6 grid gap-4"
                         onSubmit={acceptInvitation}
                     >
-                        <label className="grid gap-1.5 text-sm font-medium">
-                            Password
-                            <input
-                                autoComplete="new-password"
-                                className="h-10 rounded-lg border bg-background px-3"
-                                minLength={12}
-                                onChange={(event) =>
-                                    form.setData('password', event.target.value)
-                                }
-                                required
-                                type="password"
-                                value={form.data.password}
-                            />
-                            {form.errors.password && (
-                                <ErrorText text={form.errors.password} />
-                            )}
-                        </label>
-                        <label className="grid gap-1.5 text-sm font-medium">
-                            Confirm password
-                            <input
-                                autoComplete="new-password"
-                                className="h-10 rounded-lg border bg-background px-3"
-                                minLength={12}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'password_confirmation',
-                                        event.target.value,
-                                    )
-                                }
-                                required
-                                type="password"
-                                value={form.data.password_confirmation}
-                            />
-                        </label>
                         {form.errors.token && (
                             <ErrorText text={form.errors.token} />
                         )}
