@@ -45,6 +45,11 @@ test('authorized staff can create, enable, and edit a follow-up rule', async ({
     await expect(
         updatedRule.getByRole('button', { name: 'Disable' }),
     ).toBeVisible();
+    page.once('dialog', (dialog) => dialog.accept());
+    await updatedRule.getByRole('button', { name: 'Delete' }).click();
+    await expect(
+        page.getByRole('heading', { name: 'Three-day visit follow-up' }),
+    ).toHaveCount(0);
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(390);

@@ -102,7 +102,7 @@ Role::query()->create([
         'roles.view', 'staff.view', 'settings.view', 'conversations.view', 'automations.view',
         'templates.view', 'messages.view', 'reviews.view', 'analytics.view', 'audit.view', 'system.health.view', 'whatsapp.view',
         'services.view', 'services.create', 'services.update',
-        'automations.create', 'automations.update', 'automations.enable', 'automations.disable',
+        'automations.create', 'automations.update', 'automations.enable', 'automations.disable', 'automations.delete',
         'services.categories.create', 'services.categories.update', 'services.categories.delete',
         'conversations.reply', 'conversations.assign', 'conversations.close',
     ],
