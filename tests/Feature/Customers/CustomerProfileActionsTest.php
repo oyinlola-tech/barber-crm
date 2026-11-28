@@ -560,6 +560,10 @@ it('anonymizes a customer and preserves retained history without retaining messa
         'business_id' => $business->getKey(), 'conversation_id' => $conversation->getKey(),
         'created_by' => $user->getKey(), 'body' => 'Customer shared a private health detail',
     ]);
+    $visit = Visit::query()->create([
+        'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(),
+        'recorded_by' => $user->getKey(), 'visited_at' => now(), 'notes' => 'Customer shared a private personal detail',
+    ]);
     $webhookEvent = WebhookEvent::query()->create([
         'business_id' => $business->getKey(),
         'provider' => 'whatsapp',
@@ -572,6 +576,19 @@ it('anonymizes a customer and preserves retained history without retaining messa
             'phone_number_id' => 'barbershop-phone-id',
         ],
         'status' => 'received',
+    ]);
+    $unmatchedWebhookEvent = WebhookEvent::query()->create([
+        'business_id' => $business->getKey(),
+        'provider' => 'whatsapp',
+        'event_id' => 'message:wamid.privacy-unmatched',
+        'event_type' => 'message',
+        'payload' => [
+            'kind' => 'message',
+            'from' => '2348031234567',
+            'body' => 'Private content retained after connection mismatch',
+            'phone_number_id' => 'unknown-phone-id',
+        ],
+        'status' => 'unmatched_connection',
     ]);
     ScheduledMessage::query()->create([
         'business_id' => $business->getKey(), 'customer_id' => $customer->getKey(), 'channel' => 'whatsapp', 'idempotency_key' => 'pvt-1',
@@ -588,8 +605,11 @@ it('anonymizes a customer and preserves retained history without retaining messa
         ->and($customer->consents()->count())->toBe(1)
         ->and($customer->noteEntries()->count())->toBe(0)
         ->and($message->refresh()->body)->toBeNull()
+        ->and($visit->refresh()->notes)->toBeNull()
         ->and($webhookEvent->refresh()->payload)->toBe(['redacted' => true])
         ->and($webhookEvent->status)->toBe('processed')
+        ->and($unmatchedWebhookEvent->refresh()->payload)->toBe(['redacted' => true])
+        ->and($unmatchedWebhookEvent->status)->toBe('unmatched_connection')
         ->and($conversationNote->refresh()->body)->toBe('[redacted: customer anonymized]')
         ->and(ScheduledMessage::query()->where('customer_id', $customer->getKey())->value('status'))->toBe('cancelled')
         ->and(AuditLog::query()->where('auditable_id', $customer->getKey())->where('auditable_type', Customer::class)->where('action', 'customer.created')->value('after'))->toBeNull();

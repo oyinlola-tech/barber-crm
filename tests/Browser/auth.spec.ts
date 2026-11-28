@@ -44,6 +44,13 @@ test('sign-in form remains usable in a narrow mobile browser', async ({
                 .evaluate((footer) => footer.getBoundingClientRect().width),
         )
         .toBe(390);
+    await expect
+        .poll(() =>
+            page
+                .getByRole('contentinfo')
+                .evaluate((footer) => footer.getBoundingClientRect().height),
+        )
+        .toBeGreaterThanOrEqual(600);
     const documentWidth = await page.evaluate(
         () => document.documentElement.scrollWidth,
     );
@@ -82,6 +89,13 @@ test('every public authentication screen keeps the full-width branded footer', a
                 ),
             )
             .toBe(1365);
+        await expect
+            .poll(() =>
+                footer.evaluate(
+                    (element) => element.getBoundingClientRect().height,
+                ),
+            )
+            .toBeGreaterThanOrEqual(670);
     }
 });
 
