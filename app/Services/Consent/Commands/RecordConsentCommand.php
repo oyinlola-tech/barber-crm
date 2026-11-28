@@ -2,6 +2,7 @@
 
 namespace App\Services\Consent\Commands;
 
+use App\Enums\ConsentPurpose;
 use App\Models\Customer;
 use App\Models\CustomerConsent;
 use App\Models\User;
@@ -17,15 +18,27 @@ class RecordConsentCommand
         public CancelCustomerFollowUpsCommand $cancelCustomerFollowUps,
     ) {}
 
-    public function execute(int $businessId, int $customerId, string $channel, bool $granted, ?string $source = null, ?int $userId = null): CustomerConsent
-    {
+    public function execute(
+        int $businessId,
+        int $customerId,
+        string $channel,
+        bool $granted,
+        ?string $source = null,
+        ?int $userId = null,
+        ?string $purpose = null,
+        ?string $evidenceReference = null,
+    ): CustomerConsent {
         if ($userId !== null) {
             $actor = User::query()->findOrFail($userId);
             $permission = $granted ? 'consent.record' : 'consent.revoke';
             abort_unless($actor->hasBusinessPermission($businessId, $permission), 403);
         }
 
-        return DB::transaction(function () use ($businessId, $customerId, $channel, $granted, $source, $userId): CustomerConsent {
+        if ($granted && ($purpose === null || ConsentPurpose::tryFrom($purpose) === null)) {
+            throw ValidationException::withMessages(['purpose' => 'Choose the customer follow-up purpose before recording consent.']);
+        }
+
+        return DB::transaction(function () use ($businessId, $customerId, $channel, $granted, $source, $userId, $purpose, $evidenceReference): CustomerConsent {
             $customer = Customer::query()->where('business_id', $businessId)->findOrFail($customerId);
             if ($customer->status !== 'active') {
                 throw ValidationException::withMessages(['customer' => 'Consent cannot be changed for an archived or anonymized customer.']);
@@ -45,8 +58,10 @@ class RecordConsentCommand
                 'business_id' => $businessId,
                 'customer_id' => $customerId,
                 'channel' => $channel,
+                'purpose' => $purpose,
                 'granted' => $granted,
                 'source' => $source,
+                'evidence_reference' => $granted ? $evidenceReference : null,
                 'recorded_at' => now(),
                 'revoked_at' => $granted ? null : now(),
             ]);

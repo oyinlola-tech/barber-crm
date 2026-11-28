@@ -28,6 +28,8 @@ class StoreCustomerConsentRequest extends FormRequest
             'channel' => ['required', 'in:whatsapp,email,sms'],
             'granted' => ['required', 'boolean'],
             'source' => ['nullable', 'string', 'max:120'],
+            'purpose' => ['required_if:granted,true', 'nullable', 'in:customer_follow_up'],
+            'evidence_reference' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

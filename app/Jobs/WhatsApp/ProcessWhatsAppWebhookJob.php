@@ -212,7 +212,7 @@ class ProcessWhatsAppWebhookJob implements ShouldBeUnique, ShouldQueue
 
             $body = $payload['body'] ?? null;
             if (is_string($body) && $this->isOptOut($body, $optOutKeywords)) {
-                $recordConsent->execute((int) $event->business_id, (int) $customer->getKey(), 'whatsapp', false, 'whatsapp_keyword', null);
+                $recordConsent->execute((int) $event->business_id, (int) $customer->getKey(), 'whatsapp', false, 'whatsapp_keyword', null, 'customer_follow_up');
             }
         }
     }

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['business_id', 'customer_id', 'channel', 'granted', 'source', 'recorded_at', 'revoked_at'])]
+#[Fillable(['business_id', 'customer_id', 'channel', 'purpose', 'granted', 'source', 'evidence_reference', 'recorded_at', 'revoked_at'])]
 class CustomerConsent extends Model
 {
     public function customer(): BelongsTo

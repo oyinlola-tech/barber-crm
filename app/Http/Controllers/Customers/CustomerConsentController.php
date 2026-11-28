@@ -18,6 +18,8 @@ class CustomerConsentController extends Controller
             $request->boolean('granted'),
             $request->validated('source'),
             $request->user()->getKey(),
+            $request->validated('purpose'),
+            $request->validated('evidence_reference'),
         );
 
         return back()->with('success', 'Consent preference recorded.');
