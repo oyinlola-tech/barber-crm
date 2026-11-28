@@ -17,8 +17,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $accepted_at
  * @property Carbon|null $revoked_at
  */
-#[Fillable(['business_id', 'invited_by', 'name', 'email', 'role_slug', 'token_hash', 'expires_at', 'accepted_at', 'revoked_at'])]
-#[Hidden(['token_hash'])]
+#[Fillable(['business_id', 'invited_by', 'name', 'email', 'role_slug', 'token_hash', 'temporary_password_hash', 'expires_at', 'accepted_at', 'revoked_at'])]
+#[Hidden(['token_hash', 'temporary_password_hash'])]
 class StaffInvitation extends Model
 {
     protected function casts(): array

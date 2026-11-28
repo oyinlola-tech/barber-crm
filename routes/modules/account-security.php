@@ -1,10 +1,18 @@
 <?php
 
 use App\Http\Controllers\Auth\AccountSecurityController;
+use App\Http\Controllers\Auth\FirstLoginPasswordController;
 use App\Http\Controllers\Notifications\WebPushSubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'business'])->group(function (): void {
+    Route::get('/first-login/password', [FirstLoginPasswordController::class, 'show'])
+        ->withoutMiddleware('business')
+        ->name('account.first-login-password');
+    Route::put('/first-login/password', [FirstLoginPasswordController::class, 'update'])
+        ->withoutMiddleware('business')
+        ->middleware('throttle:5,1')
+        ->name('account.first-login-password.update');
     Route::get('/settings/security', [AccountSecurityController::class, 'show'])
         ->name('account.security');
     Route::post('/settings/security/confirm-password', [AccountSecurityController::class, 'confirmPassword'])

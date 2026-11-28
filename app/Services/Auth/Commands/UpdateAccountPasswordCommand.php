@@ -25,6 +25,8 @@ class UpdateAccountPasswordCommand
             $user->forceFill([
                 'password' => Hash::make($password),
                 'remember_token' => Str::random(60),
+                'password_change_required' => false,
+                'temporary_password_expires_at' => null,
             ])->save();
 
             $this->sessions->revokeOtherSessions($userId, $currentSessionId);

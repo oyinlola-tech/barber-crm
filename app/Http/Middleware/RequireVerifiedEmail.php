@@ -15,6 +15,8 @@ class RequireVerifiedEmail
         'email/verify',
         'email/verify/*',
         'email/verification-notification',
+        'first-login/password',
+        'first-login/password/*',
         'logout',
     ];
 

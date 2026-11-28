@@ -18,8 +18,8 @@ class StaffInvitationController extends Controller
 
     public function accept(AcceptStaffInvitationRequest $request, AcceptStaffInvitationCommand $command): RedirectResponse
     {
-        $command->execute($request->validated('token'), $request->validated('password'));
+        $command->execute($request->validated('token'));
 
-        return to_route('login')->with('status', 'Your account is ready. Sign in with the password you created.');
+        return to_route('login')->with('status', 'Your account is ready. Sign in with the temporary password in your invitation email, then choose a new password.');
     }
 }

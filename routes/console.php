@@ -41,3 +41,9 @@ Schedule::command('webhooks:requeue-stalled')
     ->everyMinute()
     ->withoutOverlapping(2)
     ->runInBackground();
+
+Schedule::command('notifications:dispatch-activity-digest')
+    ->dailyAt('07:15')
+    ->timezone((string) config('app.timezone'))
+    ->withoutOverlapping(30)
+    ->onOneServer();

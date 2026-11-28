@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Apis\WhatsApp\WhatsAppMessageApi;
 use App\Interfaces\Apis\MessagingProviderInterface;
 use App\Interfaces\Notifications\WebPushDeliveryInterface;
+use App\Interfaces\Repositories\Audit\ActivityDigestRepositoryInterface;
 use App\Interfaces\Repositories\Businesses\BusinessSettingsRepositoryInterface;
 use App\Interfaces\Repositories\BusinessRepositoryInterface;
 use App\Interfaces\Repositories\Conversations\ConversationRepositoryInterface;
@@ -22,6 +23,7 @@ use App\Models\StaffProfile;
 use App\Policies\ServiceCategoryPolicy;
 use App\Policies\ServicePolicy;
 use App\Policies\StaffPolicy;
+use App\Repositories\Audit\ActivityDigestRepository;
 use App\Repositories\Businesses\BusinessRepository;
 use App\Repositories\Businesses\BusinessSettingsRepository;
 use App\Repositories\Conversations\ConversationRepository;
@@ -46,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(BusinessRepositoryInterface::class, BusinessRepository::class);
+        $this->app->bind(ActivityDigestRepositoryInterface::class, ActivityDigestRepository::class);
         $this->app->bind(BusinessSettingsRepositoryInterface::class, BusinessSettingsRepository::class);
         $this->app->bind(ConversationRepositoryInterface::class, ConversationRepository::class);
         $this->app->bind(CustomerRepositoryInterface::class, CustomerRepository::class);

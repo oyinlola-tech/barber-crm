@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\RequireFirstLoginPasswordChange;
 use App\Http\Middleware\RequirePrivilegedMfa;
 use App\Http\Middleware\RequireVerifiedEmail;
 use App\Http\Middleware\ResolveBarbershop;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
             RequireVerifiedEmail::class,
+            RequireFirstLoginPasswordChange::class,
             RequirePrivilegedMfa::class,
         ]);
         $middleware->validateCsrfTokens(except: ['webhooks/whatsapp']);

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
 #[Fillable(['name', 'email', 'password'])]
@@ -20,6 +21,20 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, TwoFactorAuthenticatable;
+
+    /** @property bool $password_change_required */
+    public function requiresPasswordChange(): bool
+    {
+        return (bool) $this->password_change_required;
+    }
+
+    public function temporaryPasswordExpired(): bool
+    {
+        /** @var Carbon|null $expiresAt */
+        $expiresAt = $this->temporary_password_expires_at;
+
+        return $this->requiresPasswordChange() && $expiresAt !== null && $expiresAt->isPast();
+    }
 
     /** @param string $token */
     public function sendPasswordResetNotification($token): void
@@ -99,6 +114,8 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
+            'password_change_required' => 'boolean',
+            'temporary_password_expires_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

@@ -12,7 +12,11 @@ class StaffInvitation extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public string $invitationUrl, public string $businessName) {}
+    public function __construct(
+        public string $invitationUrl,
+        public string $businessName,
+        public string $temporaryPassword = '',
+    ) {}
 
     public function envelope(): Envelope
     {

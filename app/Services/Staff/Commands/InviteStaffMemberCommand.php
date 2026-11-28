@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use App\Services\Notifications\Commands\NotifyBusinessAdminsOfStaffAccessChangeCommand;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -43,7 +44,9 @@ class InviteStaffMemberCommand
         $this->assertActorCanDelegate($actor, (int) $business->getKey(), $role->permissions ?? []);
 
         $rawToken = Str::random(64);
-        [$invitation, $auditLogId] = DB::transaction(function () use ($actor, $business, $attributes, $email, $role, $rawToken): array {
+        $temporaryPassword = Str::password(32);
+        $temporaryPasswordHash = Hash::make($temporaryPassword);
+        [$invitation, $auditLogId] = DB::transaction(function () use ($actor, $business, $attributes, $email, $role, $rawToken, $temporaryPasswordHash): array {
             StaffInvitation::query()
                 ->where('business_id', $business->getKey())
                 ->where('email', $email)
@@ -58,6 +61,7 @@ class InviteStaffMemberCommand
                 'email' => $email,
                 'role_slug' => $role->slug,
                 'token_hash' => hash('sha256', $rawToken),
+                'temporary_password_hash' => $temporaryPasswordHash,
                 'expires_at' => now()->addHours(72),
             ]);
 
@@ -72,9 +76,9 @@ class InviteStaffMemberCommand
 
         $url = rtrim((string) config('app.url'), '/').'/staff/invitations#'.$rawToken;
         try {
-            Mail::to($email)->send(new StaffInvitationMail($url, (string) $business->name));
+            Mail::to($email)->send(new StaffInvitationMail($url, (string) $business->name, $temporaryPassword));
         } catch (\Throwable $exception) {
-            $invitation->forceFill(['revoked_at' => now()])->save();
+            $invitation->forceFill(['revoked_at' => now(), 'temporary_password_hash' => null])->save();
 
             throw $exception;
         }

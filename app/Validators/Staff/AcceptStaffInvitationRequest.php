@@ -3,7 +3,6 @@
 namespace App\Validators\Staff;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rules\Password;
 
 class AcceptStaffInvitationRequest extends FormRequest
 {
@@ -17,7 +16,6 @@ class AcceptStaffInvitationRequest extends FormRequest
     {
         return [
             'token' => ['required', 'string', 'size:64'],
-            'password' => ['required', 'confirmed', Password::min(12)->letters()->numbers()],
         ];
     }
 }

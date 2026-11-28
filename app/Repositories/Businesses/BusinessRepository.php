@@ -20,6 +20,10 @@ class BusinessRepository implements BusinessRepositoryInterface
                 'email' => $data->ownerEmail,
                 'password' => $data->password,
             ]);
+            $user->forceFill([
+                'password_change_required' => true,
+                'temporary_password_expires_at' => now()->addHours(24),
+            ])->save();
 
             $business = Business::create([
                 'name' => $data->businessName,

@@ -15,6 +15,7 @@ class RequirePrivilegedMfa
     /** @var list<string> */
     private const MFA_SETUP_PATHS = [
         'settings/security',
+        'first-login/password',
         'settings/security/confirm-password',
         'email/verify',
         'email/verify/*',
