@@ -31,7 +31,6 @@ class AnonymizeCustomerCommand
                 ->where('business_id', $businessId)
                 ->where('provider', 'whatsapp')
                 ->where('event_type', 'message')
-                ->where('status', 'received')
                 ->where(function ($query) use ($customer, $rawPhone): void {
                     $query->where('payload->from', $rawPhone)
                         ->orWhere('payload->from', $customer->phone);
@@ -39,11 +38,13 @@ class AnonymizeCustomerCommand
                 ->lockForUpdate()
                 ->get()
                 ->each(function (WebhookEvent $event): void {
-                    $event->forceFill([
-                        'payload' => ['redacted' => true],
-                        'status' => 'processed',
-                        'processed_at' => now(),
-                    ])->save();
+                    $attributes = ['payload' => ['redacted' => true]];
+                    if ($event->status === 'received') {
+                        $attributes['status'] = 'processed';
+                        $attributes['processed_at'] = now();
+                    }
+
+                    $event->forceFill($attributes)->save();
                 });
 
             $scheduled = ScheduledMessage::query()
@@ -93,6 +94,11 @@ class AnonymizeCustomerCommand
                 ->where('business_id', $businessId)
                 ->where('customer_id', $customer->getKey())
                 ->update(['body' => null, 'updated_at' => now()]);
+
+            DB::table('visits')
+                ->where('business_id', $businessId)
+                ->where('customer_id', $customer->getKey())
+                ->update(['notes' => null, 'updated_at' => now()]);
 
             $customer->forceFill([
                 'first_name' => 'Deleted',
