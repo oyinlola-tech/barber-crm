@@ -52,8 +52,12 @@ Sentry is optional and is configured through `SENTRY_LARAVEL_DSN`,
 `SENTRY_ENVIRONMENT`, `SENTRY_SAMPLE_RATE`, and `SENTRY_TRACES_SAMPLE_RATE`.
 The repository's configured data scrubbing should be reviewed before enabling
 it with customer traffic. An empty DSN means external Sentry delivery has not
-been configured. No external alerting or on-call notification pipeline is
-implied by this configuration.
+been configured. The scheduler sends in-app, queued email and optional browser
+push notifications to active staff with `system.health.view` when monitored
+components degrade, worsen or recover. Repeated states are suppressed. These
+application alerts require a functioning database/cache and scheduler; email
+and push wait for the queue worker. A separate host-level monitor is still
+needed to detect a fully stopped database or scheduler.
 
 ## Incident triage
 
@@ -72,8 +76,9 @@ implied by this configuration.
 ## Verification boundary
 
 Repository tests cover health calculations for database failures and incomplete
-WhatsApp configuration, plus deployment health-check control flow. They do not
-prove production monitoring uptime, alert delivery, Meta token validity,
+WhatsApp configuration, health transition deduplication and authorization, plus
+deployment health-check control flow. They do not prove production monitoring
+uptime, external alert delivery, Meta token validity,
 Cloudflare/TLS behavior, or operational response times. `/ready` and the
 Operations page must not be described as a production monitoring service until
 they are deployed and observed in the target environment.
