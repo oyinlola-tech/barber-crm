@@ -2,6 +2,7 @@
 
 namespace App\Services\Conversations\Commands;
 
+use App\Enums\WhatsAppMessageFeature;
 use App\Errors\WhatsApp\WhatsAppConnectionUnavailable;
 use App\Interfaces\Apis\MessagingProviderInterface;
 use App\Models\Conversation;
@@ -11,6 +12,7 @@ use App\Models\User;
 use App\Models\WhatsAppConnection;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
+use App\Services\Settings\Queries\GetWhatsAppMessageFeaturesQuery;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -23,6 +25,7 @@ class SendConversationReplyCommand
         public MessagingProviderInterface $provider,
         public CustomerCanReceiveMessageQuery $consent,
         public RecordAuditLogCommand $audit,
+        private readonly GetWhatsAppMessageFeaturesQuery $messageFeatures,
     ) {}
 
     /** @param list<string>|null $buttonTitles */
@@ -30,6 +33,7 @@ class SendConversationReplyCommand
     {
         $actor = User::query()->findOrFail($actorId);
         abort_unless($actor->hasBusinessPermission($businessId, 'conversations.reply'), 403);
+        $this->assertManualRepliesEnabled($businessId);
         $buttons = $this->prepareButtons($buttonTitles, $idempotencyKey);
 
         try {
@@ -115,6 +119,7 @@ class SendConversationReplyCommand
         }
 
         try {
+            $this->assertManualRepliesEnabled($businessId);
             $this->assertEligibleForFreeFormReply($businessId, $conversation);
         } catch (ValidationException $exception) {
             $message->update(['status' => 'skipped']);
@@ -218,6 +223,13 @@ class SendConversationReplyCommand
 
         if ($conversation->customer->archived_at !== null || $conversation->customer->status !== 'active') {
             throw ValidationException::withMessages(['body' => 'Archived or inactive customers cannot receive messages.']);
+        }
+    }
+
+    private function assertManualRepliesEnabled(int $businessId): void
+    {
+        if (! $this->messageFeatures->isEnabled($businessId, WhatsAppMessageFeature::ManualReplies)) {
+            throw ValidationException::withMessages(['body' => 'WhatsApp staff replies are turned off in messaging settings.']);
         }
     }
 

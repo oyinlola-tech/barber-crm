@@ -63,8 +63,13 @@ class UpdateAutomationRuleCommand
             if ($enabling && ! $template->is_enabled) {
                 throw ValidationException::withMessages(['is_enabled' => 'Enable the approved template before enabling this automation.']);
             }
-            if ($trigger === AutomationTrigger::CustomerInactive->value && ! in_array($template->purpose, ['reengagement', 'retention'], true)) {
-                throw ValidationException::withMessages(['settings.template_id' => 'Inactive-customer rules require a re-engagement or retention template.']);
+            $allowedPurposes = match ($trigger) {
+                AutomationTrigger::CustomerInactive->value => ['reengagement', 'retention'],
+                AutomationTrigger::ReturnDateMissed->value => ['reengagement', 'retention', 'return_intention'],
+                default => null,
+            };
+            if ($allowedPurposes !== null && ! in_array($template->purpose, $allowedPurposes, true)) {
+                throw ValidationException::withMessages(['settings.template_id' => 'Choose a template whose purpose matches this follow-up rule.']);
             }
 
             $before = [

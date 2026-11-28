@@ -36,3 +36,8 @@ Schedule::command('webhooks:reconcile-delivery-statuses')
     ->everyMinute()
     ->withoutOverlapping(2)
     ->runInBackground();
+
+Schedule::command('webhooks:requeue-stalled')
+    ->everyMinute()
+    ->withoutOverlapping(2)
+    ->runInBackground();

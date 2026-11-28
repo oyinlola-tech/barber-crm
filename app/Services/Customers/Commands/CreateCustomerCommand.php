@@ -29,6 +29,7 @@ class CreateCustomerCommand
                 'email' => $customerData->email,
                 'date_of_birth' => $customerData->dateOfBirth,
                 'intended_return_date' => $customerData->intendedReturnDate,
+                'intended_return_status' => $customerData->intendedReturnDate === null ? null : 'expected',
                 'notes' => $customerData->notes,
             ]);
             $this->audit->execute($businessId, $userId, 'customer.created', Customer::class, $customer->getKey(), null, $customer->only(['first_name', 'last_name', 'phone', 'email']));

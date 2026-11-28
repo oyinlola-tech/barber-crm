@@ -17,6 +17,7 @@ enum BusinessRole: string
             'dashboard.view' => 'View dashboard', 'customers.view' => 'View customers',
             'customers.create' => 'Create customers', 'customers.update' => 'Update customers',
             'customers.note' => 'Add customer notes',
+            'customers.tags.manage' => 'Manage customer tags',
             'customers.archive' => 'Archive customers', 'customers.restore' => 'Restore customers',
             'customers.delete' => 'Delete customers', 'customers.import' => 'Import customers',
             'customers.export' => 'Export customers', 'customers.anonymize' => 'Anonymize customer data', 'consent.view' => 'View consent',

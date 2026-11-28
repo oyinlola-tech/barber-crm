@@ -9,6 +9,7 @@ use App\Models\Role;
 use App\Models\StaffInvitation;
 use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
+use App\Services\Notifications\Commands\NotifyBusinessAdminsOfStaffAccessChangeCommand;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -42,7 +43,7 @@ class InviteStaffMemberCommand
         $this->assertActorCanDelegate($actor, (int) $business->getKey(), $role->permissions ?? []);
 
         $rawToken = Str::random(64);
-        $invitation = DB::transaction(function () use ($actor, $business, $attributes, $email, $role, $rawToken): StaffInvitation {
+        [$invitation, $auditLogId] = DB::transaction(function () use ($actor, $business, $attributes, $email, $role, $rawToken): array {
             StaffInvitation::query()
                 ->where('business_id', $business->getKey())
                 ->where('email', $email)
@@ -60,13 +61,13 @@ class InviteStaffMemberCommand
                 'expires_at' => now()->addHours(72),
             ]);
 
-            app(RecordAuditLogCommand::class)->execute(
+            $auditLog = app(RecordAuditLogCommand::class)->execute(
                 (int) $business->getKey(), (int) $actor->getKey(), 'staff.invited',
                 StaffInvitation::class, (int) $invitation->getKey(), null,
                 ['email' => $email, 'role' => $role->slug, 'expires_at' => $invitation->expires_at->toIso8601String()],
             );
 
-            return $invitation;
+            return [$invitation, (int) $auditLog->getKey()];
         });
 
         $url = rtrim((string) config('app.url'), '/').'/staff/invitations#'.$rawToken;
@@ -77,6 +78,14 @@ class InviteStaffMemberCommand
 
             throw $exception;
         }
+
+        app(NotifyBusinessAdminsOfStaffAccessChangeCommand::class)->execute(
+            (int) $business->getKey(),
+            (int) $actor->getKey(),
+            $auditLogId,
+            trim($attributes['name']),
+            'A staff invitation was created for the '.$role->name.' role.',
+        );
 
         return $invitation;
     }

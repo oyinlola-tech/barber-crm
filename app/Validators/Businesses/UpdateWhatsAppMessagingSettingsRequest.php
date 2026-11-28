@@ -2,6 +2,7 @@
 
 namespace App\Validators\Businesses;
 
+use App\Enums\WhatsAppMessageFeature;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateWhatsAppMessagingSettingsRequest extends FormRequest
@@ -30,6 +31,11 @@ class UpdateWhatsAppMessagingSettingsRequest extends FormRequest
         return [
             'opt_out_keywords' => ['required', 'array', 'min:1', 'max:20'],
             'opt_out_keywords.*' => ['required', 'string', 'min:2', 'max:40', 'distinct:ignore_case', 'regex:/^[\p{L}\p{N}]+(?:[ _-][\p{L}\p{N}]+)*$/u'],
+            'features' => ['required', 'array:'.implode(',', array_keys(WhatsAppMessageFeature::defaults()))],
+            ...array_fill_keys(array_map(
+                static fn (WhatsAppMessageFeature $feature): string => 'features.'.$feature->value,
+                WhatsAppMessageFeature::cases(),
+            ), ['required', 'boolean']),
         ];
     }
 }

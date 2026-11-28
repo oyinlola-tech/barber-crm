@@ -29,4 +29,30 @@ class BusinessSettingsRepository implements BusinessSettingsRepositoryInterface
             ['value' => $keywords],
         );
     }
+
+    public function whatsappMessageFeatures(int $businessId, bool $lock = false): ?array
+    {
+        $query = BusinessSetting::query()
+            ->where('business_id', $businessId)
+            ->where('key', 'whatsapp.message_features');
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        $value = $query->value('value');
+        if (! is_array($value)) {
+            return null;
+        }
+
+        return array_filter($value, static fn (mixed $enabled): bool => is_bool($enabled));
+    }
+
+    public function saveWhatsAppMessageFeatures(int $businessId, array $features): BusinessSetting
+    {
+        return BusinessSetting::query()->updateOrCreate(
+            ['business_id' => $businessId, 'key' => 'whatsapp.message_features'],
+            ['value' => $features],
+        );
+    }
 }

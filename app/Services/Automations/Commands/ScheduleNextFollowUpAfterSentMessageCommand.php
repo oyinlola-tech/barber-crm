@@ -77,7 +77,7 @@ class ScheduleNextFollowUpAfterSentMessageCommand
         $currentStep = (int) ($payload['follow_up_number'] ?? 1);
         $visitId = (int) ($payload['visit_id'] ?? 0);
         $trigger = $payload['trigger'] ?? $rule->trigger;
-        if ($visitId < 1 && $trigger !== 'customer_inactive') {
+        if ($visitId < 1 && ! in_array($trigger, ['customer_inactive', 'return_date_missed'], true)) {
             return false;
         }
 
@@ -99,6 +99,14 @@ class ScheduleNextFollowUpAfterSentMessageCommand
 
         if ($trigger === 'customer_inactive') {
             return $this->inactiveCustomerStillEligible($message, $customer, $rule);
+        }
+        if ($trigger === 'return_date_missed') {
+            $returnDate = $payload['return_intention_date'] ?? null;
+
+            return $customer->intended_return_status === 'missed'
+                && is_string($returnDate)
+                && $customer->intended_return_date !== null
+                && CarbonImmutable::parse($customer->intended_return_date)->toDateString() === $returnDate;
         }
 
         $latestVisitId = $customer->visits()
@@ -151,6 +159,9 @@ class ScheduleNextFollowUpAfterSentMessageCommand
         if ($trigger === 'customer_inactive') {
             $nextPayload['inactivity_anchor'] = $payload['inactivity_anchor'];
         }
+        if ($trigger === 'return_date_missed') {
+            $nextPayload['return_intention_date'] = $payload['return_intention_date'];
+        }
 
         $visitRevision = (int) ($payload['visit_revision'] ?? 1);
         $idempotencyKey = $visitRevision === 1
@@ -162,6 +173,9 @@ class ScheduleNextFollowUpAfterSentMessageCommand
             $cycle = isset($matches[1]) ? (int) $matches[1] : 0;
             $anchor = CarbonImmutable::parse((string) $payload['inactivity_anchor'])->utc()->format('YmdHis');
             $idempotencyKey = 'inactive:customer:'.$customer->getKey().':rule:'.$rule->getKey().':visit:'.$anchor.':cycle:'.$cycle.':step:'.($currentStep + 1);
+        }
+        if ($trigger === 'return_date_missed') {
+            $idempotencyKey = 'return-missed:'.$customer->getKey().':'.$payload['return_intention_date'].':rule:'.$rule->getKey().':step:'.($currentStep + 1);
         }
 
         $this->scheduleFollowUp->execute(

@@ -44,6 +44,10 @@ class CreateAutomationRuleCommand
             if (($attributes['trigger'] ?? null) === 'customer_inactive' && ! in_array($template->purpose, ['reengagement', 'retention'], true)) {
                 throw ValidationException::withMessages(['settings.template_id' => 'Inactive-customer rules require a re-engagement or retention template.']);
             }
+            if (($attributes['trigger'] ?? null) === 'return_date_missed'
+                && ! in_array($template->purpose, ['reengagement', 'retention', 'return_intention'], true)) {
+                throw ValidationException::withMessages(['settings.template_id' => 'Missed return-date rules require a re-engagement, retention or return-intention template.']);
+            }
 
             $rule = AutomationRule::query()->create([
                 ...$attributes,

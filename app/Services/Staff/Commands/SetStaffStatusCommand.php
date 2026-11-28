@@ -7,6 +7,7 @@ use App\Models\BusinessMember;
 use App\Models\StaffProfile;
 use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
+use App\Services\Notifications\Commands\NotifyBusinessAdminsOfStaffAccessChangeCommand;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -17,7 +18,7 @@ class SetStaffStatusCommand
         $permission = $activate ? 'staff.activate' : 'staff.suspend';
         abort_unless($actor->hasBusinessPermission((int) $business->getKey(), $permission), 403);
 
-        return DB::transaction(function () use ($actor, $business, $staffProfileId, $activate): StaffProfile {
+        [$profile, $auditLogId] = DB::transaction(function () use ($actor, $business, $staffProfileId, $activate): array {
             $profile = StaffProfile::query()->where('business_id', $business->getKey())->lockForUpdate()->findOrFail($staffProfileId);
             $membership = BusinessMember::query()
                 ->where('business_id', $business->getKey())
@@ -39,12 +40,24 @@ class SetStaffStatusCommand
                 User::query()->whereKey($profile->user_id)->update(['remember_token' => str()->random(60)]);
             }
 
-            app(RecordAuditLogCommand::class)->execute(
+            $auditLog = app(RecordAuditLogCommand::class)->execute(
                 (int) $business->getKey(), (int) $actor->getKey(), $activate ? 'staff.activated' : 'staff.suspended',
                 StaffProfile::class, (int) $profile->getKey(), ['status' => $oldStatus], ['status' => $newStatus],
             );
 
-            return $profile->refresh()->load('user:id,name,email');
+            return [$profile->refresh()->load('user:id,name,email'), (int) $auditLog->getKey()];
         });
+
+        $staffName = $profile->user->name ?: $profile->name;
+
+        app(NotifyBusinessAdminsOfStaffAccessChangeCommand::class)->execute(
+            (int) $business->getKey(),
+            (int) $actor->getKey(),
+            $auditLogId,
+            $staffName,
+            ($activate ? 'Access was activated for ' : 'Access was suspended for ').$staffName.'.',
+        );
+
+        return $profile;
     }
 }

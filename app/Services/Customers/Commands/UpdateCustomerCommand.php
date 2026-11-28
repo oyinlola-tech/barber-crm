@@ -45,9 +45,19 @@ class UpdateCustomerCommand
                 : CarbonImmutable::parse($customer->intended_return_date)->toDateString();
             if (array_key_exists('intended_return_date', $attributes)) {
                 $before['intended_return_date'] = $previousReturnDate;
+                $before['intended_return_status'] = $customer->intended_return_status;
+                $nextReturnDate = $attributes['intended_return_date'] === null
+                    ? null
+                    : CarbonImmutable::parse($attributes['intended_return_date'])->toDateString();
+                if ($nextReturnDate !== $previousReturnDate) {
+                    $attributes['intended_return_status'] = $nextReturnDate === null ? null : 'expected';
+                }
             }
             $customer = $this->customers->updateForBusiness($businessId, $customerId, $attributes);
             $after = $customer->only($auditFields);
+            if (array_key_exists('intended_return_date', $attributes)) {
+                $after['intended_return_status'] = $customer->intended_return_status;
+            }
             $returnDate = $customer->intended_return_date === null
                 ? null
                 : CarbonImmutable::parse($customer->intended_return_date)->toDateString();

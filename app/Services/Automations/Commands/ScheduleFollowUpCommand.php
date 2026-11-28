@@ -11,6 +11,7 @@ use App\Models\MessageTemplate;
 use App\Models\ScheduledMessage;
 use App\Services\Automations\SendWindowCalculator;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
+use App\Services\Settings\Queries\GetWhatsAppMessageFeaturesQuery;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -20,6 +21,7 @@ class ScheduleFollowUpCommand
         public CustomerCanReceiveMessageQuery $consent,
         public SendWindowCalculator $sendWindow,
         public ConversationRepositoryInterface $conversations,
+        private readonly GetWhatsAppMessageFeaturesQuery $messageFeatures,
     ) {}
 
     /** @param array<string, mixed> $payload */
@@ -59,6 +61,8 @@ class ScheduleFollowUpCommand
             if ($rule->trigger === 'customer_inactive' && ! in_array($template->purpose, ['reengagement', 'retention'], true)) {
                 throw new InvalidArgumentException('Inactive-customer follow-ups require a re-engagement or retention template.');
             }
+            $trigger = is_string($payload['trigger'] ?? null) ? $payload['trigger'] : $rule->trigger;
+            $featureEnabled = $this->messageFeatures->allowsAutomation($businessId, $template->purpose, $trigger);
 
             $business = Business::query()->findOrFail($businessId);
             $variables = $template->variable_map ?? [];
@@ -73,8 +77,9 @@ class ScheduleFollowUpCommand
                 'visit_id' => isset($payload['visit_id']) ? (int) $payload['visit_id'] : null,
                 'visit_revision' => isset($payload['visit_revision']) ? (int) $payload['visit_revision'] : null,
                 'inactivity_anchor' => is_string($payload['inactivity_anchor'] ?? null) ? $payload['inactivity_anchor'] : null,
+                'return_intention_date' => is_string($payload['return_intention_date'] ?? null) ? $payload['return_intention_date'] : null,
                 'last_customer_message_id' => $this->conversations->latestInboundMessageIdForCustomer($businessId, $customerId, 'whatsapp'),
-                'trigger' => is_string($payload['trigger'] ?? null) ? $payload['trigger'] : $rule->trigger,
+                'trigger' => $trigger,
                 'max_attempts' => max(1, min((int) ($settings['max_attempts'] ?? config('automation.max_attempts')), 10)),
             ];
             $scheduledTime = $this->sendWindow->nextAllowedAt(
@@ -91,8 +96,9 @@ class ScheduleFollowUpCommand
                 'automation_rule_id' => $rule->getKey(),
                 'channel' => 'whatsapp',
                 'payload' => $normalizedPayload,
-                'status' => ScheduledMessageStatus::Pending->value,
+                'status' => $featureEnabled ? ScheduledMessageStatus::Pending->value : ScheduledMessageStatus::Cancelled->value,
                 'scheduled_at' => $scheduledTime,
+                'last_error' => $featureEnabled ? null : 'whatsapp_messaging_feature_disabled',
             ]);
 
             if ((int) $scheduledMessage->customer_id !== $customerId || (int) $scheduledMessage->automation_rule_id !== $ruleId) {

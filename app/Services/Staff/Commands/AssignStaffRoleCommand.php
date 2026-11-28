@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\StaffProfile;
 use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
+use App\Services\Notifications\Commands\NotifyBusinessAdminsOfStaffAccessChangeCommand;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -26,7 +27,7 @@ class AssignStaffRoleCommand
 
         $this->assertDelegable($actor, $businessId, $role->permissions ?? []);
 
-        DB::transaction(function () use ($actor, $businessId, $staffProfileId, $roleSlug): void {
+        [$staffName, $auditLogId, $previousRole] = DB::transaction(function () use ($actor, $businessId, $staffProfileId, $roleSlug): array {
             $profile = StaffProfile::query()->where('business_id', $businessId)->lockForUpdate()->findOrFail($staffProfileId);
             $membership = BusinessMember::query()->where('business_id', $businessId)
                 ->where('user_id', $profile->user_id)->lockForUpdate()->firstOrFail();
@@ -37,11 +38,21 @@ class AssignStaffRoleCommand
 
             $before = $membership->role;
             $membership->forceFill(['role' => $roleSlug])->save();
-            app(RecordAuditLogCommand::class)->execute(
+            $auditLog = app(RecordAuditLogCommand::class)->execute(
                 $businessId, (int) $actor->getKey(), 'staff.role_assigned', BusinessMember::class,
                 (int) $membership->getKey(), ['role' => $before], ['role' => $roleSlug],
             );
+
+            return [(string) ($profile->name ?: $profile->user?->name ?: 'Staff member'), (int) $auditLog->getKey(), $before];
         });
+
+        app(NotifyBusinessAdminsOfStaffAccessChangeCommand::class)->execute(
+            $businessId,
+            (int) $actor->getKey(),
+            $auditLogId,
+            $staffName,
+            'The role for '.$staffName.' changed from '.$previousRole.' to '.$roleSlug.'.',
+        );
     }
 
     /** @param list<string> $permissions */

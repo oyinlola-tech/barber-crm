@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Configs\WebPushConfig;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
@@ -18,7 +19,7 @@ use Inertia\Response;
 
 class AccountSecurityController extends Controller
 {
-    public function show(Request $request, ListAccountSessionsQuery $sessions): Response
+    public function show(Request $request, ListAccountSessionsQuery $sessions, WebPushConfig $webPush): Response
     {
         return Inertia::render('settings/security', [
             'twoFactor' => [
@@ -33,6 +34,11 @@ class AccountSecurityController extends Controller
                 $request->session()->getId(),
             ),
             'securityNotice' => $request->session()->get('security_notice'),
+            'webPush' => [
+                'configured' => $webPush->isConfigured(),
+                'publicKey' => $webPush->publicKey(),
+                'subscriptionCount' => $request->user()->webPushSubscriptions()->count(),
+            ],
         ]);
     }
 

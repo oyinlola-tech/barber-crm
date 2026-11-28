@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Businesses;
 
 use App\Http\Controllers\Controller;
 use App\Services\Businesses\Commands\UpdateBusinessCommand;
+use App\Services\Settings\Queries\GetWhatsAppMessageFeaturesQuery;
 use App\Services\Settings\Queries\GetWhatsAppMessagingSettingsQuery;
 use App\Validators\Businesses\UpdateBusinessRequest;
 use Illuminate\Http\RedirectResponse;
@@ -15,8 +16,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BusinessSettingsController extends Controller
 {
-    public function show(Request $request, GetWhatsAppMessagingSettingsQuery $messagingSettings): Response
-    {
+    public function show(
+        Request $request,
+        GetWhatsAppMessagingSettingsQuery $messagingSettings,
+        GetWhatsAppMessageFeaturesQuery $messagingFeatures,
+    ): Response {
         $business = $request->attributes->get('currentBusiness');
         abort_unless($request->user()->hasBusinessPermission((int) $business->getKey(), 'settings.view'), 403);
 
@@ -32,6 +36,7 @@ class BusinessSettingsController extends Controller
             ],
             'canUpdate' => $request->user()->hasBusinessPermission((int) $business->getKey(), 'settings.update'),
             'optOutKeywords' => $messagingSettings->additionalPhrases((int) $business->getKey()),
+            'messagingFeatures' => $messagingFeatures->execute((int) $business->getKey()),
         ]);
     }
 

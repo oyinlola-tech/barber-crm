@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -33,6 +34,12 @@ class User extends Authenticatable implements MustVerifyEmail
             ->using(BusinessMember::class)
             ->withPivot('role', 'status', 'joined_at')
             ->withTimestamps();
+    }
+
+    /** @return HasMany<WebPushSubscription, $this> */
+    public function webPushSubscriptions(): HasMany
+    {
+        return $this->hasMany(WebPushSubscription::class);
     }
 
     public function hasBusinessPermission(int $businessId, string $permission): bool

@@ -18,6 +18,7 @@ use App\Models\WhatsAppConnection;
 use App\Services\Automations\SendWindowCalculator;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
 use App\Services\Customers\Queries\CustomerHasUpcomingReturnDateQuery;
+use App\Services\Settings\Queries\GetWhatsAppMessageFeaturesQuery;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -36,6 +37,7 @@ class ProcessScheduledMessageCommand
         public ConversationRepositoryInterface $conversations,
         public WhatsAppTemplateDataMapper $templateData,
         private readonly CustomerHasUpcomingReturnDateQuery $upcomingReturnDate,
+        private readonly GetWhatsAppMessageFeaturesQuery $messageFeatures,
     ) {}
 
     public function execute(int $scheduledMessageId): void
@@ -83,11 +85,22 @@ class ProcessScheduledMessageCommand
                 ->where('provider_status', 'APPROVED')
                 ->where('is_enabled', true)
                 ->find($payload['template_id'] ?? null);
-            if ($template === null || $template->provider_template_id === null
+            if ($template === null || $template->purpose === null || $template->provider_template_id === null
                 || $template->name !== ($payload['template_name'] ?? null)
                 || $template->language !== ($payload['language'] ?? null)
-                || (($payload['trigger'] ?? $rule->trigger) === 'customer_inactive' && ! in_array($template->purpose, ['reengagement', 'retention'], true))) {
+                || (($payload['trigger'] ?? $rule->trigger) === 'customer_inactive' && ! in_array($template->purpose, ['reengagement', 'retention'], true))
+                || (($payload['trigger'] ?? $rule->trigger) === 'return_date_missed' && ! in_array($template->purpose, ['reengagement', 'retention', 'return_intention'], true))) {
                 $this->cancel($scheduledMessage, 'The selected WhatsApp template is no longer approved and enabled.');
+
+                return null;
+            }
+
+            if (! $this->messageFeatures->allowsAutomation(
+                $scheduledMessage->business_id,
+                $template->purpose,
+                (string) ($payload['trigger'] ?? $rule->trigger),
+            )) {
+                $this->cancel($scheduledMessage, 'WhatsApp messaging for this feature is turned off.');
 
                 return null;
             }
@@ -187,12 +200,22 @@ class ProcessScheduledMessageCommand
         $currentRule = AutomationRule::query()
             ->where('business_id', $scheduledMessage->business_id)
             ->find($rule->getKey());
+        $currentTemplate = MessageTemplate::query()
+            ->where('business_id', $scheduledMessage->business_id)
+            ->find($template->getKey());
 
         if ($currentCustomer === null
             || $currentCustomer->status !== 'active'
             || $currentCustomer->archived_at !== null
             || $currentRule === null
             || ! $currentRule->is_enabled
+            || $currentTemplate === null
+            || $currentTemplate->purpose === null
+            || ! $this->messageFeatures->allowsAutomation(
+                $scheduledMessage->business_id,
+                $currentTemplate->purpose,
+                (string) (($scheduledMessage->payload ?? [])['trigger'] ?? $currentRule->trigger),
+            )
             || ! $hasConsent
             || ! $this->isStillEligibleForTrigger($scheduledMessage, $currentCustomer, $currentRule)) {
             DB::transaction(function () use ($scheduledMessage): void {
@@ -340,6 +363,18 @@ class ProcessScheduledMessageCommand
             if ($expectedMessageId === null ? $latestMessageId !== null : (int) $expectedMessageId !== $latestMessageId) {
                 return false;
             }
+        }
+
+        if (($payload['trigger'] ?? $rule->trigger) === 'return_date_missed') {
+            $returnDate = $payload['return_intention_date'] ?? null;
+            $business = Business::query()->find($scheduledMessage->business_id);
+
+            return $customer->intended_return_status === 'missed'
+                && is_string($returnDate)
+                && $customer->intended_return_date !== null
+                && CarbonImmutable::parse($customer->intended_return_date)->toDateString() === $returnDate
+                && $business !== null
+                && ! CarbonImmutable::parse($returnDate)->isAfter(now($business->timezone)->startOfDay());
         }
 
         if (($payload['trigger'] ?? $rule->trigger) !== 'customer_inactive') {

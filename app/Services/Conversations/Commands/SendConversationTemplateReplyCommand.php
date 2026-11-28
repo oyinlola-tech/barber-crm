@@ -4,6 +4,7 @@ namespace App\Services\Conversations\Commands;
 
 use App\Configs\WhatsAppConfig;
 use App\Enums\MessageStatus;
+use App\Enums\WhatsAppMessageFeature;
 use App\Interfaces\Apis\MessagingProviderInterface;
 use App\Mappers\Templates\WhatsAppTemplateDataMapper;
 use App\Models\Business;
@@ -16,6 +17,7 @@ use App\Models\User;
 use App\Models\WhatsAppConnection;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
+use App\Services\Settings\Queries\GetWhatsAppMessageFeaturesQuery;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -31,12 +33,14 @@ class SendConversationTemplateReplyCommand
         private readonly WhatsAppTemplateDataMapper $templateData,
         private readonly WhatsAppConfig $whatsAppConfiguration,
         private readonly RecordAuditLogCommand $audit,
+        private readonly GetWhatsAppMessageFeaturesQuery $messageFeatures,
     ) {}
 
     public function execute(int $businessId, int $conversationId, int $actorId, int $templateId, string $idempotencyKey): Message
     {
         $actor = User::query()->findOrFail($actorId);
         abort_unless($actor->hasBusinessPermission($businessId, 'conversations.reply'), 403);
+        $this->assertManualRepliesEnabled($businessId);
 
         try {
             $context = DB::transaction(function () use ($businessId, $conversationId, $templateId, $idempotencyKey): array {
@@ -117,6 +121,7 @@ class SendConversationTemplateReplyCommand
         }
 
         try {
+            $this->assertManualRepliesEnabled($businessId);
             $this->assertCustomerEligible($businessId, $customer);
             if ($this->hasUnresolvedTemplateDelivery($conversation)) {
                 throw ValidationException::withMessages(['template_id' => 'A previous template send has uncertain delivery. Reconcile it or wait for a new customer message before sending another template.']);
@@ -215,6 +220,13 @@ class SendConversationTemplateReplyCommand
         }
         if (! $this->consent->execute($businessId, (int) $customer->getKey(), 'whatsapp')) {
             throw ValidationException::withMessages(['template_id' => 'A recorded WhatsApp consent is required before sending.']);
+        }
+    }
+
+    private function assertManualRepliesEnabled(int $businessId): void
+    {
+        if (! $this->messageFeatures->isEnabled($businessId, WhatsAppMessageFeature::ManualReplies)) {
+            throw ValidationException::withMessages(['template_id' => 'WhatsApp staff replies are turned off in messaging settings.']);
         }
     }
 

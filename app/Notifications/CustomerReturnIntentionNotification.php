@@ -2,11 +2,13 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Channels\WebPushChannel;
+use App\Notifications\Contracts\WebPushNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class CustomerReturnIntentionNotification extends Notification
+class CustomerReturnIntentionNotification extends Notification implements WebPushNotification
 {
     use Queueable;
 
@@ -20,7 +22,7 @@ class CustomerReturnIntentionNotification extends Notification
     /** @return list<string> */
     public function via(object $notifiable): array
     {
-        return ['database', 'mail'];
+        return ['database', 'mail', WebPushChannel::class];
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -33,6 +35,21 @@ class CustomerReturnIntentionNotification extends Notification
                 'intendedReturnDate' => $this->intendedReturnDate,
                 'url' => rtrim((string) config('app.url'), '/').'/customers/'.$this->customerId,
             ]);
+    }
+
+    /** @return array{title:string,body:string,url:string} */
+    public function toWebPush(object $notifiable): array
+    {
+        return [
+            'title' => 'Customer plans to return',
+            'body' => 'A customer shared a planned return date. Open the customer profile to view it.',
+            'url' => '/customers/'.$this->customerId,
+        ];
+    }
+
+    public function webPushPermission(): string
+    {
+        return 'customers.view';
     }
 
     /** @return array{title:string,message:string,url:string,customer_id:int,intended_return_date:string} */

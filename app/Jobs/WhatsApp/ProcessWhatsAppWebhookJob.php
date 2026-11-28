@@ -16,6 +16,7 @@ use App\Services\WhatsApp\Commands\ApplyWhatsAppDeliveryStatusCommand;
 use App\Utils\PhoneNumberNormalizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -23,15 +24,22 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
-class ProcessWhatsAppWebhookJob implements ShouldQueue
+class ProcessWhatsAppWebhookJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 5;
 
+    public int $uniqueFor = 86400;
+
     public array $backoff = [15, 60, 300, 900];
 
     public function __construct(public int $webhookEventId) {}
+
+    public function uniqueId(): string
+    {
+        return 'whatsapp-webhook-event:'.$this->webhookEventId;
+    }
 
     public function failed(Throwable $exception): void
     {

@@ -141,6 +141,7 @@ class CustomerController extends Controller
                 'revoke_consent' => $user->hasBusinessPermission($businessId, 'consent.revoke'),
                 'view_consent' => $canViewConsent,
                 'record_visit' => $canRecordVisit,
+                'update_return_status' => $user->hasBusinessPermission($businessId, 'visits.update'),
                 'view_visits' => $canViewVisits,
                 'update_visit' => $user->hasBusinessPermission($businessId, 'visits.update'),
                 'void_visit' => $user->hasBusinessPermission($businessId, 'visits.delete'),

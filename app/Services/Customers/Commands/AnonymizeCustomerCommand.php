@@ -101,6 +101,7 @@ class AnonymizeCustomerCommand
                 'email' => null,
                 'date_of_birth' => null,
                 'intended_return_date' => null,
+                'intended_return_status' => null,
                 'notes' => null,
                 'status' => 'anonymized',
                 'archived_at' => now(),

@@ -1,0 +1,8 @@
+<?php
+
+return [
+    'public_key' => env('WEBPUSH_VAPID_PUBLIC_KEY'),
+    'private_key' => env('WEBPUSH_VAPID_PRIVATE_KEY'),
+    'subject' => env('WEBPUSH_VAPID_SUBJECT', 'mailto:admin@example.com'),
+    'ttl' => (int) env('WEBPUSH_TTL', 3600),
+];

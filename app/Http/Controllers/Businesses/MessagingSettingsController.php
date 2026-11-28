@@ -17,6 +17,7 @@ class MessagingSettingsController extends Controller
             (int) $request->attributes->get('currentBusiness')->getKey(),
             (int) $request->user()->getKey(),
             $request->validated('opt_out_keywords'),
+            $request->validated('features'),
         );
 
         return back()->with('success', 'WhatsApp messaging settings updated.');

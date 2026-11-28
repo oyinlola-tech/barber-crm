@@ -17,9 +17,10 @@ use Illuminate\Support\Carbon;
  * @property string|null $last_name
  * @property string $phone
  * @property string $status
+ * @property string|null $intended_return_status
  * @property Carbon|null $archived_at
  */
-#[Fillable(['business_id', 'created_by', 'first_name', 'last_name', 'phone', 'email', 'date_of_birth', 'intended_return_date', 'notes', 'status', 'archived_at'])]
+#[Fillable(['business_id', 'created_by', 'first_name', 'last_name', 'phone', 'email', 'date_of_birth', 'intended_return_date', 'intended_return_status', 'notes', 'status', 'archived_at'])]
 class Customer extends Model
 {
     use HasFactory;

@@ -41,7 +41,9 @@ class StoreAutomationRuleRequest extends FormRequest
     {
         return [function ($validator): void {
             $trigger = $this->input('trigger');
-            $purpose = $trigger === AutomationTrigger::CustomerInactive->value ? 'reengagement' : null;
+            $purpose = $trigger === AutomationTrigger::CustomerInactive->value
+                ? ['reengagement', 'retention']
+                : ($trigger === AutomationTrigger::ReturnDateMissed->value ? ['reengagement', 'retention', 'return_intention'] : null);
             $settings = $this->input('settings', []);
             if (! is_array($settings) || ! isset($settings['template_id'])) {
                 return;
@@ -50,8 +52,8 @@ class StoreAutomationRuleRequest extends FormRequest
             $template = MessageTemplate::query()
                 ->where('business_id', $this->attributes->get('currentBusiness')?->getKey())
                 ->find($settings['template_id']);
-            if ($purpose !== null && $template !== null && ! in_array($template->purpose, ['reengagement', 'retention'], true)) {
-                $validator->errors()->add('settings.template_id', 'Inactive-customer rules require a re-engagement or retention template.');
+            if ($purpose !== null && $template !== null && ! in_array($template->purpose, $purpose, true)) {
+                $validator->errors()->add('settings.template_id', 'Choose a template whose purpose matches this follow-up rule.');
             }
         }];
     }

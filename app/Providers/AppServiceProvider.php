@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Apis\WhatsApp\WhatsAppMessageApi;
 use App\Interfaces\Apis\MessagingProviderInterface;
+use App\Interfaces\Notifications\WebPushDeliveryInterface;
 use App\Interfaces\Repositories\Businesses\BusinessSettingsRepositoryInterface;
 use App\Interfaces\Repositories\BusinessRepositoryInterface;
 use App\Interfaces\Repositories\Conversations\ConversationRepositoryInterface;
@@ -13,6 +14,8 @@ use App\Interfaces\Repositories\Services\ServiceCategoryRepositoryInterface;
 use App\Interfaces\Repositories\Services\ServiceRepositoryInterface;
 use App\Interfaces\Repositories\Staff\StaffRepositoryInterface;
 use App\Interfaces\Repositories\Visits\VisitRepositoryInterface;
+use App\Interfaces\Repositories\Webhooks\WebhookEventRepositoryInterface;
+use App\Interfaces\Repositories\WhatsApp\WhatsAppConnectionRepositoryInterface;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\StaffProfile;
@@ -28,6 +31,9 @@ use App\Repositories\Services\ServiceCategoryRepository;
 use App\Repositories\Services\ServiceRepository;
 use App\Repositories\Staff\StaffRepository;
 use App\Repositories\Visits\VisitRepository;
+use App\Repositories\Webhooks\WebhookEventRepository;
+use App\Repositories\WhatsApp\WhatsAppConnectionRepository;
+use App\Services\Notifications\WebPushDelivery;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -49,6 +55,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(VisitRepositoryInterface::class, VisitRepository::class);
         $this->app->bind(ReviewRepositoryInterface::class, ReviewRepository::class);
         $this->app->bind(MessagingProviderInterface::class, WhatsAppMessageApi::class);
+        $this->app->bind(WebPushDeliveryInterface::class, WebPushDelivery::class);
+        $this->app->bind(WebhookEventRepositoryInterface::class, WebhookEventRepository::class);
+        $this->app->bind(WhatsAppConnectionRepositoryInterface::class, WhatsAppConnectionRepository::class);
     }
 
     public function boot(): void

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Conversations;
 
 use App\Configs\WhatsAppConfig;
 use App\Enums\MessageStatus;
+use App\Enums\WhatsAppMessageFeature;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\Message;
@@ -18,6 +19,7 @@ use App\Services\Conversations\Commands\SendConversationTemplateReplyCommand;
 use App\Services\Conversations\Commands\SetConversationStatusCommand;
 use App\Services\Conversations\Queries\GetConversationQuery;
 use App\Services\Conversations\Queries\ListConversationsQuery;
+use App\Services\Settings\Queries\GetWhatsAppMessageFeaturesQuery;
 use App\Services\Templates\Queries\ListMessageTemplatesQuery;
 use App\Validators\Conversations\AssignConversationRequest;
 use App\Validators\Conversations\SetConversationStatusRequest;
@@ -54,11 +56,13 @@ class ConversationController extends Controller
         CustomerCanReceiveMessageQuery $consent,
         ListMessageTemplatesQuery $templatesQuery,
         WhatsAppConfig $whatsAppConfiguration,
+        GetWhatsAppMessageFeaturesQuery $messageFeatures,
     ): Response {
         $businessId = $this->businessId($request);
         abort_unless($request->user()->hasBusinessPermission($businessId, 'conversations.view'), 403);
         $user = $request->user();
         $canReplyPermission = $user->hasBusinessPermission($businessId, 'conversations.reply');
+        $manualRepliesEnabled = $messageFeatures->isEnabled($businessId, WhatsAppMessageFeature::ManualReplies);
         $canAssign = $user->hasBusinessPermission($businessId, 'conversations.assign');
         $canChangeStatus = $user->hasBusinessPermission($businessId, 'conversations.close');
         $conversation = $query->execute($businessId, $conversation, $canReplyPermission);
@@ -94,7 +98,7 @@ class ConversationController extends Controller
             ->whereNotNull('access_token')
             ->whereNotNull('phone_number_id')
             ->exists() && $whatsAppConfiguration->graphApiConfigured();
-        $canSendTemplate = $canReplyPermission && $hasConsent && $customerIsActive && $connectionIsReady;
+        $canSendTemplate = $canReplyPermission && $manualRepliesEnabled && $hasConsent && $customerIsActive && $connectionIsReady;
         $availableTemplates = $canSendTemplate
             ? $templatesQuery->execute($businessId, true)
                 ->filter(fn (MessageTemplate $template): bool => $template->provider_template_id !== null)
@@ -114,6 +118,7 @@ class ConversationController extends Controller
                 ? $business->members()->wherePivot('status', 'active')->orderBy('name')->get(['users.id', 'users.name'])
                 : [],
             'canReply' => $canReplyPermission
+                && $manualRepliesEnabled
                 && $hasConsent
                 && $isWithinServiceWindow
                 && $customerIsActive
@@ -123,6 +128,7 @@ class ConversationController extends Controller
             'freeFormReplyBlocked' => $freeFormReplyBlocked,
             'templates' => $availableTemplates,
             'canReplyPermission' => $canReplyPermission,
+            'manualRepliesEnabled' => $manualRepliesEnabled,
             'canAssign' => $canAssign,
             'canChangeStatus' => $canChangeStatus,
             'canAddNote' => $canReplyPermission,

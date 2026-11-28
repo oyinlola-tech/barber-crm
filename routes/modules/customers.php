@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Customers\CustomerController;
+use App\Http\Controllers\Customers\CustomerReturnIntentionController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'business'])->group(function (): void {
@@ -12,5 +13,6 @@ Route::middleware(['auth', 'business'])->group(function (): void {
     Route::delete('/customers/{customer}/permanent', [CustomerController::class, 'permanentlyDelete'])->name('customers.permanent-delete');
     Route::post('/customers/{customer}/restore', [CustomerController::class, 'restore'])->name('customers.restore');
     Route::post('/customers/{customer}/notes', [CustomerController::class, 'addNote'])->name('customers.notes.store');
+    Route::put('/customers/{customer}/return-intention-status', [CustomerReturnIntentionController::class, 'update'])->name('customers.return-intention-status.update');
     Route::put('/customers/{customer}/tags', [CustomerController::class, 'syncTags'])->name('customers.tags.sync');
 });
