@@ -32,37 +32,37 @@ html {
 
 :root {
     color-scheme: light;
-    --background: #f4f3ef;
-    --foreground: #222820;
-    --card: #fffefa;
-    --card-foreground: #222820;
-    --muted: #eeede7;
-    --muted-foreground: #73786f;
-    --border: #e4e3dc;
-    --input: #deded5;
-    --primary: #344c3b;
-    --primary-foreground: #f8f8f2;
-    --accent: #d8e2d6;
-    --accent-foreground: #344c3b;
-    --ring: #66866d;
-    --radius: 0.75rem;
+    --background: #f4f6f8;
+    --foreground: #182235;
+    --card: #ffffff;
+    --card-foreground: #182235;
+    --muted: #edf1f5;
+    --muted-foreground: #687486;
+    --border: #dfe5ec;
+    --input: #d5dde7;
+    --primary: #24344d;
+    --primary-foreground: #f8fafc;
+    --accent: #e9edf3;
+    --accent-foreground: #24344d;
+    --ring: #c65046;
+    --radius: 0.85rem;
 }
 
 .dark {
     color-scheme: dark;
-    --background: #171a17;
-    --foreground: #f0f0e9;
-    --card: #202520;
-    --card-foreground: #f0f0e9;
-    --muted: #292f29;
-    --muted-foreground: #a2aa9f;
-    --border: #363e36;
-    --input: #3d473d;
-    --primary: #b8d0b8;
-    --primary-foreground: #1b251c;
-    --accent: #2e3d30;
-    --accent-foreground: #d4e4d3;
-    --ring: #94b395;
+    --background: #111827;
+    --foreground: #eff3f8;
+    --card: #192437;
+    --card-foreground: #eff3f8;
+    --muted: #202d42;
+    --muted-foreground: #a3afbf;
+    --border: #2c3a50;
+    --input: #38475e;
+    --primary: #e6edf7;
+    --primary-foreground: #172235;
+    --accent: #2a3850;
+    --accent-foreground: #e6edf7;
+    --ring: #f08378;
 }
 
 * {
@@ -86,19 +86,6 @@ input {
 ::selection {
     background: var(--accent);
     color: var(--accent-foreground);
-}
-
-@keyframes barber-pole-drift {
-    from {
-        background-position: 0 0;
-    }
-    to {
-        background-position: 0 52px;
-    }
-}
-
-.auth-pole-stripes {
-    animation: barber-pole-drift 5s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

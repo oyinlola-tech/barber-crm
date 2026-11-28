@@ -2,6 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     ArrowLeft,
     CalendarClock,
+    MessageSquareOff,
     Scissors,
     ShieldCheck,
     UserRound,
@@ -18,6 +19,7 @@ type CustomerProfile = {
     phone: string;
     email: string | null;
     intended_return_date: string | null;
+    intended_return_status: 'expected' | 'arrived' | 'missed' | null;
     notes: string | null;
     tags: Array<{ id: number; name: string }>;
     note_entries: Array<{
@@ -60,6 +62,7 @@ type CustomerDetailsProps = {
         revoke_consent: boolean;
         view_consent: boolean;
         record_visit: boolean;
+        update_return_status: boolean;
         view_visits: boolean;
         update_visit: boolean;
         void_visit: boolean;
@@ -96,6 +99,11 @@ export default function CustomerDetailsPage({
             latestWhatsAppConsent.revoked_at === null,
         source: 'verbal',
     });
+    const stopMessaging = useForm({
+        channel: 'whatsapp',
+        granted: false,
+        source: 'staff_dashboard_stop_messages',
+    });
     const visit = useForm({
         customer_id: customer.id,
         staff_profile_id: '',
@@ -127,6 +135,20 @@ export default function CustomerDetailsPage({
     function saveConsent(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         consent.post(`/customers/${customer.id}/consents`);
+    }
+
+    function stopWhatsAppMessages() {
+        if (
+            !window.confirm(
+                'Stop WhatsApp messages to this customer? Pending follow-ups will be cancelled. New messages require fresh customer consent.',
+            )
+        ) {
+            return;
+        }
+
+        stopMessaging.post(`/customers/${customer.id}/consents`, {
+            onSuccess: () => consent.setData('granted', false),
+        });
     }
 
     function recordVisit(event: FormEvent<HTMLFormElement>) {
@@ -438,6 +460,70 @@ export default function CustomerDetailsPage({
                                     does not reserve a visit time.
                                 </span>
                             </label>
+                            {customer.intended_return_date &&
+                                customer.status === 'active' && (
+                                    <div className="rounded-xl border bg-muted/30 p-3 sm:col-span-2">
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <p className="text-sm">
+                                                Visit status:{' '}
+                                                <span className="font-medium capitalize">
+                                                    {customer.intended_return_status ??
+                                                        'expected'}
+                                                </span>
+                                            </p>
+                                            {customer.intended_return_status ===
+                                                'expected' && (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {permissions.record_visit && (
+                                                        <Button
+                                                            onClick={() =>
+                                                                router.put(
+                                                                    `/customers/${customer.id}/return-intention-status`,
+                                                                    {
+                                                                        status: 'arrived',
+                                                                    },
+                                                                )
+                                                            }
+                                                            type="button"
+                                                            variant="outline"
+                                                        >
+                                                            Mark arrived
+                                                        </Button>
+                                                    )}
+                                                    {permissions.update_return_status && (
+                                                        <Button
+                                                            onClick={() =>
+                                                                router.put(
+                                                                    `/customers/${customer.id}/return-intention-status`,
+                                                                    {
+                                                                        status: 'missed',
+                                                                    },
+                                                                    {
+                                                                        onBefore:
+                                                                            () =>
+                                                                                window.confirm(
+                                                                                    'Mark the customer’s stated return date as missed? An enabled follow-up rule can contact the customer if consent is active.',
+                                                                                ),
+                                                                    },
+                                                                )
+                                                            }
+                                                            type="button"
+                                                            variant="outline"
+                                                        >
+                                                            Mark missed
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                                            This tracks a customer-stated date
+                                            only. Marking arrived records a
+                                            completed visit; it does not reserve
+                                            a time.
+                                        </p>
+                                    </div>
+                                )}
                             <label className="grid gap-1.5 text-sm font-medium">
                                 Staff notes
                                 <textarea
@@ -505,6 +591,37 @@ export default function CustomerDetailsPage({
                                     clearly agreed to WhatsApp messages.
                                 </p>
                             </div>
+                            {latestWhatsAppConsent?.granted === true &&
+                                latestWhatsAppConsent.revoked_at === null &&
+                                permissions.revoke_consent && (
+                                    <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                            <div className="flex items-start gap-2">
+                                                <MessageSquareOff
+                                                    aria-hidden="true"
+                                                    className="mt-0.5 shrink-0 text-destructive"
+                                                    size={17}
+                                                />
+                                                <p className="text-sm leading-5">
+                                                    Stop all WhatsApp follow-ups
+                                                    and replies to this
+                                                    customer.
+                                                </p>
+                                            </div>
+                                            <Button
+                                                className="w-full shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 sm:w-auto"
+                                                disabled={
+                                                    stopMessaging.processing
+                                                }
+                                                onClick={stopWhatsAppMessages}
+                                                type="button"
+                                                variant="outline"
+                                            >
+                                                Stop WhatsApp messages
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             {(permissions.record_consent ||
                                 permissions.revoke_consent) && (
                                 <form

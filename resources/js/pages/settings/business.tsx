@@ -22,10 +22,12 @@ export default function BusinessSettings({
     business,
     canUpdate,
     optOutKeywords,
+    messagingFeatures,
 }: {
     business: BusinessProfile;
     canUpdate: boolean;
     optOutKeywords: string[];
+    messagingFeatures: Record<string, boolean>;
 }) {
     const form = useForm({
         name: business.name,
@@ -246,6 +248,7 @@ export default function BusinessSettings({
                 <MessagingSettingsForm
                     canUpdate={canUpdate}
                     keywords={optOutKeywords}
+                    features={messagingFeatures}
                 />
             </div>
         </main>

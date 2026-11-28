@@ -57,7 +57,11 @@ export default function AutomationsIndex({
             template.provider_status === 'APPROVED' &&
             (form.data.trigger !== 'customer_inactive' ||
                 template.purpose === 'reengagement' ||
-                template.purpose === 'retention'),
+                template.purpose === 'retention') &&
+            (form.data.trigger !== 'return_date_missed' ||
+                template.purpose === 'reengagement' ||
+                template.purpose === 'retention' ||
+                template.purpose === 'return_intention'),
     );
     const templateError =
         form.errors.template_id ??
@@ -183,6 +187,9 @@ export default function AutomationsIndex({
                                     </option>
                                     <option value="customer_inactive">
                                         When a customer becomes inactive
+                                    </option>
+                                    <option value="return_date_missed">
+                                        When a stated return date is missed
                                     </option>
                                 </select>
                             </label>

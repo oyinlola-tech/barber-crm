@@ -1,7 +1,14 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { Bell } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+    disableBrowserPush,
+    enableBrowserPush,
+    getBrowserPushSubscription,
+    supportsBrowserPush,
+} from '@/lib/web-push';
 
 type AccountSession = {
     id: string;
@@ -16,6 +23,11 @@ type SecurityPageProps = {
     passwordConfirmed: boolean;
     sessions: AccountSession[];
     securityNotice?: string;
+    webPush: {
+        configured: boolean;
+        publicKey: string | null;
+        subscriptionCount: number;
+    };
 };
 
 type QrCodeResponse = { svg: string; url: string };
@@ -25,12 +37,16 @@ export default function AccountSecurityPage({
     passwordConfirmed,
     sessions,
     securityNotice,
+    webPush,
 }: SecurityPageProps) {
     const [qrCode, setQrCode] = useState<QrCodeResponse | null>(null);
     const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
     const [loadingCodes, setLoadingCodes] = useState(false);
     const [securityError, setSecurityError] = useState<string | null>(null);
     const [securitySuccess, setSecuritySuccess] = useState<string | null>(null);
+    const [pushSupported, setPushSupported] = useState(false);
+    const [pushActive, setPushActive] = useState(false);
+    const [pushBusy, setPushBusy] = useState(false);
     const enableForm = useForm({});
     const confirmForm = useForm({ code: '' });
     const disableForm = useForm({});
@@ -65,6 +81,43 @@ export default function AccountSecurityPage({
                 );
             });
     }, [twoFactor.pendingConfirmation]);
+
+    useEffect(() => {
+        setPushSupported(supportsBrowserPush());
+        if (webPush.configured) {
+            void getBrowserPushSubscription()
+                .then((subscription) => setPushActive(subscription !== null))
+                .catch(() => setPushActive(false));
+        }
+    }, [webPush.configured]);
+
+    async function toggleBrowserPush(): Promise<void> {
+        setPushBusy(true);
+        setSecurityError(null);
+        try {
+            if (pushActive) {
+                await disableBrowserPush();
+                setPushActive(false);
+                setSecuritySuccess(
+                    'Browser notifications are off for this device.',
+                );
+            } else if (webPush.publicKey !== null) {
+                await enableBrowserPush(webPush.publicKey);
+                setPushActive(true);
+                setSecuritySuccess(
+                    'Browser notifications are on for this device.',
+                );
+            }
+        } catch (error: unknown) {
+            setSecurityError(
+                error instanceof Error
+                    ? error.message
+                    : 'Could not update browser notifications.',
+            );
+        } finally {
+            setPushBusy(false);
+        }
+    }
 
     function enableTwoFactor(): void {
         if (!passwordConfirmed) {
@@ -208,6 +261,61 @@ export default function AccountSecurityPage({
                     {securityError ?? securitySuccess ?? securityNotice}
                 </div>
             )}
+
+            <section className="rounded-2xl border bg-card p-5 sm:p-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex gap-3">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent text-accent-foreground">
+                            <Bell aria-hidden="true" size={18} />
+                        </span>
+                        <div>
+                            <h2 className="text-lg font-semibold">
+                                Browser notifications
+                            </h2>
+                            <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                                Receive a private heads-up on this device when a
+                                customer messages or shares a return date. Email
+                                and in-app notifications remain available too.
+                            </p>
+                            {!webPush.configured && (
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    Browser push is waiting for the
+                                    administrator to configure VAPID keys.
+                                </p>
+                            )}
+                            {webPush.configured && !pushSupported && (
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    This browser needs HTTPS or localhost and
+                                    service-worker support.
+                                </p>
+                            )}
+                            {webPush.configured && pushSupported && (
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    {webPush.subscriptionCount} device
+                                    {webPush.subscriptionCount === 1
+                                        ? ''
+                                        : 's'}{' '}
+                                    registered to your account.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    <Button
+                        disabled={
+                            !webPush.configured || !pushSupported || pushBusy
+                        }
+                        onClick={() => void toggleBrowserPush()}
+                        type="button"
+                        variant={pushActive ? 'outline' : 'default'}
+                    >
+                        {pushBusy
+                            ? 'Updating…'
+                            : pushActive
+                              ? 'Turn off on this device'
+                              : 'Turn on notifications'}
+                    </Button>
+                </div>
+            </section>
 
             <section className="rounded-2xl border bg-card p-5 sm:p-6">
                 <div>

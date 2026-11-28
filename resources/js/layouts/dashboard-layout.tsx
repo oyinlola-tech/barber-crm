@@ -4,9 +4,11 @@ import {
     CalendarClock,
     ClipboardList,
     Activity,
+    ArrowUpRight,
     Bell,
     ChevronDown,
     MessageCircle,
+    MoreHorizontal,
     Moon,
     Scissors,
     Settings2,
@@ -51,6 +53,7 @@ const navigationIcons: Record<string, LucideIcon> = {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
     const page = usePage<SharedProps>();
     const [darkMode, setDarkMode] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const currentPath = page.url.split('?')[0];
 
     useEffect(() => {
@@ -74,6 +77,50 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
 
     const links = page.props.navigation ?? [];
+    const mobilePrimary = links.filter((item) =>
+        ['Dashboard', 'Customers', 'Inbox', 'Follow-ups'].includes(item.label),
+    );
+    const mobileMore = links.filter((item) => !mobilePrimary.includes(item));
+    const activeLabel =
+        links.find((item) => isActive(item.href))?.label ?? 'Your shop';
+    const footerGroups = [
+        {
+            title: 'Keep in touch',
+            labels: ['Customers', 'Inbox', 'Follow-ups', 'Reviews'],
+        },
+        {
+            title: 'Run the shop',
+            labels: ['Staff', 'Roles', 'Templates', 'Notifications'],
+        },
+        {
+            title: 'Your workspace',
+            labels: [
+                'Analytics',
+                'System health',
+                'Audit log',
+                'Business settings',
+                'Account security',
+                'WhatsApp',
+            ],
+        },
+    ]
+        .map((group) => ({
+            ...group,
+            links: group.labels.flatMap((label) => {
+                const item = links.find((link) => link.label === label);
+                return item ? [item] : [];
+            }),
+        }))
+        .filter((group) => group.links.length > 0);
+    const customerLink = links.find((item) => item.label === 'Customers');
+    const inboxLink = links.find((item) => item.label === 'Inbox');
+
+    function isActive(href: string): boolean {
+        return (
+            currentPath === href ||
+            (href !== '/dashboard' && currentPath.startsWith(`${href}/`))
+        );
+    }
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -205,48 +252,180 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             </Button>
                         </div>
                     </div>
-                    <details className="group relative mt-3">
-                        <summary className="flex cursor-pointer list-none items-center justify-between rounded-lg border bg-background px-3 py-2 text-sm font-medium">
-                            <span>Open navigation</span>
-                            <ChevronDown
+                    <p className="mt-2 text-xs text-muted-foreground">
+                        {activeLabel}
+                    </p>
+                </header>
+                <div
+                    id="main-content"
+                    className="scroll-mt-20 pb-20 lg:pb-0"
+                    tabIndex={-1}
+                >
+                    {children}
+                </div>
+                <footer className="relative isolate mb-24 mt-2 overflow-hidden bg-[#172235] px-5 py-9 text-white sm:px-8 sm:py-12 lg:mb-0 lg:px-10 lg:py-14 xl:px-14 xl:py-16">
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute right-[-8rem] top-[-10rem] z-0 size-[34rem] rounded-full border border-white/10"
+                    />
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute right-[-4rem] top-[-6rem] z-0 size-[26rem] rounded-full border border-white/[0.07]"
+                    />
+                    <div className="relative z-10 grid gap-12 xl:grid-cols-[minmax(0,1.25fr)_minmax(440px,0.75fr)] xl:items-end">
+                        <div>
+                            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#f08378]">
+                                <span className="size-1.5 rounded-full bg-[#f08378]" />
+                                Good service stays with people
+                            </div>
+                            <p className="mt-5 max-w-5xl text-[clamp(3rem,8.6vw,8rem)] font-semibold leading-[0.88] tracking-[-0.075em]">
+                                Good service deserves a return visit
+                                <span className="text-[#f08378]">.</span>
+                            </p>
+                            <p className="mt-5 max-w-lg text-sm leading-6 text-white/60">
+                                Keep the relationship going with a thoughtful
+                                follow-up, a remembered visit, and a team that
+                                stays in sync.
+                            </p>
+                            <div className="mt-7 flex flex-wrap gap-3">
+                                {customerLink && (
+                                    <Link
+                                        className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#f08378] px-4 text-sm font-semibold text-[#172235] transition hover:bg-[#ff9b90]"
+                                        href={customerLink.href}
+                                    >
+                                        Open customers
+                                        <ArrowUpRight
+                                            aria-hidden="true"
+                                            size={16}
+                                        />
+                                    </Link>
+                                )}
+                                {inboxLink && (
+                                    <Link
+                                        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-4 text-sm font-medium text-white transition hover:bg-white/10"
+                                        href={inboxLink.href}
+                                    >
+                                        Go to inbox
+                                        <MessageCircle
+                                            aria-hidden="true"
+                                            size={16}
+                                        />
+                                    </Link>
+                                )}
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-5 gap-y-8 border-t border-white/15 pt-7 sm:grid-cols-3 sm:gap-x-7 xl:border-l xl:border-t-0 xl:pl-9 xl:pt-0">
+                            {footerGroups.map((group) => (
+                                <div key={group.title}>
+                                    <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
+                                        {group.title}
+                                    </h2>
+                                    <ul className="mt-4 space-y-3">
+                                        {group.links.map((item) => (
+                                            <li key={item.href}>
+                                                <Link
+                                                    className="text-sm text-white/75 transition hover:text-white"
+                                                    href={item.href}
+                                                >
+                                                    {item.label}
+                                                </Link>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="relative z-10 mt-12 flex flex-col gap-4 border-t border-white/15 pt-6 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2">
+                            <img
+                                alt=""
                                 aria-hidden="true"
-                                className="text-muted-foreground transition-transform group-open:rotate-180"
-                                size={16}
+                                className="size-7 rounded-lg"
+                                src="/brand/barber-crm-mark.svg"
                             />
-                        </summary>
+                            <span>
+                                {page.props.currentBusiness?.name ??
+                                    'Barber CRM'}
+                                {' · '}Private team workspace
+                            </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                            <span>Customer information stays protected.</span>
+                            <span>© {new Date().getFullYear()}</span>
+                        </div>
+                    </div>
+                </footer>
+                <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_rgba(15,23,42,.07)] backdrop-blur lg:hidden">
+                    {mobileMenuOpen && mobileMore.length > 0 && (
                         <nav
-                            aria-label="Main navigation"
-                            className="absolute left-0 right-0 top-full z-30 mt-2 hidden max-h-[70vh] grid-cols-2 gap-2 overflow-y-auto rounded-xl border bg-card p-3 shadow-xl group-open:grid"
+                            aria-label="More navigation"
+                            className="absolute bottom-full left-3 right-3 mb-2 grid max-h-[60vh] grid-cols-2 gap-2 overflow-y-auto rounded-2xl border bg-card p-3 shadow-2xl"
                         >
-                            {links.map((item) => {
+                            {mobileMore.map((item) => {
                                 const Icon =
                                     navigationIcons[item.label] ?? Users;
-                                const active =
-                                    currentPath === item.href ||
-                                    (item.href !== '/dashboard' &&
-                                        currentPath.startsWith(
-                                            `${item.href}/`,
-                                        ));
-
+                                const active = isActive(item.href);
                                 return (
                                     <Link
                                         aria-current={
                                             active ? 'page' : undefined
                                         }
-                                        className={`inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-xs ${active ? 'bg-accent font-medium text-accent-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+                                        className={`flex min-h-11 items-center gap-2 rounded-xl px-3 py-2 text-xs ${active ? 'bg-accent font-semibold text-accent-foreground' : 'text-muted-foreground hover:bg-muted'}`}
                                         href={item.href}
                                         key={item.href}
+                                        onClick={() => setMobileMenuOpen(false)}
                                     >
-                                        <Icon aria-hidden="true" size={15} />
+                                        <Icon aria-hidden="true" size={16} />
                                         {item.label}
                                     </Link>
                                 );
                             })}
                         </nav>
-                    </details>
-                </header>
-                <div id="main-content" className="scroll-mt-20" tabIndex={-1}>
-                    {children}
+                    )}
+                    <nav
+                        aria-label="Mobile navigation"
+                        className="mx-auto grid max-w-2xl grid-cols-5 px-2 pt-1"
+                    >
+                        {mobilePrimary.map((item) => {
+                            const Icon = navigationIcons[item.label] ?? Users;
+                            const active = isActive(item.href);
+                            return (
+                                <Link
+                                    aria-current={active ? 'page' : undefined}
+                                    className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-medium ${active ? 'text-[#b6453d] dark:text-[#f08378]' : 'text-muted-foreground'}`}
+                                    href={item.href}
+                                    key={item.href}
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    <Icon
+                                        aria-hidden="true"
+                                        size={19}
+                                        strokeWidth={active ? 2.5 : 1.8}
+                                    />
+                                    {item.label}
+                                </Link>
+                            );
+                        })}
+                        <button
+                            aria-expanded={mobileMenuOpen}
+                            aria-label={
+                                mobileMenuOpen
+                                    ? 'Close more navigation'
+                                    : 'Open more navigation'
+                            }
+                            className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-medium ${mobileMenuOpen ? 'text-[#b6453d] dark:text-[#f08378]' : 'text-muted-foreground'}`}
+                            onClick={() => setMobileMenuOpen((open) => !open)}
+                            type="button"
+                        >
+                            {mobileMenuOpen ? (
+                                <ChevronDown aria-hidden="true" size={19} />
+                            ) : (
+                                <MoreHorizontal aria-hidden="true" size={19} />
+                            )}
+                            More
+                        </button>
+                    </nav>
                 </div>
             </div>
         </div>

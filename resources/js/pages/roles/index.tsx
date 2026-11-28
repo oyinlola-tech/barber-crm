@@ -195,15 +195,15 @@ export default function RolesPage({
                 <section className="mt-6 grid gap-4 md:grid-cols-2">
                     {roles.map((role) => (
                         <article
-                            className="rounded-2xl border bg-card p-5"
+                            className="min-w-0 overflow-hidden rounded-2xl border bg-card p-5"
                             key={role.id}
                         >
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
+                            <div className="flex min-w-0 items-start justify-between gap-3">
+                                <div className="min-w-0">
                                     <h2 className="font-semibold">
                                         {role.name}
                                     </h2>
-                                    <p className="mt-1 text-xs text-muted-foreground">
+                                    <p className="mt-1 break-all text-xs text-muted-foreground">
                                         {role.slug}
                                         {role.protected &&
                                             ' · protected system role'}
@@ -219,7 +219,7 @@ export default function RolesPage({
                                 <ul className="mt-4 flex flex-wrap gap-1.5">
                                     {role.permissions.map((permission) => (
                                         <li
-                                            className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"
+                                            className="break-all rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"
                                             key={permission}
                                         >
                                             {permission}
@@ -274,7 +274,7 @@ export default function RolesPage({
                                 left.localeCompare(right),
                             )
                             .map(([category, entries]) => (
-                                <section key={category}>
+                                <section className="min-w-0" key={category}>
                                     <h3 className="mb-2 text-sm font-semibold capitalize">
                                         {category}
                                     </h3>
@@ -287,7 +287,7 @@ export default function RolesPage({
                                                 <span className="block text-sm">
                                                     {label}
                                                 </span>
-                                                <code className="text-xs text-muted-foreground">
+                                                <code className="break-all text-xs text-muted-foreground">
                                                     {key}
                                                 </code>
                                             </li>
@@ -317,7 +317,7 @@ function PermissionPicker({
             <div className="grid gap-2 rounded-xl border p-4 sm:grid-cols-2 lg:grid-cols-3">
                 {Object.entries(permissions).map(([permission, label]) => (
                     <label
-                        className="flex items-start gap-2 text-sm"
+                        className="flex min-w-0 items-start gap-2 text-sm"
                         key={permission}
                     >
                         <input
@@ -334,7 +334,7 @@ function PermissionPicker({
                             }
                             type="checkbox"
                         />
-                        <span>
+                        <span className="min-w-0 break-words">
                             <span className="block font-medium">{label}</span>
                             <span className="text-xs text-muted-foreground">
                                 {permission}

@@ -49,6 +49,7 @@ type InboxConversationProps = {
     canChangeStatus: boolean;
     canAddNote: boolean;
     canReplyPermission: boolean;
+    manualRepliesEnabled: boolean;
     consentGranted: boolean;
     serviceWindowOpen: boolean;
     canSendTemplate: boolean;
@@ -71,6 +72,7 @@ export default function InboxConversationPage({
     canChangeStatus,
     canAddNote,
     canReplyPermission,
+    manualRepliesEnabled,
     consentGranted,
     serviceWindowOpen,
     canSendTemplate,
@@ -104,6 +106,7 @@ export default function InboxConversationPage({
                         'canChangeStatus',
                         'canAddNote',
                         'canReplyPermission',
+                        'manualRepliesEnabled',
                         'consentGranted',
                         'serviceWindowOpen',
                         'canSendTemplate',
@@ -493,6 +496,7 @@ export default function InboxConversationPage({
                                 </p>
                             ) : !canReply &&
                               (!canReplyPermission ||
+                                  !manualRepliesEnabled ||
                                   !consentGranted ||
                                   conversation.customer.status !== 'active' ||
                                   conversation.customer.archived_at !==
@@ -506,9 +510,11 @@ export default function InboxConversationPage({
                                     <p>
                                         {!canReplyPermission
                                             ? 'Your staff role does not permit sending WhatsApp replies.'
-                                            : !consentGranted
-                                              ? 'Messaging is paused because this customer has not granted WhatsApp consent.'
-                                              : 'This customer is inactive or archived, so sending is disabled.'}
+                                            : !manualRepliesEnabled
+                                              ? 'Staff replies are turned off in WhatsApp messaging settings.'
+                                              : !consentGranted
+                                                ? 'Messaging is paused because this customer has not granted WhatsApp consent.'
+                                                : 'This customer is inactive or archived, so sending is disabled.'}
                                     </p>
                                 </div>
                             ) : null}
