@@ -8,7 +8,7 @@ The repository is past scaffolding and has locally working core slices for a pri
 
 ## Repository and scope evidence
 
-- The checkout is Git repository `oyinlola-tech/barber-crm` on `main` at `bf18b4f`; this continuation currently has uncommitted implementation changes. The last 30 existing commits inspected contain no co-author trailers. `.env`, generated caches, local session files, test databases and browser results are ignored.
+- The checkout is Git repository `oyinlola-tech/barber-crm` on `main` at `fe81785`, synced with `origin/main` and with a clean worktree after the verified follow-up commits. The last 30 existing commits inspected contain no co-author trailers. `.env`, generated caches, local session files, test databases and browser results are ignored.
 - Laravel 13.44.1, PHP 8.6, React, Inertia and TypeScript are present. The browser-push implementation adds `minishlink/web-push` 11.0.0; its required PHP cURL extension is installed in both vendor-build and runtime Docker stages.
 - The local PHP 8.6 CLI has `pdo_pgsql`, but read-only `php artisan migrate:status` could not authenticate to its configured local PostgreSQL database. Its migration state and data therefore remain uninspected and unchanged.
 - The active application exposes 120 routes and has 28 migration files. Booking, appointment and availability behavior is absent from the route/controller/service layer. Historical appointment/availability migration definitions remain untouched pending a safe database review.
