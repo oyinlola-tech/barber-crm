@@ -224,6 +224,7 @@ foreach ([
     ['Browser Invitation Owner', 'crm.invitation-owner@example.test', ['browser-invitation-owner-recovery-code']],
     ['Browser Business Settings Owner', 'crm.business-settings-owner@example.test', ['browser-business-settings-recovery-code']],
     ['Browser Roles Owner', 'crm.role-manager@example.test', ['browser-roles-owner-recovery-code']],
+    ['Browser Auth Layout Owner', 'crm.auth-layout-owner@example.test', ['browser-auth-layout-recovery-code']],
 ] as [$name, $email, $recoveryCode]) {
     $specializedOwner = User::query()->create([
         'name' => $name,
@@ -245,6 +246,33 @@ foreach ([
         'joined_at' => now(),
     ]);
 }
+
+$firstLoginUser = User::query()->create([
+    'name' => 'Browser First Login User',
+    'email' => 'crm.first-login-layout@example.test',
+    'password' => Hash::make('Browser-only temporary password 9842!'),
+]);
+$firstLoginUser->forceFill([
+    'email_verified_at' => now(),
+    'password_change_required' => true,
+    'temporary_password_expires_at' => now()->addDay(),
+])->save();
+$business->members()->attach($firstLoginUser, [
+    'role' => 'viewer',
+    'status' => 'active',
+    'joined_at' => now(),
+]);
+
+$unverifiedUser = User::query()->create([
+    'name' => 'Browser Unverified User',
+    'email' => 'crm.unverified-layout@example.test',
+    'password' => Hash::make('Browser-only unverified password 9842!'),
+]);
+$business->members()->attach($unverifiedUser, [
+    'role' => 'viewer',
+    'status' => 'active',
+    'joined_at' => now(),
+]);
 
 $privacyRole = Role::query()->create([
     'business_id' => $business->getKey(),
