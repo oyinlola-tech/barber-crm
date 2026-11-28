@@ -28,6 +28,11 @@ Schedule::command('operations:record-heartbeat')
     ->everyMinute()
     ->withoutOverlapping(2);
 
+Schedule::command('operations:dispatch-health-alerts')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(4)
+    ->onOneServer();
+
 Schedule::command('webhooks:redact-expired-payloads')
     ->dailyAt('02:30')
     ->withoutOverlapping(60);
