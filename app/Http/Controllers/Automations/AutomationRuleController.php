@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Automations;
 
 use App\Http\Controllers\Controller;
 use App\Services\Automations\Commands\CreateAutomationRuleCommand;
+use App\Services\Automations\Commands\DeleteAutomationRuleCommand;
 use App\Services\Automations\Commands\SetAutomationRuleStatusCommand;
 use App\Services\Automations\Commands\UpdateAutomationRuleCommand;
 use App\Services\Automations\Queries\ListAutomationRulesQuery;
@@ -31,6 +32,7 @@ class AutomationRuleController extends Controller
                 'update' => $canViewTemplates && $request->user()->hasBusinessPermission((int) $businessId, 'automations.update'),
                 'enable' => $request->user()->hasBusinessPermission((int) $businessId, 'automations.enable'),
                 'disable' => $request->user()->hasBusinessPermission((int) $businessId, 'automations.disable'),
+                'delete' => $request->user()->hasBusinessPermission((int) $businessId, 'automations.delete'),
             ],
         ]);
     }
@@ -57,5 +59,16 @@ class AutomationRuleController extends Controller
         }
 
         return back()->with('success', 'Automation rule updated.');
+    }
+
+    public function destroy(Request $request, int $automationRule, DeleteAutomationRuleCommand $command): RedirectResponse
+    {
+        $command->execute(
+            (int) $request->attributes->get('currentBusiness')->getKey(),
+            $automationRule,
+            (int) $request->user()->getKey(),
+        );
+
+        return to_route('automations.index')->with('success', 'Automation rule deleted.');
     }
 }
