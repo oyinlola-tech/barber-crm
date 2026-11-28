@@ -27,7 +27,7 @@ export default defineConfig({
             'php tests/Browser/prepare-database.php && cd public && php -S 127.0.0.1:8000 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php',
         url: 'http://127.0.0.1:8000/login',
         reuseExistingServer: !process.env.CI,
-        timeout: 30_000,
+        timeout: 120_000,
         env: {
             APP_ENV: 'testing',
             APP_DEBUG: 'false',
