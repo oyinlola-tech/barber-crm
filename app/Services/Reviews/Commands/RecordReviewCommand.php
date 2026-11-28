@@ -2,6 +2,7 @@
 
 namespace App\Services\Reviews\Commands;
 
+use App\Events\Reviews\ReviewRecorded;
 use App\Interfaces\Repositories\Customers\CustomerRepositoryInterface;
 use App\Interfaces\Repositories\Reviews\ReviewRepositoryInterface;
 use App\Interfaces\Repositories\Visits\VisitRepositoryInterface;
@@ -54,6 +55,7 @@ class RecordReviewCommand
                 onlyTemplatePurpose: 'review_request',
             );
             $this->audit->execute($businessId, $userId, 'review.recorded', Review::class, $review->getKey(), null, ['rating' => $review->rating, 'customer_id' => $customer->getKey()]);
+            ReviewRecorded::dispatch((int) $review->getKey(), $businessId, $userId);
 
             return $review;
         });
