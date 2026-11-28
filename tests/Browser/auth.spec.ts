@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 test('private sign-in page exposes login and recovery without registration', async ({
     page,
@@ -99,6 +100,39 @@ test('every public authentication screen keeps the full-width branded footer', a
     }
 });
 
+test('signed-in security screens share the split hero and full-width footer', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 1365, height: 900 });
+
+    await page.goto('/login');
+    await page
+        .getByLabel('Email address')
+        .fill('crm.auth-layout-owner@example.test');
+    await page.getByLabel('Password').fill('Browser-only owner password 9842!');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).toHaveURL(/two-factor-challenge/);
+    await expectAuthLayout(page, 'Verify your sign-in', 1365);
+
+    await page.context().clearCookies();
+    await signIn(
+        page,
+        'crm.first-login-layout@example.test',
+        'Browser-only temporary password 9842!',
+    );
+    await expect(page).toHaveURL(/first-login\/password/);
+    await expectAuthLayout(page, 'Choose a new password', 1365);
+
+    await page.context().clearCookies();
+    await signIn(
+        page,
+        'crm.unverified-layout@example.test',
+        'Browser-only unverified password 9842!',
+    );
+    await expect(page).toHaveURL(/email\/verify/);
+    await expectAuthLayout(page, 'Verify your email', 1365);
+});
+
 test('split sign-in page uses the branded illustration and supports dark mode', async ({
     page,
 }) => {
@@ -133,3 +167,38 @@ test('split sign-in page uses the branded illustration and supports dark mode', 
         fullPage: true,
     });
 });
+
+async function signIn(
+    page: Page,
+    email: string,
+    password: string,
+): Promise<void> {
+    await page.goto('/login');
+    await page.getByLabel('Email address').fill(email);
+    await page.getByLabel('Password').fill(password);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+}
+
+async function expectAuthLayout(
+    page: Page,
+    pageHeading: string,
+    viewportWidth: number,
+): Promise<void> {
+    await expect(
+        page.getByRole('heading', { name: pageHeading }),
+    ).toBeVisible();
+    await expect(
+        page.getByRole('heading', {
+            name: 'Keep the good conversations going.',
+        }),
+    ).toBeVisible();
+    const footer = page.getByRole('contentinfo');
+    await expect(
+        footer.getByText('Good service deserves a return visit.'),
+    ).toBeVisible();
+    await expect
+        .poll(() =>
+            footer.evaluate((element) => element.getBoundingClientRect().width),
+        )
+        .toBe(viewportWidth);
+}
