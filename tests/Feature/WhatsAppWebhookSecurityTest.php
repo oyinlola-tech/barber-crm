@@ -343,7 +343,9 @@ it('uses the configured exact opt-out keywords while processing inbound messages
     $this->assertDatabaseHas('messages', ['provider_message_id' => 'wamid.stop', 'direction' => 'inbound', 'body' => 'NO MORE!!!']);
     $this->assertDatabaseHas('webhook_events', ['id' => $event->getKey(), 'status' => 'processed']);
 
-    app(RecordConsentCommand::class)->execute((int) $business->getKey(), (int) $customer->getKey(), 'whatsapp', true, 'in_person', null, 'customer_follow_up');
+    $owner = User::factory()->create();
+    $business->members()->attach($owner, ['role' => 'owner', 'status' => 'active', 'joined_at' => now()]);
+    app(RecordConsentCommand::class)->execute((int) $business->getKey(), (int) $customer->getKey(), 'whatsapp', true, 'in_person', (int) $owner->getKey(), 'customer_follow_up');
     $defaultKeywordEvent = WebhookEvent::query()->create([
         'business_id' => $business->getKey(),
         'provider' => 'whatsapp',
