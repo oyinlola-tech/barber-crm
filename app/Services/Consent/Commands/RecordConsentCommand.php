@@ -8,6 +8,7 @@ use App\Models\CustomerConsent;
 use App\Models\User;
 use App\Services\Audit\Commands\RecordAuditLogCommand;
 use App\Services\Automations\Commands\CancelCustomerFollowUpsCommand;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -28,6 +29,10 @@ class RecordConsentCommand
         ?string $purpose = null,
         ?string $evidenceReference = null,
     ): CustomerConsent {
+        if ($userId === null && $granted) {
+            throw new AuthorizationException('A staff member with consent permission must record customer consent.');
+        }
+
         if ($userId !== null) {
             $actor = User::query()->findOrFail($userId);
             $permission = $granted ? 'consent.record' : 'consent.revoke';
