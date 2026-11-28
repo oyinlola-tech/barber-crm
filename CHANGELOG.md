@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Alert active message-history staff in-app and by email when automated WhatsApp sends reach a terminal failure; keep retryable rate limits and uncertain deliveries out of the failure alert path.
 - Provision owners and staff with expiring, emailed one-time passwords that require a password change before CRM access; add a daily privacy-safe activity digest for active audit-authorized administrators.
 - Add focused first-login and digest flows with retry-safe notifications, branded email templates, and PostgreSQL migration coverage.
 - Add consent-gated interactive reply choices to the shared WhatsApp inbox; customers can tap one of up to three choices or reply in their own words, and choice IDs are retained for follow-up review.
