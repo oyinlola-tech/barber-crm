@@ -25,6 +25,7 @@ scheduler service.
 | Hourly | `automations:schedule-inactive-customers` | Schedules eligible inactive-customer follow-ups, subject to current rule/consent settings. |
 | Every minute | `operations:record-heartbeat` | Records the scheduler heartbeat and enqueues a worker heartbeat probe. |
 | Every minute | `webhooks:reconcile-delivery-statuses` | Reconciles delivery callbacks received before the matching outbound message record, up to 200 per run. |
+| Every minute | `webhooks:requeue-stalled` | Requeues received webhook events whose queue dispatch was lost; duplicate processing jobs are uniquely keyed per event. |
 | Daily at 02:30 | `webhooks:redact-expired-payloads` | Redacts expired stored webhook payloads while retaining deduplication records. |
 
 The automation settings default to disabled unless `AUTOMATIONS_ENABLED` is

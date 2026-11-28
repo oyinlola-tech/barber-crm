@@ -11,10 +11,11 @@ docker compose ps
 docker compose logs --tail=200 web app postgres
 ```
 
-The web container's `/ready` probe requires the Laravel app to answer and reach
-PostgreSQL. Check the `app` and `postgres` services, configured `.env` database
-values, and recent migration/deploy output. `/ready` only represents web plus
-database readiness; it says nothing about the worker, scheduler or Meta.
+The web container's `/ready` probe requires the Laravel app to answer, reach
+PostgreSQL, and observe fresh worker and scheduler heartbeats. Check the `app`,
+`postgres`, `queue`, and `scheduler` services, configured `.env` database
+values, and recent migration/deploy output. It also reports whether WhatsApp is
+configured and whether unresolved webhook callbacks need attention.
 
 ## Follow-ups are not being sent
 

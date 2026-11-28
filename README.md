@@ -39,6 +39,8 @@ The command requests the password using a hidden terminal prompt. It exits witho
 
 Run `php artisan queue:work --tries=5 --timeout=60` as a supervised worker. Run `php artisan schedule:work` locally; production should invoke `php artisan schedule:run` every minute. Monitor failed jobs using Laravel's `queue:failed` commands. WhatsApp automation requires the worker and scheduler to stay online.
 
+Staff notifications are available in-app and by email. Optional browser push can be enabled per device after configuring VAPID keys and HTTPS; see [browser push setup](docs/operations/browser-notifications.md). Generate a key pair with `php artisan app:web-push-vapid-keys`, then put both values in the deployment secret store. Push is queued and uses generic previews that do not expose customer details. SMTP delivery and browser push remain inactive until the shop supplies real mail credentials and VAPID keys.
+
 ## WhatsApp setup status
 
 Configure the Graph API version, app secret, webhook verification token, and webhook URL through secret-managed environment settings. Configure the WhatsApp Business phone-number ID, business account ID, and access token in the protected integration settings. Follow the [WhatsApp connection guide](docs/integrations/whatsapp-setup.md) and [webhook setup guide](docs/integrations/webhook-setup.md). Meta business verification, template approval, webhook subscription, and live delivery are external dependencies and have not been verified in this repository.

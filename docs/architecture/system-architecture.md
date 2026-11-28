@@ -7,6 +7,7 @@ This is a private single-barbershop CRM delivered as one Laravel application. La
 - Browser page: route → authentication and security middleware → Form Request → thin controller → CQRS query or command → repository/Eloquent → PostgreSQL → Inertia response.
 - Outbound follow-up: scheduler → due-message dispatcher → database queue → worker → delivery command → consent recheck → official Meta WhatsApp Cloud API → provider status webhook.
 - Inbound webhook: raw-body signature verification → deduplicated webhook record → queue job → shared CQRS operations → conversation/message update and staff notification.
+- Staff updates: Laravel database notification and email → optional after-commit browser push job → VAPID-signed Web Push delivery to each opted-in staff device. Push previews stay generic to avoid exposing customer data on lock screens.
 - Operational work: scheduled heartbeat, stalled-message recovery, webhook payload retention, orphan delivery reconciliation, and due-message dispatch.
 
 ## Boundaries

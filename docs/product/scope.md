@@ -2,7 +2,7 @@
 
 ## In scope
 
-One private CRM installation for a barbershop. Authorized staff manage customers, consent, completed visits, WhatsApp conversations, deterministic follow-up messages, templates, feedback, reporting, business settings, security, and audit records. PostgreSQL and Laravel's database-backed queue/cache/session provide the application infrastructure. Customers may state a preferred return date through a WhatsApp reply or explicit date request; this is a non-reserving visit intention that alerts staff and never creates a time slot, appointment, calendar entry, or payment.
+One private CRM installation for a barbershop. Authorized staff manage customers, consent, completed visits, WhatsApp conversations, deterministic follow-up messages, templates, feedback, reporting, business settings, security, and audit records. PostgreSQL and Laravel's database-backed queue/cache/session provide the application infrastructure. Customers may state a preferred return date through a WhatsApp reply or explicit date request; this is a non-reserving visit intention that alerts staff and never creates a time slot, appointment, calendar entry, or payment. Staff can mark the date arrived or missed; arrival records a completed visit and a missed date can schedule a message only through a dedicated enabled automation rule and active consent.
 
 ## Out of scope
 

@@ -4,7 +4,7 @@
 
 This repository is a private CRM for one existing barbershop. Keep one Laravel application with React and Inertia. The supported product covers staff access, customers, consent, completed visits, official WhatsApp messaging and inbox, deterministic follow-up automation, templates, reviews, reporting, settings, notifications, audit records, and operations.
 
-Do not add AI or agents, appointment scheduling or time-slot bookings, availability calendars, payment/POS/inventory/payroll, subscriptions, SaaS onboarding or workspace switching, multi-business tenancy, mobile apps, separate frontend/backend applications, Redis, Horizon, WebSockets, microservices, Kubernetes, event sourcing, vector search, or public developer APIs. A customer may share a preferred return date through WhatsApp; store it only as a non-reserving visit intention that notifies staff, never as a slot, appointment, or paid booking.
+Do not add AI or agents, appointment scheduling or time-slot bookings, availability calendars, payment/POS/inventory/payroll, subscriptions, SaaS onboarding or workspace switching, multi-business tenancy, mobile apps, separate frontend/backend applications, Redis, Horizon, WebSockets, microservices, Kubernetes, event sourcing, vector search, or public developer APIs. A customer may share a preferred return date through WhatsApp; store it only as a non-reserving visit intention that notifies staff, never as a slot, appointment, or paid booking. Staff may mark the date arrived or missed; arrived creates a completed visit and missed can trigger an enabled, consent-checked WhatsApp rule.
 
 ## Stack and conventions
 

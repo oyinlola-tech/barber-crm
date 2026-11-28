@@ -6,7 +6,7 @@ This repository contains one private CRM installation for one existing barbersho
 
 The application manages staff access, customers, messaging consent, completed visits, WhatsApp conversations, deterministic follow-up automation, templates, reviews, reporting, settings, notifications, audit records, and operational health. Customers do not need CRM accounts. WhatsApp delivery requires external Meta credentials, business verification, approved templates, and a publicly reachable webhook.
 
-AI, agents, appointment scheduling, time-slot bookings, availability calendars, payments, inventory, payroll, subscriptions, SaaS onboarding, multiple business workspaces, mobile apps, microservices, Redis, WebSockets, event sourcing, and public developer APIs are out of scope. Customers may express a preferred return date through WhatsApp; this is a date-only visit intention that notifies staff and never reserves a time or creates a booking.
+AI, agents, appointment scheduling, time-slot bookings, availability calendars, payments, inventory, payroll, subscriptions, SaaS onboarding, multiple business workspaces, mobile apps, microservices, Redis, WebSockets, event sourcing, and public developer APIs are out of scope. Customers may express a preferred return date through WhatsApp; this is a date-only visit intention that notifies staff and never reserves a time or creates a booking. Staff can mark it arrived or missed. Arrival records a completed visit through the normal visit command; a missed date can use an explicitly enabled, consent-checked follow-up rule.
 
 ## Stack
 
@@ -35,12 +35,13 @@ The `business` middleware resolves the sole active business configuration and ve
 
 ## Data and legacy schema
 
-Migrations are append-only once applied. Existing migration files still create appointment, appointment-service, staff-hours, availability-exception, and visit-service structures from the earlier scaffold. They have not been dropped or rewritten because PostgreSQL is unavailable in this environment and migration history/data could not be inspected. The active application routes and business logic must not use appointment or availability concepts. A future reviewed migration may archive or remove those tables after a backup and PostgreSQL migration-status check.
+Migrations are append-only once applied. Existing migration files still create appointment, appointment-service, staff-hours, availability-exception, and visit-service structures from the earlier scaffold. They have not been dropped or rewritten because the configured local PostgreSQL login failed during read-only migration-status inspection, so its migration history and data could not be inspected. The active application routes and business logic must not use appointment or availability concepts. A future reviewed migration may archive or remove those tables after a verified backup and PostgreSQL migration-status check.
 
 ## Security rules
 
 - No public account registration; provision the first owner with `php artisan app:provision-owner`.
 - Laravel's `app/Http/Middleware` pipeline owns trusted-proxy handling, browser security headers, verified-email enforcement, privileged MFA and single-shop resolution. Privileged permissions are centrally defined in `config/authorization.php` and accessed through `App\Configs\AuthorizationConfig`.
+- Staff notifications use Laravel's in-app database and email channels. Optional per-device browser push is sent through a database queue worker using VAPID; subscriptions and cryptographic keys are encrypted at rest, push payloads omit customer details, and push endpoints are restricted to supported browser services.
 - Session cookies are forced secure when `APP_ENV=production`; local HTTP development remains supported. Keep production behind HTTPS and configure only the actual trusted proxy addresses.
 - Never place passwords, provider tokens or recovery codes in source, command arguments, frontend props, audit metadata or logs.
 - Enforce permissions server-side and scope records to the configured shop.
