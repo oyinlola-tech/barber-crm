@@ -58,11 +58,15 @@ it('persists consent and opt-out transitions for the customer profile', function
             'channel' => 'whatsapp',
             'granted' => true,
             'source' => 'written',
+            'purpose' => 'customer_follow_up',
+            'evidence_reference' => 'consent-form-42',
         ])
         ->assertSessionHas('success', 'Consent preference recorded.');
 
     $firstConsent = CustomerConsent::query()->where('customer_id', $customer->getKey())->firstOrFail();
     expect($firstConsent->granted)->toBeTrue()
+        ->and($firstConsent->purpose)->toBe('customer_follow_up')
+        ->and($firstConsent->evidence_reference)->toBe('consent-form-42')
         ->and($firstConsent->revoked_at)->toBeNull();
 
     $this->post(route('customers.consents.store', $customer), [

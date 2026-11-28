@@ -8,6 +8,7 @@ use App\Services\Consent\Commands\RecordConsentCommand;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
 use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(LazilyRefreshDatabase::class);
@@ -30,7 +31,23 @@ it('enforces consent permissions inside the CQRS command when invoked directly',
         true,
         'in_person',
         (int) $viewer->getKey(),
+        'customer_follow_up',
     ))->toThrow(HttpException::class);
+
+    expect($customer->consents()->count())->toBe(0);
+});
+
+it('requires an explicit purpose before granting messaging consent', function (): void {
+    $business = Business::factory()->create();
+    $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
+
+    expect(fn () => app(RecordConsentCommand::class)->execute(
+        (int) $business->getKey(),
+        (int) $customer->getKey(),
+        'whatsapp',
+        true,
+        'in_person',
+    ))->toThrow(ValidationException::class);
 
     expect($customer->consents()->count())->toBe(0);
 });
@@ -39,7 +56,7 @@ it('revokes active consent and cancels pending messages after opt-out', function
     $business = Business::factory()->create();
     $customer = Customer::factory()->create(['business_id' => $business->getKey()]);
     $command = app(RecordConsentCommand::class);
-    $command->execute($business->getKey(), $customer->getKey(), 'whatsapp', true, 'in_person');
+    $command->execute($business->getKey(), $customer->getKey(), 'whatsapp', true, 'in_person', null, 'customer_follow_up', 'consent-register-17');
     $scheduledMessage = ScheduledMessage::query()->create([
         'business_id' => $business->getKey(),
         'customer_id' => $customer->getKey(),

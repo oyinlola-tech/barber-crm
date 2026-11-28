@@ -82,8 +82,17 @@ test('an authenticated staff member opens the dashboard and customer list', asyn
             'Customer explicitly agreed to receive WhatsApp messages. Uncheck to record an opt-out.',
         )
         .check();
+    await page
+        .getByLabel('Evidence reference (optional)')
+        .fill('signed-consent-2026-18');
     await page.getByRole('button', { name: 'Record consent' }).click();
     await expect(page.getByText('Opted in')).toBeVisible();
+    await expect(
+        page.getByText('Purpose: Customer follow-up and retention messages'),
+    ).toBeVisible();
+    await expect(
+        page.getByText('Evidence reference: signed-consent-2026-18'),
+    ).toBeVisible();
     await expect(
         page.getByLabel(
             'Customer explicitly agreed to receive WhatsApp messages. Uncheck to record an opt-out.',
