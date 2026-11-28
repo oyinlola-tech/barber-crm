@@ -4,16 +4,19 @@ namespace App\Services\Automations\Commands;
 
 use App\Enums\ScheduledMessageStatus;
 use App\Models\ScheduledMessage;
+use App\Services\Notifications\Commands\NotifyStaffOfScheduledMessageFailureCommand;
 use Illuminate\Support\Facades\DB;
 
 class RecordScheduledMessageJobFailureCommand
 {
+    public function __construct(private readonly NotifyStaffOfScheduledMessageFailureCommand $failureNotifier) {}
+
     public function execute(int $scheduledMessageId): void
     {
-        DB::transaction(function () use ($scheduledMessageId): void {
+        $terminalFailure = DB::transaction(function () use ($scheduledMessageId): bool {
             $message = ScheduledMessage::query()->lockForUpdate()->find($scheduledMessageId);
             if ($message === null) {
-                return;
+                return false;
             }
 
             if ($message->status === ScheduledMessageStatus::Sending->value) {
@@ -23,11 +26,11 @@ class RecordScheduledMessageJobFailureCommand
                     'last_error' => 'queue_job_failed_during_provider_dispatch; delivery outcome requires reconciliation',
                 ]);
 
-                return;
+                return false;
             }
 
             if ($message->status !== ScheduledMessageStatus::Queued->value) {
-                return;
+                return false;
             }
 
             $payload = $message->payload ?? [];
@@ -43,7 +46,7 @@ class RecordScheduledMessageJobFailureCommand
                     'last_error' => 'queue_processing_failed_after_bounded_attempts',
                 ]);
 
-                return;
+                return true;
             }
 
             $backoff = array_values(array_filter(
@@ -62,6 +65,15 @@ class RecordScheduledMessageJobFailureCommand
                 'failed_at' => null,
                 'last_error' => 'queue_processing_failed; safe to retry before provider dispatch',
             ]);
+
+            return false;
         });
+
+        if ($terminalFailure) {
+            $message = ScheduledMessage::query()->find($scheduledMessageId);
+            if ($message !== null) {
+                $this->failureNotifier->execute((int) $message->business_id, $scheduledMessageId);
+            }
+        }
     }
 }

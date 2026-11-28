@@ -18,6 +18,7 @@ use App\Models\WhatsAppConnection;
 use App\Services\Automations\SendWindowCalculator;
 use App\Services\Consent\Queries\CustomerCanReceiveMessageQuery;
 use App\Services\Customers\Queries\CustomerHasUpcomingReturnDateQuery;
+use App\Services\Notifications\Commands\NotifyStaffOfScheduledMessageFailureCommand;
 use App\Services\Settings\Queries\GetWhatsAppMessageFeaturesQuery;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
@@ -38,6 +39,7 @@ class ProcessScheduledMessageCommand
         public WhatsAppTemplateDataMapper $templateData,
         private readonly CustomerHasUpcomingReturnDateQuery $upcomingReturnDate,
         private readonly GetWhatsAppMessageFeaturesQuery $messageFeatures,
+        private readonly NotifyStaffOfScheduledMessageFailureCommand $failureNotifier,
     ) {}
 
     public function execute(int $scheduledMessageId): void
@@ -117,7 +119,10 @@ class ProcessScheduledMessageCommand
                     'last_error' => 'whatsapp_connection_incomplete',
                 ]);
 
-                return null;
+                return [
+                    'terminal_failure_id' => (int) $scheduledMessage->getKey(),
+                    'terminal_failure_business_id' => (int) $scheduledMessage->business_id,
+                ];
             }
 
             $business = Business::query()->findOrFail($scheduledMessage->business_id);
@@ -142,7 +147,10 @@ class ProcessScheduledMessageCommand
                     'last_error' => 'template_parameter_mapping_invalid',
                 ]);
 
-                return null;
+                return [
+                    'terminal_failure_id' => (int) $scheduledMessage->getKey(),
+                    'terminal_failure_business_id' => (int) $scheduledMessage->business_id,
+                ];
             }
 
             $conversation = $scheduledMessage->conversation_id !== null
@@ -175,6 +183,15 @@ class ProcessScheduledMessageCommand
         });
 
         if ($context === null) {
+            return;
+        }
+
+        if (isset($context['terminal_failure_id'])) {
+            $this->failureNotifier->execute(
+                (int) $context['terminal_failure_business_id'],
+                (int) $context['terminal_failure_id'],
+            );
+
             return;
         }
 
@@ -240,7 +257,9 @@ class ProcessScheduledMessageCommand
                 ['components' => $components],
             );
         } catch (RequestException $exception) {
-            $this->handleProviderRejection($scheduledMessage, $exception);
+            if ($this->handleProviderRejection($scheduledMessage, $exception)) {
+                $this->failureNotifier->execute((int) $scheduledMessage->business_id, (int) $scheduledMessage->getKey());
+            }
 
             return;
         } catch (ConnectionException) {
@@ -285,13 +304,14 @@ class ProcessScheduledMessageCommand
         $this->scheduleNextFollowUp->execute((int) $scheduledMessage->getKey());
     }
 
-    private function handleProviderRejection(ScheduledMessage $scheduledMessage, RequestException $exception): void
+    private function handleProviderRejection(ScheduledMessage $scheduledMessage, RequestException $exception): bool
     {
         $status = $exception->response->status();
-        DB::transaction(function () use ($scheduledMessage, $status): void {
+
+        return DB::transaction(function () use ($scheduledMessage, $status): bool {
             $locked = ScheduledMessage::query()->lockForUpdate()->findOrFail($scheduledMessage->getKey());
             if ($locked->status !== ScheduledMessageStatus::Sending->value) {
-                return;
+                return false;
             }
 
             if ($status === 429 && $locked->attempts < (int) ($locked->payload['max_attempts'] ?? config('automation.max_attempts'))) {
@@ -304,7 +324,7 @@ class ProcessScheduledMessageCommand
                     'last_error' => 'provider_rate_limited',
                 ]);
 
-                return;
+                return false;
             }
 
             $knownRejection = $status >= 400 && $status < 500;
@@ -313,6 +333,8 @@ class ProcessScheduledMessageCommand
                 'failed_at' => now(),
                 'last_error' => $knownRejection ? 'provider_rejected_http_'.$status : 'provider_response_uncertain_http_'.$status,
             ]);
+
+            return $knownRejection;
         });
     }
 
