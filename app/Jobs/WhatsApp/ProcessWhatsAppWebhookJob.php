@@ -12,6 +12,7 @@ use App\Services\Automations\Commands\CancelCustomerFollowUpsCommand;
 use App\Services\Consent\Commands\RecordConsentCommand;
 use App\Services\Notifications\Commands\NotifyStaffOfInboundMessageCommand;
 use App\Services\Settings\Queries\GetWhatsAppMessagingSettingsQuery;
+use App\Services\Webhooks\Commands\MarkWhatsAppWebhookFailedCommand;
 use App\Services\WhatsApp\Commands\ApplyWhatsAppDeliveryStatusCommand;
 use App\Utils\PhoneNumberNormalizer;
 use Carbon\CarbonImmutable;
@@ -43,11 +44,7 @@ class ProcessWhatsAppWebhookJob implements ShouldBeUnique, ShouldQueue
 
     public function failed(Throwable $exception): void
     {
-        WebhookEvent::query()->whereKey($this->webhookEventId)->update([
-            'status' => 'failed',
-            'payload' => ['redacted' => true],
-            'processed_at' => now(),
-        ]);
+        app(MarkWhatsAppWebhookFailedCommand::class)->execute($this->webhookEventId);
     }
 
     public function handle(
