@@ -5,10 +5,11 @@ namespace App\Notifications;
 use App\Notifications\Channels\WebPushChannel;
 use App\Notifications\Contracts\WebPushNotification;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class ReviewRecordedNotification extends Notification implements WebPushNotification
+class ReviewRecordedNotification extends Notification implements ShouldQueue, WebPushNotification
 {
     use Queueable;
 
