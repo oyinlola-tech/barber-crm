@@ -8,6 +8,7 @@ use App\Models\User;
 use Database\Seeders\BusinessRoleSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Fortify\Fortify;
 
@@ -51,38 +52,45 @@ it('invites an employee and accepts a single-use expiring link without storing i
         ->and($invitation->token_hash)->toHaveLength(64);
 
     $rawToken = null;
-    Mail::assertSent(StaffInvitationMail::class, function (StaffInvitationMail $mail) use (&$rawToken): bool {
+    $temporaryPassword = null;
+    Mail::assertSent(StaffInvitationMail::class, function (StaffInvitationMail $mail) use (&$rawToken, &$temporaryPassword): bool {
         $rawToken = parse_url($mail->invitationUrl, PHP_URL_FRAGMENT);
+        $temporaryPassword = $mail->temporaryPassword;
 
         return true;
     });
     expect($rawToken)->toBeString()->toHaveLength(64)
         ->and($invitation->token_hash)->toBe(hash('sha256', (string) $rawToken))
-        ->and($invitation->token_hash)->not->toBe($rawToken);
+        ->and($invitation->token_hash)->not->toBe($rawToken)
+        ->and($invitation->temporary_password_hash)->toBeString()
+        ->and(Hash::check((string) $temporaryPassword, $invitation->temporary_password_hash))->toBeTrue();
 
-    $this->post('/staff/invitations/accept', [
-        'token' => $rawToken, 'password' => 'A secure passphrase 9842', 'password_confirmation' => 'A secure passphrase 9842',
-    ])->assertRedirect('/login');
+    $this->post('/staff/invitations/accept', ['token' => $rawToken])
+        ->assertRedirect('/login');
 
     $employee = User::query()->where('email', 'sam@example.test')->firstOrFail();
     expect($employee->hasBusinessPermission($business->getKey(), 'visits.create'))->toBeTrue()
         ->and(StaffProfile::query()->where('user_id', $employee->getKey())->exists())->toBeTrue()
         ->and($employee->hasVerifiedEmail())->toBeTrue()
-        ->and($invitation->fresh()->accepted_at)->not->toBeNull();
+        ->and($employee->requiresPasswordChange())->toBeTrue()
+        ->and($employee->temporary_password_expires_at->equalTo($invitation->expires_at))->toBeTrue()
+        ->and(Hash::check((string) $temporaryPassword, $employee->password))->toBeTrue()
+        ->and($invitation->fresh()->accepted_at)->not->toBeNull()
+        ->and($invitation->fresh()->temporary_password_hash)->toBeNull();
 
-    $this->post('/staff/invitations/accept', [
-        'token' => $rawToken, 'password' => 'A secure passphrase 9842', 'password_confirmation' => 'A secure passphrase 9842',
-    ])->assertSessionHasErrors('token');
+    $this->post('/staff/invitations/accept', ['token' => $rawToken])
+        ->assertSessionHasErrors('token');
 });
 
 it('renders the branded staff invitation with a secure setup action and footer', function (): void {
     config(['app.url' => 'https://crm.example.test', 'app.name' => 'Barber CRM']);
-    $mail = new StaffInvitationMail('https://crm.example.test/staff/invitation#one-time-token', 'Northside Barbers');
+    $mail = new StaffInvitationMail('https://crm.example.test/staff/invitation#one-time-token', 'Northside Barbers', 'temporary-secret-for-this-test');
     $html = $mail->render();
 
     expect($html)
         ->toContain('Northside Barbers')
         ->toContain('Set up staff access')
+        ->toContain('Temporary password')
         ->toContain('only be used once')
         ->toContain('Good service')
         ->toContain('deserves a return visit')
