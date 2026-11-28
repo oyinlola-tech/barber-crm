@@ -50,6 +50,41 @@ test('sign-in form remains usable in a narrow mobile browser', async ({
     expect(documentWidth).toBeLessThanOrEqual(390);
 });
 
+test('every public authentication screen keeps the full-width branded footer', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 1365, height: 900 });
+
+    const authScreens = [
+        { path: '/login', heading: 'Welcome back' },
+        { path: '/forgot-password', heading: 'Reset your password' },
+        {
+            path: '/reset-password/browser-preview?email=owner%40example.test',
+            heading: 'Choose a new password',
+        },
+        { path: '/staff/invitations', heading: 'Activate your account' },
+    ];
+
+    for (const screen of authScreens) {
+        await page.goto(screen.path);
+        await expect(
+            page.getByRole('heading', { name: screen.heading }),
+        ).toBeVisible();
+
+        const footer = page.getByRole('contentinfo');
+        await expect(
+            footer.getByText('Good service deserves a return visit.'),
+        ).toBeVisible();
+        await expect
+            .poll(() =>
+                footer.evaluate(
+                    (element) => element.getBoundingClientRect().width,
+                ),
+            )
+            .toBe(1365);
+    }
+});
+
 test('split sign-in page uses the branded illustration and supports dark mode', async ({
     page,
 }) => {
